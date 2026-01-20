@@ -88,6 +88,7 @@
     #  thunderbird
     ];
   };
+  services.onedrive.enable = true;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
