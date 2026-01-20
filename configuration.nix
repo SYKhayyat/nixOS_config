@@ -109,6 +109,7 @@
   maven
   gradle
   persepolis
+  peazip
   neovim
   libreoffice-qt-fresh
   emacs-pgtk
