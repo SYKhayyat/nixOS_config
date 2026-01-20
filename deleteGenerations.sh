@@ -1,2 +1,2 @@
-#!/usr/env/bin bash
+#!/usr/bin/env bash
 nix-collect-garbage -d
