@@ -105,13 +105,6 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-  ggimp-with-plugins
-  gimpPlugins.gmic
-  krita
-  krita-plugin-gmic
-  inkscape-with-extensions
-  rawtherapee
-  darktable
   ];
   nix.gc = {
 	automatic = true;

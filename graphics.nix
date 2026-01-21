@@ -3,6 +3,14 @@
 {
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
+  gimp-with-plugins # Gnu Image Manipulation Program.
+  gimpPlugins.gmic # Basic plugins.
+  krita # Painting application.
+  krita-plugin-gmic # Basic plugins.
+  inkscape-with-extensions # Another graphics program.
+  rawtherapee # RAW editor.
+  darktable # RAW editor.
+
     # Add the packages you want to install
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
