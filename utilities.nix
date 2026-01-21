@@ -13,7 +13,7 @@
     thunderbird # Email.
     htop # Task manager.
     fsearch # File searcher.
-    albert # File searcher
+     # File searcher
     snoop # File searcher.
     ripgrep-all # Everything searcher.
     recoll-nox # Another search tool.
