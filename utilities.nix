@@ -9,6 +9,9 @@
     onedriver # OneDrive manager.
     git # Version Control.
     wget # Download from url.
+    vlc # The video player.
+    thunderbird # Email.
+    htop # Task manager.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
