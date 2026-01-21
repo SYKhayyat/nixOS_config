@@ -18,7 +18,7 @@ in
   };
 
   # Optional: Add system packages if needed
-  environment.systemPackages = [ pkgs.emacs-pgtk ]; # For the basic emacs command
+  environment.systemPackages = [ pkgs.emacs ]; # For the basic emacs command
 
   # Configure system settings (e.g., for default editor)
   # ... other system config ...
