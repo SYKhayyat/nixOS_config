@@ -11,7 +11,10 @@
       ./writers_and_readers.nix
       ./utilities.nix
       ./graphics.nix
+      ./files_search.nix
+      ./media.nix
       ./languages.nix
+      ./other.nix
     ];
 
   # Bootloader.
