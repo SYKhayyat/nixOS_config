@@ -8,6 +8,10 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./writers_and_readers.nix
+      ./utilities.nix
+      ./graphics.nix
+      ./languages.nix
     ];
 
   # Bootloader.
@@ -101,25 +105,16 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-  git
-  python315
-  jdk
-  jre
-  maven
-  gradle
-  persepolis
-  peazip
-  neovim
-  libreoffice-qt-fresh
-  emacs-pgtk
-  gimp-with-plugins
+  ggimp-with-plugins
   gimpPlugins.gmic
-  #  wget
+  krita
+  krita-plugin-gmic
+  inkscape-with-extensions
+  rawtherapee
+  darktable
   ];
   nix.gc = {
 	automatic = true;
-	dates = "daily";
 	options = "-d";
 };
   # Some programs need SUID wrappers, can be configured further or are
