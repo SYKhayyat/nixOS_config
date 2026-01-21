@@ -13,9 +13,10 @@
     thunderbird # Email.
     htop # Task manager.
     fsearch # File searcher.
-    catfish # File searcher.
     albert # File searcher
     snoop # File searcher.
+    ripgrep-all # Everything searcher.
+    recoll-nox # Another search tool.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
