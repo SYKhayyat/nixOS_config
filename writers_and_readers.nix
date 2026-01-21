@@ -4,7 +4,8 @@
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
-    emacs-pgtk # THE text editor.
+    ((emacsPackagesFor emacs-pgtk).emacsWithPackages (epkgs: [
+     ])) # THE text editor.
     vim # The other text editor.
     neovim # A modern clone of vim.
     helix # A modern text editor.
