@@ -12,6 +12,7 @@
       ./utilities.nix
       ./graphics.nix
       ./languages.nix
+      ./emacs.nix
     ];
 
   # Bootloader.
