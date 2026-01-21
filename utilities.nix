@@ -12,6 +12,10 @@
     vlc # The video player.
     thunderbird # Email.
     htop # Task manager.
+    fsearch # File searcher.
+    catfish # File searcher.
+    albert # File searcher
+    snoop # File searcher.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
