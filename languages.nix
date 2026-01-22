@@ -6,7 +6,6 @@
     # Add the packages you want to install
     gcc # C compiler
     jdk # Java Development Kit
-    jre # Java Runtime Enviroment
     maven # Java Helper.
     gradle # Java Helper.
     python315 # Python Scripting language.
