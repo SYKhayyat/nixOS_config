@@ -16,7 +16,7 @@
   ];
   # Alternatively, for environment.variables (slightly different mechanism, but often interchangeable for simple use cases)
   # environment.variables = {
-  ANDROID_SDK_ROOT="${androidsdk}/libexec/android-sdk";
+  ANDROID_SDK_ROOT="${pkgs.androidenv.androidsdk}/libexec/android-sdk";
   # };
 
   # You can also use this module to configure specific programs
