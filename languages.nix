@@ -1,6 +1,7 @@
 # my-packages.nix
 { config, lib, pkgs, ... }:
 {
+      nixpkgs.config.android_sdk.accept_license = true;
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
@@ -9,7 +10,6 @@
     maven # Java Helper.
     gradle # Java Helper.
     androidenv.androidPkgs.androidsdk # Android SDK.
-    nixpkgs.config.android_sdk.accept_license = true;
     python315 # Python Scripting language.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
