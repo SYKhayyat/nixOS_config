@@ -117,7 +117,7 @@ packages = with pkgs; [
 
 # Alternatively, for environment.variables (slightly different mechanism, but often interchangeable for simple use cases)
   # environment.variables = {
-  ANDROID_SDK_ROOT="${pkgs.androidenv.androidsdk}/libexec/android-sdk"
+  ANDROID_SDK_ROOT="${pkgs.androidenv.androidsdk}/libexec/android-sdk";
   # };
   
   # Some programs need SUID wrappers, can be configured further or are
