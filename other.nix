@@ -4,6 +4,7 @@
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
+    thunderbird # Email.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
