@@ -90,7 +90,9 @@
     isNormalUser = true;
     description = "Shaul Khayyat";
     extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [
+
+
+packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
     ];

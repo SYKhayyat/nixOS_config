@@ -8,6 +8,7 @@
     jdk # Java Development Kit
     maven # Java Helper.
     gradle # Java Helper.
+    androidenv.androidPkgs.androidsdk # Android SDK.
     python315 # Python Scripting language.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
