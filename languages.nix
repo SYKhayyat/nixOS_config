@@ -9,6 +9,7 @@
     maven # Java Helper.
     gradle # Java Helper.
     androidenv.androidPkgs.androidsdk # Android SDK.
+    nixpkgs.config.android_sdk.accept_license = true;
     python315 # Python Scripting language.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
