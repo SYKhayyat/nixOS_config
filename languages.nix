@@ -19,11 +19,6 @@
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
-  # Alternatively, for environment.variables (slightly different mechanism, but often interchangeable for simple use cases)
-   environment.variables = {
-ANDROID_SDK_ROOT="config.home.homeDirectory/.nix-profile/libexec/android-sdk";
- };
-    nixpkgs.config.android_sdk.accept_license = true;
 
 
   # You can also use this module to configure specific programs
