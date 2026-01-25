@@ -11,6 +11,7 @@
     wget # Download from url.
     htop # Task manager.
     pandoc # Document conversion.
+    tor-browser # The Tor Browser.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
