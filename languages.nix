@@ -2,7 +2,7 @@
 { config, lib, pkgs, ... }:
 {
 =======
- ig.android_sdk.accept_license=true;
+
 { 
 >>>>>>> new_branch
   # This adds packages to the system-wide environment
