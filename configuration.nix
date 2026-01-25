@@ -105,7 +105,6 @@
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
-  android_sdk.accept_license = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
