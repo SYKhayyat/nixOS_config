@@ -1,10 +1,8 @@
 # my-packages.nix
 { config, lib, pkgs, ... }:
-{
-=======
 
 { 
->>>>>>> new_branch
+  nixpkgs.config.android_sdk.accept_license = true;
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
