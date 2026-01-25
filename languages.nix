@@ -6,7 +6,6 @@
 { 
 >>>>>>> new_branch
   # This adds packages to the system-wide environment
-  nixpkgs.config.android_sdk.accept_license = true;
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
     gcc # C compiler
@@ -24,6 +23,8 @@
    environment.variables = {
 ANDROID_SDK_ROOT="config.home.homeDirectory/.nix-profile/libexec/android-sdk";
  };
+    nixpkgs.config.android_sdk.accept_license = true;
+
 
   # You can also use this module to configure specific programs
   # For example, to enable the OpenSSH service
