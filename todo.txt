@@ -1,5 +1,6 @@
 - NixOs goals:
 	- Learn more about flakes (why and how).
-	- Learn more about home manager *why and how).
+	- Learn more about home manager (why and how).
 	- Change wallpaper and lock screen.
 	- Configure OneDrive (download and backup).
+	- Add a VPN (Tailscale, VPN gate
