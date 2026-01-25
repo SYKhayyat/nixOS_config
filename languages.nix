@@ -2,10 +2,11 @@
 { config, lib, pkgs, ... }:
 {
 =======
-  nixpkgs.config.android_sdk.accept_license=true;
+ ig.android_sdk.accept_license=true;
 { 
 >>>>>>> new_branch
   # This adds packages to the system-wide environment
+  nixpkgs.config.android_sdk.accept_license = true;
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
     gcc # C compiler
