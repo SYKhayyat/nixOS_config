@@ -2,6 +2,7 @@
 { config, lib, pkgs, ... }:
 {
 =======
+  nixpkgs.config.android_sdk.accept_license = true;
 { 
 >>>>>>> new_branch
   # This adds packages to the system-wide environment
