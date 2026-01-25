@@ -15,7 +15,6 @@
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
-
   # You can also use this module to configure specific programs
   # For example, to enable the OpenSSH service
   # services.openssh.enable = true;
