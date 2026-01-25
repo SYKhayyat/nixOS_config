@@ -16,6 +16,7 @@
       ./languages.nix
       ./other.nix
     ];
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -83,16 +84,13 @@
 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
-    nix.settings.trusted-users = [ "root" "shaul" ];
-
+  
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.shaul = {
     isNormalUser = true;
     description = "Shaul Khayyat";
     extraGroups = [ "networkmanager" "wheel" ];
-
-
-packages = with pkgs; [
+    packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
     ];
@@ -106,6 +104,7 @@ packages = with pkgs; [
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
+
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
@@ -114,8 +113,6 @@ packages = with pkgs; [
 	automatic = true;
 	options = "-d";
 };
-
-  
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;

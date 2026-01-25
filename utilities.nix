@@ -1,15 +1,17 @@
 # my-packages.nix
 { config, lib, pkgs, ... }:
-{
+{ 
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
     persepolis # A download manager.
+    devenv # Developer Enviroment.
     peazip # Archive file manager.
     onedriver # OneDrive manager.
     git # Version Control.
     wget # Download from url.
     htop # Task manager.
+    pandoc # Document conversion.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
