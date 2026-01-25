@@ -1,6 +1,6 @@
 # my-packages.nix
 { config, lib, pkgs, ... }:
-{ android_sdk.accept_license = true;
+{ 
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
