@@ -6,9 +6,7 @@
     # Add the packages you want to install
     gcc # C compiler
     android-studio-full # Android IDE
-    androidenv.androidPkgs.androidsdk # Android SDK.{
-      android_sdk.accept_license = true;
-}
+    androidenv.androidPkgs.androidsdk # Android SDK.
     jdk # Java Development Kit
     maven # Java Helper.
     gradle # Java Helper.

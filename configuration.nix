@@ -16,7 +16,7 @@
       ./languages.nix
       ./other.nix
     ];
-
+  nixpkgs.android_sdk.accept_license = true;
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
