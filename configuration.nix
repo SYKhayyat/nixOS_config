@@ -15,7 +15,6 @@
       ./media.nix
       ./languages.nix
       ./other.nix
-      ./android_setup.nix
     ];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;

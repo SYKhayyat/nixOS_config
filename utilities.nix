@@ -5,7 +5,6 @@
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
     persepolis # A download manager.
-    devenv # Developer Enviroment.
     peazip # Archive file manager.
     onedriver # OneDrive manager.
     git # Version Control.
