@@ -6,7 +6,6 @@
   gimp-with-plugins # Gnu Image Manipulation Program.
   gimpPlugins.gmic # Basic plugins.
   gimpPlugins.resynthesizer # GIMP plugin.
-  gimpPlugins.lqrPlugin # GIMP plugin.
   krita # Painting application.
   krita-plugin-gmic # Basic plugins.
   inkscape-with-extensions # Another graphics program.
