@@ -5,7 +5,6 @@
   environment.systemPackages = with pkgs; [
     # Add the packages you want to install
     fsearch # File searcher.
-    albert # File searcher
     plocate  # File searcher.
     fd # A better find.
     recoll # A search tool.

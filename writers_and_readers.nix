@@ -10,6 +10,7 @@
     neovim # A modern clone of vim.
     helix # A modern text editor.
     libreoffice-qt-fresh # FOSS office suite
+    kdePackages.calligra # KDE's office suite.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
