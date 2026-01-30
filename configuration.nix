@@ -115,7 +115,8 @@ packages = with pkgs; [
 	options = "-d";
 };
 
-  
+services.locate.enable = true;
+services.locate.package = pkgs.mlocate;  
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
