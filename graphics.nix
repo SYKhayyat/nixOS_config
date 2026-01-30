@@ -7,7 +7,6 @@
   gimpPlugins.gmic # Basic plugins.
   gimpPlugins.resynthesizer # GIMP plugin.
   graphicsmagick_q16 # Swiss Army knife.
-  luminanceHDR # HDR Tool.
   krita # Painting application.
   krita-plugin-gmic # Basic plugins.
   inkscape-with-extensions # Another graphics program.

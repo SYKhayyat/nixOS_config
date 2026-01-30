@@ -6,8 +6,8 @@
     # Add the packages you want to install
     fsearch # File searcher.
     plocate  # File searcher.
+    kdePackages.kfind # KDE Find.
     fd # A better find.
-    kdePackages.kfind # KDE Finder.
     recoll # A search tool.
     ripgrep-all # Everything searcher.
     # You can also add custom-defined packages
