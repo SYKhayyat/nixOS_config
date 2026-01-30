@@ -7,6 +7,7 @@
     fsearch # File searcher.
     plocate  # File searcher.
     fd # A better find.
+    kdePackages.kfind # KDE Finder.
     recoll # A search tool.
     ripgrep-all # Everything searcher.
     # You can also add custom-defined packages
