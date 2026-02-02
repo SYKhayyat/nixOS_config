@@ -103,6 +103,8 @@ packages = with pkgs; [
 
   # Install firefox.
   programs.firefox.enable = true;
+  programs.nix-ld.enable = true;
+  programs.nix-ld.libraries = pkgs.steam-run.args.multiPkgs pkgs;
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
