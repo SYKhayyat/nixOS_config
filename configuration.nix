@@ -117,6 +117,7 @@ packages = with pkgs; [
   pkgs.libGL
   pkgs.zlib
   pkgs.stdenv.cc.cc
+  pkgs.gtk3
   ];
 
   # Allow unfree packages
