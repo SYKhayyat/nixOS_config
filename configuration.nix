@@ -106,6 +106,8 @@ packages = with pkgs; [
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = (pkgs.steam-run.args.multiPkgs pkgs) ++ [
   # Core Java AWT/Swing dependencies
+  pkgs.freetype
+  pkgs.fontconfig
   pkgs.xorg.libX11
   pkgs.xorg.libXext
   pkgs.xorg.libXrender
