@@ -104,7 +104,18 @@ packages = with pkgs; [
   # Install firefox.
   programs.firefox.enable = true;
   programs.nix-ld.enable = true;
-  programs.nix-ld.libraries = pkgs.steam-run.args.multiPkgs pkgs;
+  programs.nix-ld.libraries = (pkgs.steam-run.args.multiPkgs pkgs) ++ [
+  # Core Java AWT/Swing dependencies
+  xorg.libX11
+  xorg.libXext
+  xorg.libXrender
+  xorg.libXtst
+  xorg.libXi
+  # Additional common UI libraries
+  libGL
+  zlib
+  stdenv.cc.cc
+  ];
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
