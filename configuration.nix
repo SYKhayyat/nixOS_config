@@ -118,6 +118,13 @@ packages = with pkgs; [
   pkgs.zlib
   pkgs.stdenv.cc.cc
   pkgs.gtk3
+  pkgs.atk
+  pkgs.cairo
+  pkgs.gdk-pixbuf
+  pkgs.glib
+  pkgs.harfbuzz
+  pkgs.libepoxy
+  pkgs.pango
   ];
 
   # Allow unfree packages
