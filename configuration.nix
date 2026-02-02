@@ -106,15 +106,15 @@ packages = with pkgs; [
   programs.nix-ld.enable = true;
   programs.nix-ld.libraries = (pkgs.steam-run.args.multiPkgs pkgs) ++ [
   # Core Java AWT/Swing dependencies
-  xorg.libX11
-  xorg.libXext
-  xorg.libXrender
-  xorg.libXtst
-  xorg.libXi
+  pkgs.xorg.libX11
+  pkgs.xorg.libXext
+  pkgs.xorg.libXrender
+  pkgs.xorg.libXtst
+  pkgs.xorg.libXi
   # Additional common UI libraries
-  libGL
-  zlib
-  stdenv.cc.cc
+  pkgs.libGL
+  pkgs.zlib
+  pkgs.stdenv.cc.cc
   ];
 
   # Allow unfree packages
