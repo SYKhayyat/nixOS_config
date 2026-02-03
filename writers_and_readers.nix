@@ -11,6 +11,7 @@
     helix # A modern text editor.
     libreoffice-qt-fresh # FOSS office suite
     kdePackages.calligra # KDE's office suite.
+    texliveFull # LaTex engine.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];

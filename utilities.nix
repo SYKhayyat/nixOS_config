@@ -13,7 +13,7 @@
     pandoc # Document conversion.
     fdupes # Duplicate finder.
     tor-browser # The Tor Browser.
-    zenity
+    zenity # Needed for Otzaria.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
