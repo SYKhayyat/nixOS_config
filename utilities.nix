@@ -15,7 +15,7 @@
     tor-browser # The Tor Browser.
     zenity # Needed for Otzaria.
     nh # Nix Helper.
-    nix-tree # Visualizer
+    ncdu # Visualizer
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
