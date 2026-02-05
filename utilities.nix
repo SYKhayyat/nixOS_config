@@ -15,7 +15,9 @@
     tor-browser # The Tor Browser.
     zenity # Needed for Otzaria.
     nh # Nix Helper.
-    ncdu # Visualizer
+    ncdu # Visualizer.
+    yazi # terminal file manager.
+    yaziPlugins.sudo # Sudo in yazi.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
