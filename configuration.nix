@@ -14,6 +14,7 @@
       ./files_search.nix
       ./media.nix
       ./languages.nix
+      ./shellUtilities.nix
       ./other.nix
     ];
   # Bootloader.

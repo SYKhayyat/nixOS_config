@@ -6,9 +6,6 @@
     # Add the packages you want to install
     ((emacsPackagesFor emacs-pgtk).emacsWithPackages (epkgs: [
      ])) # THE text editor.
-    vim # The other text editor.
-    neovim # A modern clone of vim.
-    helix # A modern text editor.
     libreoffice-qt-fresh # FOSS office suite
     kdePackages.calligra # KDE's office suite.
     texliveFull # LaTex engine.
