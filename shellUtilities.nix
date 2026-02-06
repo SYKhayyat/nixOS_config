@@ -11,7 +11,7 @@
     pandoc # Document conversion.
     fdupes # Duplicate finder.
     nh # Nix Helper.
-    ncdu # Visualizer.pay-respect # CLI suggestions.
+    ncdu # Visualizer.pay-respect 
     yai # Terminal AI.
     # File Managers:
     yazi # terminal file manager.
