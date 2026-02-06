@@ -13,6 +13,7 @@
     nh # Nix Helper.
     ncdu # Visualizer.pay-respect 
     yai # Terminal AI.
+    opencode # Terminal AI.
     # File Managers:
     yazi # terminal file manager.
     yaziPlugins.sudo # Sudo in yazi.
