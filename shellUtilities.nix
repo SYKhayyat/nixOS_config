@@ -7,14 +7,17 @@
     # Tools:
     git # Version Control.
     wget # Download from url.
+    aria2 # Downloader.
     htop # Task manager.
     pandoc # Document conversion.
     fdupes # Duplicate finder.
     nh # Nix Helper.
-    ncdu # Visualizer.pay-respect 
+    ncdu # Visualizer.
+    fzf # Fuzzy file finder.
+    chawan # Web browser. 
     # File Managers:
-    yazi # terminal file manager.
-    yaziPlugins.sudo # Sudo in yazi.
+    nnn # File manager.
+    ranger # File manager.
     mc # Midnight Commander.
     # Editors.
     vim # The other editor.

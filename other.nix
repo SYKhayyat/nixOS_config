@@ -6,6 +6,7 @@
     scribus # Publisher
     audacity # Recorder and audio editor.
     lmms # DAW
+    ollama-cpu # Open source LLMs.
     # Add the packages you want to install
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
