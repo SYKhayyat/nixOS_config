@@ -52,7 +52,7 @@
   # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
-
+  
   # Enable the KDE Plasma Desktop Environment.
   services.displayManager.sddm.enable = true;
   services.desktopManager.plasma6.enable = true;
@@ -99,7 +99,14 @@ packages = with pkgs; [
     ];
   };
   services.onedrive.enable = true;
-
+  
+  # Enable the Ollama service
+  services.ollama = {
+    enable = true;
+    
+    # Force CPU-only mode (disables CUDA/ROCm/Vulkan)
+    acceleration = false; 
+  }
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # Install firefox.
