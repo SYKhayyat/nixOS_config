@@ -106,7 +106,7 @@ packages = with pkgs; [
     
     # Force CPU-only mode (disables CUDA/ROCm/Vulkan)
     acceleration = false; 
-  }
+  };
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   # Install firefox.
