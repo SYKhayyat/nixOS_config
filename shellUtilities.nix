@@ -14,7 +14,7 @@
     nh # Nix Helper.
     ncdu # Visualizer.
     fzf # Fuzzy file finder.
-    chawan # Web browser.
+    lynx # Web browser.
     opencode # AI in the terminal. 
     # File Managers:
     nnn # File manager.
