@@ -81,7 +81,11 @@
     # no need to redefine it in your config for now)
     #media-session.enable = true;
   };
-
+  environment.variables = {
+  # The system automatically manages existing PATH entries.
+  # You just need to add the new directory to the list.
+  PATH = [ "/home/shaul/Scripts" ];
+}; 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
     nix.settings.trusted-users = [ "root" "shaul" ];
@@ -90,7 +94,7 @@
   users.users.shaul = {
     isNormalUser = true;
     description = "Shaul Khayyat";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "mlocate" ];
 
 
 packages = with pkgs; [
