@@ -10,6 +10,7 @@
     maven # Java Helper.
     gradle # Java Helper.
     python315 # Python Scripting language.
+    python313Packages.python-docx # Docx support.
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
