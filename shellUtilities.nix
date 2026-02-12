@@ -15,7 +15,9 @@
     ncdu # Visualizer.
     fzf # Fuzzy file finder.
     lynx # Web browser.
-    opencode # AI in the terminal. 
+    television # File finder.
+    opencode # AI in the terminal.
+    bat # Cat clone. 
     # File Managers:
     nnn # File manager.
     ranger # File manager.
