@@ -9,8 +9,10 @@
     jdk # Java Development Kit
     maven # Java Helper.
     gradle # Java Helper.
-    python315 # Python Scripting language.
-    python313Packages.python-docx # Docx support.
+    (pkgs.python3.withPackages (ps: with ps; [
+    python-docx
+    # Other libraries: pandas, requests, etc.
+  ]))
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];

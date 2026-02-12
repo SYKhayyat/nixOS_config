@@ -84,7 +84,10 @@
   environment.variables = {
   # The system automatically manages existing PATH entries.
   # You just need to add the new directory to the list.
-  PATH = [ "/home/shaul/Scripts" ];
+  PATH = [ "/home/shaul/Scripts" 
+	   "/home/shaul/Scripts/docx_to_org_regular"
+	   "/home/shaul/Scripts/docx_to_org_enhanced"
+           "/home/shaul/Scripts/finder" ];
 }; 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
