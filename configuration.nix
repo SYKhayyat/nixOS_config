@@ -115,7 +115,7 @@ packages = with pkgs; [
     acceleration = false; 
   };
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
+ 
   # Install firefox.
   programs.firefox.enable = true;
   programs.nix-ld.enable = true;
