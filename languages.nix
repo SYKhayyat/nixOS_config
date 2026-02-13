@@ -11,6 +11,7 @@
     gradle # Java Helper.
     (pkgs.python3.withPackages (ps: with ps; [
     python-docx
+    textual
     # Other libraries: pandas, requests, etc.
   ]))
     # You can also add custom-defined packages

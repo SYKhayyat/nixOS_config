@@ -14,6 +14,10 @@
     nh # Nix Helper.
     ncdu # Visualizer.
     fzf # Fuzzy file finder.
+    fzy # Another fuzzy file finder.
+    docfd # See above.
+    skim # See above.
+    agrep # Fuzzy grep
     lynx # Web browser.
     television # File finder.
     opencode # AI in the terminal.
