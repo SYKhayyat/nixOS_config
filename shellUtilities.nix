@@ -21,7 +21,8 @@
     lynx # Web browser.
     television # File finder.
     opencode # AI in the terminal.
-    bat # Cat clone. 
+    bat # Cat clone.
+    navi # Shell helper. 
     # File Managers:
     nnn # File manager.
     ranger # File manager.
