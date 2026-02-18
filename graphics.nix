@@ -16,6 +16,7 @@
   pinta # Lightweight photo editor.
   rapidraw # Fast RAW editor.
   lunacy # Another editor.
+  photoflare # Another editor.
     # Add the packages you want to install
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
