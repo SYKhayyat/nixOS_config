@@ -17,6 +17,7 @@
   rapidraw # Fast RAW editor.
   lunacy # Another editor.
   photoflare # Another editor.
+  pixeluvo
     # Add the packages you want to install
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
