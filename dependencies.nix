@@ -58,6 +58,5 @@
     
     # Runtime for GTK apps
     gsettings-desktop-schemas
-    libgtk4
   ];
 }
