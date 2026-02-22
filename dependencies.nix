@@ -22,7 +22,14 @@
     # Build dependencies
     pkg-config
     glib
+    glib.dev
     openssl
+    
+    # GTK development files
+    gtk3.dev
+    gobject-introspection
+    libgladeui2
+    glade
     
     # Additional libraries for image processing
     libraw
@@ -40,5 +47,14 @@
     
     # For Color Picker
     gpick
+    
+    # Audio/video codecs (optional, for media handling)
+    ffmpeg
+    libvpx
+    
+    # Additional build tools
+    gcc
+    make
+    patchelf
   ];
 }
