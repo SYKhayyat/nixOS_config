@@ -55,5 +55,9 @@
     gnumake
     patchelf
     nasm
+    
+    # Runtime for GTK apps
+    gsettings-desktop-schemas
+    libgtk4
   ];
 }
