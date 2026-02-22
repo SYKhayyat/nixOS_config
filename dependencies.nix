@@ -52,7 +52,7 @@
     
     # Additional build tools
     gcc
-    make
+    gnumake
     patchelf
   ];
 }
