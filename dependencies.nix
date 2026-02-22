@@ -54,5 +54,6 @@
     gcc
     gnumake
     patchelf
+    nasm
   ];
 }
