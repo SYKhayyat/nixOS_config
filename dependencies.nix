@@ -28,8 +28,6 @@
     # GTK development files
     gtk3.dev
     gobject-introspection
-    libgladeui2
-    glade
     
     # Additional libraries for image processing
     libraw
