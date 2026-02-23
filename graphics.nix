@@ -6,6 +6,11 @@
   gimp-with-plugins # Gnu Image Manipulation Program.
   gimpPlugins.gmic # Basic plugins.
   gimpPlugins.resynthesizer # GIMP plugin.
+  gimpPlugins.bimp
+  gimpPlugins.lqrPlugin
+  gimpPlugins.gimplensfun
+  gimpPlugins.waveletSharpen
+  luminanceHDR
   graphicsmagick_q16 # Swiss Army knife.
   krita # Painting application.
   krita-plugin-gmic # Basic plugins.
