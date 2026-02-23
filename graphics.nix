@@ -6,11 +6,6 @@
   gimp-with-plugins # Gnu Image Manipulation Program.
   gimpPlugins.gmic # Basic plugins.
   gimpPlugins.resynthesizer # GIMP plugin.
-  gimpPlugins.bimp
-  gimpPlugins.lqrPlugin
-  gimpPlugins.gimplensfun
-  gimpPlugins.waveletSharpen
-  luminanceHDR
   graphicsmagick_q16 # Swiss Army knife.
   krita # Painting application.
   krita-plugin-gmic # Basic plugins.
@@ -27,6 +22,8 @@
     # You can also add custom-defined packages
     # (pkgs.callPackage ./path/to/your/custom-package.nix {})
   ];
+	    
+            
 
   # You can also use this module to configure specific programs
   # For example, to enable the OpenSSH service
