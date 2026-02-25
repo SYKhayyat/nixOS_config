@@ -7,6 +7,7 @@
     # Add the packages you want to install
     gcc # C compiler
     jdk # Java Development Kit
+    go 
     maven # Java Helper.
     gradle # Java Helper.
     (pkgs.python3.withPackages (ps: with ps; [
