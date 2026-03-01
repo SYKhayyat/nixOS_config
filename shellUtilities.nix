@@ -20,7 +20,6 @@
     agrep # Fuzzy grep
     lynx # Web browser.
     television # File finder.
-    opencode # AI in the terminal.
     bat # Cat clone.
     navi # Shell helper. 
     # File Managers:

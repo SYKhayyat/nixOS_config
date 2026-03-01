@@ -1,0 +1,17 @@
+{ config, pkgs, ... }:
+
+let
+  chatgpt-free = pkgs.appimageTools.wrapType2 {
+    name = "chatgpt-free";
+    src = pkgs.fetchurl {
+      url = "https://github.com/chorizo56godpets/Chat_GPT_app_FREE/releases/download/v2.1.0/ChatGPT-Free.AppImage";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";  # you need to fill this
+    };
+    extraPkgs = pkgs: with pkgs; [ ];
+  };
+in
+{
+  environment.systemPackages = [
+    chatgpt-free
+  ];
+}
