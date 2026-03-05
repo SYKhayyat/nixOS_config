@@ -16,6 +16,7 @@
       ./languages.nix
       ./shellUtilities.nix
       ./other.nix
+      ./emacsPackages.nix
     ];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -173,7 +174,7 @@ services.locate.package = pkgs.mlocate;
 
   # List services that you want to enable:
   # Enable the OpenSSH daemon.
-  # services.openssh.enable = true;
+   services.openssh.enable = true;
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
