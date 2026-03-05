@@ -22,7 +22,7 @@
     # ══════════════════════════════════════════════════════════════════
 
     poppler
-    poppler_utils
+    poppler-utils
 
     # ══════════════════════════════════════════════════════════════════
     # SPELL CHECKING
@@ -67,7 +67,6 @@
 
     # General
     noto-fonts
-    noto-fonts-extra
     liberation_ttf
     dejavu_fonts
 
