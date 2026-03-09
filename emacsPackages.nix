@@ -3,7 +3,7 @@
 
 {
   environment.systemPackages = with pkgs; [
-    
+
     # ══════════════════════════════════════════════════════════════════
     # DOCUMENT SYSTEMS
     # ══════════════════════════════════════════════════════════════════
@@ -74,19 +74,25 @@
     # Programming
     fira-code
     fira-code-symbols
+    jetbrains-mono
 
     # Emacs
     emacs-all-the-icons-fonts
 
-    # Typography (corrected names)
+    # Typography
     source-serif-pro
     source-sans-pro
     source-code-pro
     libertinus
   ];
 
-  environment.variables = {
+  # DICPATH needs sessionVariables for proper expansion
+  environment.sessionVariables = {
     DICPATH = "${pkgs.hunspellDicts.en_US}/share/hunspell:${pkgs.hunspellDicts.he-il}/share/hunspell";
+  };
+
+  # Static variables
+  environment.variables = {
     OSFONTDIR = "/run/current-system/sw/share/X11/fonts";
   };
 
