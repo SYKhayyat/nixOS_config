@@ -31,6 +31,7 @@
     hunspell
     hunspellDicts.en_US
     hunspellDicts.he-il
+    enchant2
 
     # ══════════════════════════════════════════════════════════════════
     # FONTS (runtime access)
