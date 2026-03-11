@@ -17,6 +17,7 @@
       ./shellUtilities.nix
       ./other.nix
       ./emacsPackages.nix
+      ./seforim.nix
     ];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
