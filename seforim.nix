@@ -1,3 +1,5 @@
+{ config, pkgs, lib, ... }:
+
 let
   # Change this to your username
   username = "shaul";
@@ -5,8 +7,8 @@ let
   # Change this to your seforim path
   seforimPath = "/home/${username}/Documents/seforim";
 
-  # Recoll configuration
-  recollConf = pkgs.writeText "recoll.conf" ''
+  # Define the content of the config files as strings here
+  recollConfContent = ''
     # Seforim library indexing configuration
     topdirs = ${seforimPath}
 
@@ -34,7 +36,7 @@ let
     unac_except_stripping = true
   '';
 
-  recollMimeview = pkgs.writeText "mimeview" ''
+  recollMimeviewContent = ''
     [view]
     text/x-org = emacsclient -n %f
     text/org = emacsclient -n %f
@@ -58,11 +60,18 @@ in
     xapian
 
     # For recoll to index various file types
-    poppler־utils    # pdftotext
+    poppler-utils    # pdftotext
     antiword         # .doc
     catdoc           # .xls
     unzip            # .docx, .odt
   ];
+
+  # ===========================================================================
+  # USER GROUP MEMBERSHIP
+  # ===========================================================================
+  users.users.${username} = {
+    extraGroups = [ "plocate" ];
+  };
 
   # ===========================================================================
   # PLOCATE SERVICE (file path indexing)
@@ -70,7 +79,6 @@ in
   services.locate = {
     enable = true;
     package = pkgs.plocate;
-    localuser = null;
     interval = "hourly";
     pruneBindMounts = true;
     prunePaths = [
@@ -92,10 +100,13 @@ in
   # ===========================================================================
 
   # Create recoll config directory and files for user
-  system.activationScripts.recollConfig = ''
+  system.activationScripts.recollConfig = let
+    confFile = pkgs.writeText "recoll.conf" recollConfContent;
+    mimeFile = pkgs.writeText "mimeview" recollMimeviewContent;
+  in ''
     mkdir -p /home/${username}/.recoll
-    cp -f ${recollConf} /home/${username}/.recoll/recoll.conf
-    cp -f ${recollMimeview} /home/${username}/.recoll/mimeview
+    cp -f ${confFile} /home/${username}/.recoll/recoll.conf
+    cp -f ${mimeFile} /home/${username}/.recoll/mimeview
     chown -R ${username}:users /home/${username}/.recoll
     chmod 644 /home/${username}/.recoll/recoll.conf
     chmod 644 /home/${username}/.recoll/mimeview
@@ -130,4 +141,3 @@ in
     };
   };
 }
-```

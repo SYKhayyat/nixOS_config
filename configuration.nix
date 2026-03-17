@@ -1,7 +1,3 @@
-# Edit this configuration file to define what should be installed on
-# your system.  Help is available in the configuration.nix(5) man page
-# and in the NixOS manual (accessible by running ‘nixos-help’).
-
 { config, pkgs, ... }:
 
 {
@@ -17,7 +13,6 @@
       ./shellUtilities.nix
       ./other.nix
       ./emacsPackages.nix
-      ./seforim.nix
     ];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -162,9 +157,7 @@ packages = with pkgs; [
 	automatic = true;
 	options = "-d";
 };
-
-services.locate.enable = true;
-services.locate.package = pkgs.mlocate;  
+  
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
   # programs.mtr.enable = true;
