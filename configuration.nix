@@ -12,7 +12,7 @@
       ./languages.nix
       ./shellUtilities.nix
       ./other.nix
-      ./emacsPackages.nix
+      ./emacs.nix
     ];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
