@@ -1,36 +1,128 @@
 # modules/home/emacs/default.nix
 # Emacs configuration for Home Manager
-# Includes Emacs packages, LaTeX, Typst, Recoll config, and org setup
+# Uses Emacs 30 (pgtk) with comprehensive package set
 
 { config, lib, pkgs, myConfig, ... }:
 
 let
   # ══════════════════════════════════════════════════════════════════
-  # EMACS BUILD
+  # EMACS BUILD - Using Emacs 30 for best performance
   # ══════════════════════════════════════════════════════════════════
 
-  emacs = pkgs.emacs29-pgtk or pkgs.emacs-pgtk or pkgs.emacs29;
+  # Use Emacs 30 with PGTK (Wayland support)
+  emacs = pkgs.emacs30-pgtk or pkgs.emacs30 or pkgs.emacs29-pgtk;
 
-  emacsWithPackages = (pkgs.emacsPackagesFor emacs).emacsWithPackages (epkgs: [
-    # Packages that need native compilation or system dependencies
-    epkgs.vterm
-    epkgs.pdf-tools
-    epkgs.jinx
+  # Create emacs with all packages (none installed via :ensure)
+emacsWithPackages = (pkgs.emacsPackagesFor emacs).emacsWithPackages (epkgs: with epkgs; [
+  # ══════════════════════════════════════════════════════════════════
+  # CORE PACKAGES - Needed for base functionality
+  # ══════════════════════════════════════════════════════════════════
+  use-package
+  dash
+  s
+  f
+  seq
+  cl-lib
+  diminish
 
-    # Org-roam and dependencies
-    epkgs.org-roam
+  # ══════════════════════════════════════════════════════════════════
+  # UI & APPEARANCE
+  # ══════════════════════════════════════════════════════════════════
+  doom-themes
+  doom-modeline
+  nerd-icons
+  all-the-icons
+  all-the-icons-dired
+  pulsar
+  shrink-path  # Required by doom-modeline
 
-    # Magit (Git integration)
-    epkgs.magit
-    epkgs.transient
-    epkgs.with-editor
+  # ══════════════════════════════════════════════════════════════════
+  # COMPLETION & SEARCH
+  # ══════════════════════════════════════════════════════════════════
+  vertico
+  orderless
+  marginalia
+  consult
+  embark
+  embark-consult
+  corfu
+  anzu
+  deadgrep
 
-    # Tree-sitter grammars
-    epkgs.treesit-grammars.with-all-grammars
+  # ══════════════════════════════════════════════════════════════════
+  # EDITING
+  # ══════════════════════════════════════════════════════════════════
+  undo-tree
+  avy
+  ace-window
+  multiple-cursors
+  expand-region
+  move-text
+  crux
+  visual-regexp
+  wgrep
+  rainbow-delimiters
+  goto-last-change
+  beginend
 
-    # Consult-projectile
-    epkgs.consult-projectile
-  ]);
+  # ══════════════════════════════════════════════════════════════════
+  # FILE & BUFFER MANAGEMENT
+  # ══════════════════════════════════════════════════════════════════
+  projectile
+  consult-projectile
+  dirvish
+  # recentf and savehist are built into Emacs - do NOT list them here
+
+  # ══════════════════════════════════════════════════════════════════
+  # ORG & NOTES
+  # ══════════════════════════════════════════════════════════════════
+  org
+  org-modern
+  org-download
+  org-roam
+  org-roam-ui
+  ox-pandoc
+  citar
+  citar-org-roam
+  citeproc
+
+  # ══════════════════════════════════════════════════════════════════
+  # TERMINAL & TOOLS
+  # ══════════════════════════════════════════════════════════════════
+  vterm
+  pdf-tools
+  jinx
+
+  # ══════════════════════════════════════════════════════════════════
+  # PROGRAMMING
+  # ══════════════════════════════════════════════════════════════════
+  magit
+  git-gutter
+  git-timemachine
+  eglot
+  eglot-java
+  treesit-grammars.with-all-grammars
+  treesit-auto
+  rust-mode
+  cargo
+  nix-mode
+  markdown-mode
+  typst-ts-mode
+  yasnippet
+  yasnippet-snippets
+  editorconfig
+  envrc
+  helpful
+  which-key
+
+  # ══════════════════════════════════════════════════════════════════
+  # UTILITIES
+  # ══════════════════════════════════════════════════════════════════
+  gcmh
+  hydra
+  restart-emacs
+  visual-fill-column
+]);
 
   # Paths
   seforimPath = myConfig.seforimPath;
@@ -43,7 +135,6 @@ in
   # ══════════════════════════════════════════════════════════════════
 
   home.packages = with pkgs; [
-    # Emacs
     emacsWithPackages
 
     # LaTeX (full installation)
@@ -58,9 +149,19 @@ in
     graphviz        # For org diagrams
     imagemagick     # Image manipulation
     tree-sitter     # Syntax parsing
+    fd              # Fast file search
+    ripgrep         # Fast text search
+    recoll          # Full-text search for seforim
 
     # Language servers
     jdt-language-server  # Java
+    nil                 # Nix LSP
+    rust-analyzer       # Rust LSP
+    pyright             # Python LSP
+    lua-language-server # Lua LSP
+
+    # Tools for emacs packages
+    plocate           # For seforim fast search
   ];
 
   # ══════════════════════════════════════════════════════════════════
@@ -71,6 +172,100 @@ in
     EDITOR = "emacsclient -c";
     VISUAL = "emacsclient -c";
   };
+
+  # ══════════════════════════════════════════════════════════════════
+  # EMACS CONFIGURATION FILES
+  # ══════════════════════════════════════════════════════════════════
+
+  # early-init.el - Runs before package system initializes
+  home.file.".config/emacs/early-init.el".text = ''
+    ;;; early-init.el - Optimizations before package loading
+    ;; This runs before package.el and before init.el
+
+    (setq package-enable-at-startup nil)
+    (setq load-prefer-newer t)
+
+    (setq native-comp-eln-load-path
+      (list (expand-file-name "~/.cache/emacs/eln-cache/")))
+
+    ;; Performance tuning
+    (setq gc-cons-threshold most-positive-fixnum
+          gc-cons-percentage 0.6)
+
+    ;; Native compilation
+    (setq native-comp-async-report-warnings-errors 'silent
+          native-comp-jit-compilation t)
+
+    ;; Silence warnings
+    (setq warning-suppress-types '((comp) (bytecomp)))
+
+    ;; Defer file name handler
+    (defvar my--file-name-handler-alist file-name-handler-alist)
+    (setq file-name-handler-alist nil)
+    (add-hook 'emacs-startup-hook
+              (lambda () (setq file-name-handler-alist my--file-name-handler-alist)))
+  '';
+
+ home.file.".config/emacs/init.el".text = ''
+  ;; init.el --- Modular Emacs configuration -*- lexical-binding: t; -*-
+
+  ;; Modules directory (where .org and .el files live)
+  (defvar my/modules-dir (expand-file-name "modules" user-emacs-directory))
+
+  ;; Add to load-path
+  (add-to-list 'load-path my/modules-dir)
+
+  ;; Tangle function
+  (defun my/tangle-modules ()
+    "Tangle org files if newer than el files."
+    (when (file-directory-p my/modules-dir)
+      (require 'ob-tangle)
+      (dolist (org-file (directory-files my/modules-dir t "\\.org$"))
+        (let* ((base (file-name-base org-file))
+               (el-file (expand-file-name (concat base ".el") my/modules-dir)))
+          (when (or (not (file-exists-p el-file))
+                    (file-newer-than-file-p org-file el-file))
+            (message "Tangling %s..." base)
+            (org-babel-tangle-file org-file))))))
+
+  ;; Tangle on startup
+  (condition-case err
+      (my/tangle-modules)
+    (error (message "Tangling failed: %s" err)))
+
+  ;; Load modules
+  (dolist (module '("00-core"
+                    "01-ui"
+                    "02-hebrew"
+                    "03-completion"
+                    "04-editing"
+                    "05-navigation"
+                    "06-org"
+                    "07-org-roam"
+                    "08-latex"
+                    "09-typst"
+                    "10-context"
+                    "11-pdf"
+                    "12-programming"
+                    "13-magit"
+                    "14-seforim"
+                    "15-rich-footnotes"
+                    "16-hydras"
+                    "17-utils"))
+    (condition-case err
+        (require (intern module))
+      (error (message "Failed to load %s: %s" module err))))
+
+  (message "Emacs configuration loaded!")
+'';
+
+  # Master config.org that will tangle all modules
+  # home.file.".config/emacs/config.org".source = ./config.org;
+
+  # Create modules directory
+  home.activation.createEmacsModules = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    mkdir -p "${homeDir}/.config/emacs/modules"
+  '';
 
   # ══════════════════════════════════════════════════════════════════
   # RECOLL CONFIGURATION
@@ -108,7 +303,7 @@ in
   # ══════════════════════════════════════════════════════════════════
 
   # Create undo-tree history directory
-  home.file.".emacs.d/undo-tree-history/.keep".text = "";
+home.file.".cache/emacs/undo-tree-history/.keep".text = "";
 
   # ══════════════════════════════════════════════════════════════════
   # ORG FILES AND DIRECTORIES

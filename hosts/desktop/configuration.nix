@@ -15,6 +15,7 @@
     ../../modules/system/development.nix
     ../../modules/system/services.nix
     ../../modules/system/cli-tools.nix
+    ../../modules/system/file-sync.nix   
   ];
 
   # ══════════════════════════════════════════════════════════════════

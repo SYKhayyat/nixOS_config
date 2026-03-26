@@ -1,65 +1,42 @@
-# flake.nix
-# Master configuration - defines inputs and system profiles
+# ~/nixos-config/flake.nix
+
+# ~/nixos-config/flake.nix
 
 {
   description = "Shaul's NixOS Configuration";
 
   inputs = {
-    # ══════════════════════════════════════════════════════════════
-    # PACKAGE SOURCES
-    # ══════════════════════════════════════════════════════════════
-
     # Main NixOS packages (stable)
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
     # Unstable packages (for bleeding-edge software when needed)
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-    # ══════════════════════════════════════════════════════════════
-    # HOME MANAGER
-    # ══════════════════════════════════════════════════════════════
-
+    # Home Manager for user configuration
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # ══════════════════════════════════════════════════════════════
-    # LIX (Your preferred Nix implementation)
-    # ══════════════════════════════════════════════════════════════
-
-    lix-module = {
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/2.93.0.tar.gz";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # ══════════════════════════════════════════════════════════════
-    # EMACS OVERLAY (Latest Emacs packages)
-    # ══════════════════════════════════════════════════════════════
-
+    # Emacs overlay (latest Emacs packages)
     emacs-overlay = {
       url = "github:nix-community/emacs-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    nixpkgs-unstable,
-    home-manager,
-    lix-module,
-    emacs-overlay,
-    ...
+  outputs = { 
+    self, 
+    nixpkgs, 
+    nixpkgs-unstable, 
+    home-manager, 
+    emacs-overlay, 
+    ... 
   }@inputs:
   let
     system = "x86_64-linux";
 
-    # ══════════════════════════════════════════════════════════════
-    # SHARED CONFIGURATION VALUES
-    # Edit these to match your setup
-    # ══════════════════════════════════════════════════════════════
-
+    # Shared configuration values
     myConfig = {
       username = "shaul";
       fullName = "Shaul Khayyat";
@@ -70,46 +47,31 @@
       seforimPath = "/home/shaul/Documents/seforim";
     };
 
-    # ══════════════════════════════════════════════════════════════
-    # PACKAGE SETS WITH OVERLAYS
-    # ══════════════════════════════════════════════════════════════
-
-    pkgsForSystem = import nixpkgs {
-      inherit system;
-      config.allowUnfree = true;
-      config.android_sdk.accept_license = true;
-      overlays = [
-        emacs-overlay.overlays.default
-      ];
-    };
-
+    # Unstable packages
     unstable = import nixpkgs-unstable {
       inherit system;
       config.allowUnfree = true;
     };
 
   in {
-    # ══════════════════════════════════════════════════════════════
-    # NIXOS SYSTEM CONFIGURATIONS (Profiles)
-    # ══════════════════════════════════════════════════════════════
-
     nixosConfigurations = {
 
-      # ────────────────────────────────────────────────────────────
+      # ════════════════════════════════════════════════════════════
       # DESKTOP PROFILE
-      # Your full-featured daily driver
-      # Switch to this with: sudo nixos-rebuild switch --flake .#desktop
-      # ────────────────────────────────────────────────────────────
+      # ════════════════════════════════════════════════════════════
 
       desktop = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = {
+        specialArgs = { 
           inherit inputs myConfig unstable;
-          pkgs = pkgsForSystem;
         };
         modules = [
-          # Lix Nix implementation
-          lix-module.nixosModules.default
+          # Nixpkgs configuration
+          {
+            nixpkgs.overlays = [ emacs-overlay.overlays.default ];
+            nixpkgs.config.allowUnfree = true;
+            nixpkgs.config.android_sdk.accept_license = true;
+          }
 
           # System configuration
           ./hosts/desktop/configuration.nix
@@ -128,33 +90,35 @@
         ];
       };
 
-      # ────────────────────────────────────────────────────────────
+      # ════════════════════════════════════════════════════════════
       # MINIMAL PROFILE
-      # Lightweight system for recovery or testing
-      # Switch to this with: sudo nixos-rebuild switch --flake .#minimal
-      # ────────────────────────────────────────────────────────────
+      # ════════════════════════════════════════════════════════════
 
       minimal = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = { inherit inputs myConfig; };
         modules = [
+          {
+            nixpkgs.config.allowUnfree = true;
+          }
           ./hosts/minimal/configuration.nix
         ];
       };
 
     };
 
-    # ══════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════
     # DEVELOPMENT SHELL
-    # Enter with: nix develop
-    # ══════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════
 
-    devShells.${system}.default = pkgsForSystem.mkShell {
-      packages = with pkgsForSystem; [
-        nil           # Nix language server
-        nixpkgs-fmt   # Nix formatter
-        statix        # Nix linter
-        deadnix       # Find dead code
+    devShells.${system}.default = let
+      pkgs = import nixpkgs { inherit system; };
+    in pkgs.mkShell {
+      packages = with pkgs; [
+        nil
+        nixpkgs-fmt
+        statix
+        deadnix
       ];
 
       shellHook = ''
@@ -162,11 +126,6 @@
         echo "══════════════════════════════════════════════════════"
         echo "  NixOS Configuration Development Shell"
         echo "══════════════════════════════════════════════════════"
-        echo ""
-        echo "  Commands:"
-        echo "    nix fmt           Format all .nix files"
-        echo "    statix check .    Lint configuration"
-        echo "    deadnix .         Find unused code"
         echo ""
         echo "  Rebuild:"
         echo "    sudo nixos-rebuild switch --flake .#desktop"
@@ -176,6 +135,6 @@
     };
 
     # Formatter for 'nix fmt'
-    formatter.${system} = pkgsForSystem.nixpkgs-fmt;
+    formatter.${system} = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
   };
 }

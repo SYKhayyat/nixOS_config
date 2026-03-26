@@ -55,7 +55,7 @@ in
     # ────────────────────────────────────────────────────────────────
     pandoc                  # Document converter
     poppler                 # PDF library
-    poppler_utils           # PDF utilities
+    poppler-utils           # PDF utilities
     antiword                # Word document converter
     catdoc                  # Word/Excel/PowerPoint viewer
     unzip                   # Archive extraction
@@ -95,7 +95,7 @@ in
     # NIX TOOLS
     # ────────────────────────────────────────────────────────────────
     nh                      # Nix helper
-
+    home-manager
     # ────────────────────────────────────────────────────────────────
     # AI TOOLS
     # ────────────────────────────────────────────────────────────────

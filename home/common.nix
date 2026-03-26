@@ -79,15 +79,14 @@
 
   programs.git = {
     enable = true;
-    userName = myConfig.fullName;
-    # userEmail = "your.email@example.com";  # Add your email
-
-    extraConfig = {
+    
+    settings = {
+      user.name = myConfig.fullName;
+      # user.email = "your.email@example.com";  # Add your email
       init.defaultBranch = "main";
       pull.rebase = true;
     };
   };
-
   # ══════════════════════════════════════════════════════════════════
   # FZF (Fuzzy Finder)
   # ══════════════════════════════════════════════════════════════════
