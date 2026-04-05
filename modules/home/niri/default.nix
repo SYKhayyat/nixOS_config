@@ -27,7 +27,7 @@
     pavucontrol          # Audio GUI
     networkmanagerapplet # Wi-Fi tray applet
     light                # Brightness control
-    volumectl            # Volume control for avizo
+    
     dolphin              # GUI file manager
     noto-fonts
     noto-fonts-cjk-sans
