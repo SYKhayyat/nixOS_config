@@ -22,7 +22,6 @@
     # Fonts for Hebrew and UI icons
     noto-fonts
     noto-fonts-cjk-sans
-    noto-fonts-emoji
     noto-fonts-hebrew-sans
     nerd-fonts.jetbrains-mono 
   ];
