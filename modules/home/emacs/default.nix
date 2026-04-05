@@ -48,6 +48,7 @@ emacsWithPackages = (pkgs.emacsPackagesFor emacs).emacsWithPackages (epkgs: with
   corfu
   anzu
   deadgrep
+  engine-mode
 
   # ══════════════════════════════════════════════════════════════════
   # EDITING
@@ -92,6 +93,7 @@ emacsWithPackages = (pkgs.emacsPackagesFor emacs).emacsWithPackages (epkgs: with
   vterm
   pdf-tools
   jinx
+  gptel
 
   # ══════════════════════════════════════════════════════════════════
   # PROGRAMMING
@@ -144,6 +146,7 @@ in
     typst
     tinymist
 
+
     # Utilities for Emacs
     sqlite          # For org-roam
     graphviz        # For org diagrams
@@ -162,6 +165,7 @@ in
 
     # Tools for emacs packages
     plocate           # For seforim fast search
+    hdate
   ];
 
   # ══════════════════════════════════════════════════════════════════
@@ -251,7 +255,15 @@ in
                     "14-seforim"
                     "15-rich-footnotes"
                     "16-hydras"
-                    "17-utils"))
+                    "17-utils"
+                    "18-academic"
+                    "19-hebrew-extra"
+                    "20-projectile"
+                    "21-local-ai"
+                    "22-dirvish"
+                    "23-vterm-pro"
+                    "24-scholar-search"
+                    "25-nix-system"))
     (condition-case err
         (require (intern module))
       (error (message "Failed to load %s: %s" module err))))

@@ -2,12 +2,17 @@
 # Full desktop Home Manager configuration
 # All your desktop applications go here
 
+# home/desktop.nix
+# Full desktop Home Manager configuration
+# All your desktop applications go here
+
 { config, lib, pkgs, myConfig, unstable, ... }:
 
 {
   imports = [
     ./common.nix
     ../modules/home/emacs
+    ../modules/home/niri    # New: This module provides Niri + Yazi + Wayland tools
   ];
 
   # ══════════════════════════════════════════════════════════════════

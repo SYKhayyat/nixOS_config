@@ -1,6 +1,9 @@
 # home/common.nix
 # Common Home Manager settings for all profiles
 
+# home/common.nix
+# Common Home Manager settings for all profiles
+
 { config, lib, pkgs, myConfig, ... }:
 
 {
@@ -46,16 +49,21 @@
 
   # ══════════════════════════════════════════════════════════════════
   # SHELL ALIASES
-  # Quick commands for common tasks
   # ══════════════════════════════════════════════════════════════════
 
   home.shellAliases = {
-    # NixOS rebuild shortcuts
+    # ── SYSTEM SWITCHING (Live) ─────────────────────────────────────
+    # Switches to the Niri environment without rebooting
+    to-niri = "sudo /run/current-system/specialisation/niri/bin/switch-to-configuration switch";
+    # Returns to the standard KDE Plasma environment
+    to-plasma = "sudo /run/current-system/bin/switch-to-configuration switch";
+
+    # ── NIXOS MANAGEMENT ────────────────────────────────────────────
     nrs = "sudo nixos-rebuild switch --flake ~/nixos-config#desktop";
     nrt = "sudo nixos-rebuild test --flake ~/nixos-config#desktop";
     nrb = "sudo nixos-rebuild build --flake ~/nixos-config#desktop";
 
-    # Switch to minimal
+    # Switch to minimal profile
     nrs-minimal = "sudo nixos-rebuild switch --flake ~/nixos-config#minimal";
 
     # Update flake inputs
@@ -67,38 +75,29 @@
     # Garbage collection
     ngc = "sudo nix-collect-garbage --delete-older-than 14d";
 
-    # Common shortcuts
+    # ── COMMON SHORTCUTS ────────────────────────────────────────────
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";
   };
 
   # ══════════════════════════════════════════════════════════════════
-  # GIT
+  # PROGRAMS
   # ══════════════════════════════════════════════════════════════════
 
   programs.git = {
     enable = true;
-    
     settings = {
       user.name = myConfig.fullName;
-      # user.email = "your.email@example.com";  # Add your email
       init.defaultBranch = "main";
       pull.rebase = true;
     };
   };
-  # ══════════════════════════════════════════════════════════════════
-  # FZF (Fuzzy Finder)
-  # ══════════════════════════════════════════════════════════════════
 
   programs.fzf = {
     enable = true;
     enableBashIntegration = true;
   };
-
-  # ══════════════════════════════════════════════════════════════════
-  # BAT (Better cat)
-  # ══════════════════════════════════════════════════════════════════
 
   programs.bat = {
     enable = true;
@@ -106,11 +105,6 @@
       theme = "TwoDark";
     };
   };
-
-  # ══════════════════════════════════════════════════════════════════
-  # DIRENV
-  # Automatic environment loading
-  # ══════════════════════════════════════════════════════════════════
 
   programs.direnv = {
     enable = true;
