@@ -22,7 +22,7 @@
     # Fonts for Hebrew and UI icons
     noto-fonts
     noto-fonts-cjk-sans
-    noto-fonts-hebrew-sans
+    culmus
     nerd-fonts.jetbrains-mono 
   ];
 
