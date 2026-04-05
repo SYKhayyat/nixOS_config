@@ -1,9 +1,6 @@
 # home/common.nix
 # Common Home Manager settings for all profiles
 
-# home/common.nix
-# Common Home Manager settings for all profiles
-
 { config, lib, pkgs, myConfig, ... }:
 
 {
@@ -20,15 +17,30 @@
 
   # ══════════════════════════════════════════════════════════════════
   # SESSION PATH
-  # Adds your Scripts directories to PATH
+  # Static paths available to both GUI and Terminal
   # ══════════════════════════════════════════════════════════════════
 
   home.sessionPath = [
     "${config.home.homeDirectory}/Scripts"
-    "${config.home.homeDirectory}/Scripts/docx_to_org_regular"
-    "${config.home.homeDirectory}/Scripts/docx_to_org_enhanced"
-    "${config.home.homeDirectory}/Scripts/finder"
   ];
+
+  # ══════════════════════════════════════════════════════════════════
+  # BASH CONFIGURATION
+  # Handles dynamic pathing and shell hooks
+  # ══════════════════════════════════════════════════════════════════
+
+  programs.bash = {
+    enable = true;
+    # This snippet runs every time you open a terminal
+    initExtra = ''
+      # Dynamically add all subdirectories of ~/Scripts to PATH
+      if [ -d "$HOME/Scripts" ]; then
+        # Find all directories, ignore hidden ones, and append with colon
+        SCRIPTS_PATH=$(find "$HOME/Scripts" -type d -not -path '*/.*' -printf ":%p")
+        export PATH="$PATH$SCRIPTS_PATH"
+      fi
+    '';
+  };
 
   # ══════════════════════════════════════════════════════════════════
   # XDG DIRECTORIES
@@ -49,13 +61,12 @@
 
   # ══════════════════════════════════════════════════════════════════
   # SHELL ALIASES
+  # Quick commands for common tasks
   # ══════════════════════════════════════════════════════════════════
 
   home.shellAliases = {
     # ── SYSTEM SWITCHING (Live) ─────────────────────────────────────
-    # Switches to the Niri environment without rebooting
     to-niri = "sudo /run/current-system/specialisation/niri/bin/switch-to-configuration switch";
-    # Returns to the standard KDE Plasma environment
     to-plasma = "sudo /run/current-system/bin/switch-to-configuration switch";
 
     # ── NIXOS MANAGEMENT ────────────────────────────────────────────
@@ -63,7 +74,7 @@
     nrt = "sudo nixos-rebuild test --flake ~/nixos-config#desktop";
     nrb = "sudo nixos-rebuild build --flake ~/nixos-config#desktop";
 
-    # Switch to minimal profile
+    # Switch to minimal
     nrs-minimal = "sudo nixos-rebuild switch --flake ~/nixos-config#minimal";
 
     # Update flake inputs
@@ -82,7 +93,7 @@
   };
 
   # ══════════════════════════════════════════════════════════════════
-  # PROGRAMS
+  # PROGRAMS & TOOLS
   # ══════════════════════════════════════════════════════════════════
 
   programs.git = {
