@@ -1,29 +1,33 @@
 # modules/home/niri/default.nix
 # Niri Configuration (KDL format)
+# modules/home/niri/default.nix
 { pkgs, config, lib, ... }: {
   imports = [ ../yazi.nix ];
 
   home.packages = with pkgs; [
-    foot                 # Ultra-fast terminal
-    fuzzel               # Minimal C-based launcher
-    waybar               # Top bar
-    mako                 # Light notifications
-    swww                 # GPU-accelerated wallpaper
-    wlogout              # Wayland power menu
+    foot                 # Terminal
+    fuzzel               # Launcher
+    waybar               # Status bar
+    mako                 # Notifications
+    swww                 # Wallpaper
+    wlogout              # Power menu
     avizo                # Volume/Brightness OSD
-    networkmanagerapplet
-    blueman
-    grim                 # Screenshots
+    networkmanagerapplet # WiFi tray
+    blueman              # Bluetooth tray
+    grim                 # Screenshot core
     slurp                # Region selector
-    wl-clipboard         # Provides wl-copy and wl-paste
-    libnotify            # Required for many notification scripts
-    # Fonts for Hebrew and Icons
+    wl-clipboard         # Clipboard management
+    libnotify            # Notification events
+    
+    # Fonts for Hebrew and UI icons
     noto-fonts
     noto-fonts-cjk-sans
-    nerd-fonts.jetbrains-mono # New syntax for NixOS Unstable/25.11
+    noto-fonts-emoji
+    noto-fonts-hebrew-sans
+    nerd-fonts.jetbrains-mono 
   ];
 
-  # Niri Configuration
+  # Niri Configuration (KDL Format)
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -44,7 +48,8 @@
         }
     }
 
-    output "eDP-1" {
+    // Matches any monitor output dynamically
+    output ".*" {
         scale 1.0
     }
 
@@ -60,7 +65,6 @@
             proportion 0.666
         }
 
-        // Visuals
         focus-ring {
             width 4
             active-color "#7aa2f7"
@@ -80,17 +84,17 @@
 
     binds {
         // App Launcher & Terminal
-        Mod+Return { spawn "foot"; }
-        Mod+D { spawn "fuzzel"; }
+        Mod+Return { spawn "foot" }
+        Mod+D { spawn "fuzzel" }
         
         // File Managers
-        Mod+E { spawn "foot" "yazi"; }
-        Mod+Shift+E { spawn "dolphin"; }
+        Mod+E { spawn "foot" "yazi" }
+        Mod+Shift+E { spawn "dolphin" }
         
         // Session
-        Mod+Shift+Q { spawn "wlogout"; }
+        Mod+Shift+Q { spawn "wlogout" }
         
-        // Navigation
+        // Navigation (Vim keys and Arrows)
         Mod+Left  { focus-column-left; }
         Mod+Right { focus-column-right; }
         Mod+H     { focus-column-left; }
@@ -98,9 +102,13 @@
         
         Mod+Shift+Left  { move-column-left; }
         Mod+Shift+Right { move-column-right; }
+        Mod+Shift+H     { move-column-left; }
+        Mod+Shift+L     { move-column-right; }
         
         Mod+Up    { focus-window-up; }
         Mod+Down  { focus-window-down; }
+        Mod+K     { focus-window-up; }
+        Mod+J     { focus-window-down; }
 
         Mod+R { switch-preset-column-width; }
         Mod+F { maximize-column; }
@@ -108,14 +116,14 @@
         Mod+Shift+C { close-window; }
         
         // Volume/Brightness (via Avizo)
-        XF86AudioRaiseVolume { spawn "volumectl" "-u" "up"; }
-        XF86AudioLowerVolume { spawn "volumectl" "-u" "down"; }
-        XF86AudioMute        { spawn "volumectl" "toggle-mute"; }
-        XF86MonBrightnessUp   { spawn "lightctl" "up"; }
-        XF86MonBrightnessDown { spawn "lightctl" "down"; }
+        XF86AudioRaiseVolume { spawn "volumectl" "-u" "up" }
+        XF86AudioLowerVolume { spawn "volumectl" "-u" "down" }
+        XF86AudioMute        { spawn "volumectl" "toggle-mute" }
+        XF86MonBrightnessUp   { spawn "lightctl" "up" }
+        XF86MonBrightnessDown { spawn "lightctl" "down" }
 
-        // Screenshots (Area selector to clipboard)
-        Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
+        // Screenshots (Fixed Escaping: Select area -> Clipboard)
+        Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy" }
     }
 
     animations {
@@ -123,7 +131,7 @@
     }
   '';
 
-  # Waybar with Hebrew Font Support
+  # Waybar with Hebrew and Nerd Font Support
   programs.waybar = {
     enable = true;
     settings = [{
@@ -134,24 +142,33 @@
       modules-center = [ "clock" ];
       modules-right = [ "network" "cpu" "memory" "battery" "tray" ];
       
-      "niri/window" = { format = "{}"; max-length = 50; };
+      "niri/window" = { 
+        format = "{}"; 
+        max-length = 50; 
+      };
       
       clock = {
         format = "  {:%H:%M}";
         tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>";
       };
       
-      network = { format-wifi = "  {essid}"; format-ethernet = "󰈀"; };
+      network = { 
+        format-wifi = "  {essid}"; 
+        format-ethernet = "󰈀"; 
+      };
+      
       cpu = { format = "  {usage}%"; };
       memory = { format = "  {percentage}%"; };
+      
       battery = {
         format = "{icon} {capacity}%";
         format-icons = ["" "" "" "" ""];
       };
     }];
+    
     style = ''
       * { 
-        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew"; 
+        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew", "sans-serif"; 
         font-size: 14px; 
         font-weight: bold; 
       }
@@ -160,8 +177,13 @@
         color: #c0caf5; 
         border-bottom: 2px solid #24283b;
       }
-      #workspaces button { padding: 0 5px; color: #565f89; }
-      #workspaces button.focused { color: #7aa2f7; }
+      #workspaces button { 
+        padding: 0 5px; 
+        color: #565f89; 
+      }
+      #workspaces button.focused { 
+        color: #7aa2f7; 
+      }
       #clock, #network, #cpu, #memory, #battery, #tray {
         padding: 0 10px;
         margin: 4px 2px;
