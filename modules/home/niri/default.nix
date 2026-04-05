@@ -15,13 +15,13 @@
     blueman
     grim                 # Screenshots
     slurp                # Region selector
-    wl-copy              # Clipboard support
+    wl-clipboard         # Provides wl-copy and wl-paste
     libnotify            # Required for many notification scripts
-    # Fonts for Hebrew support
+    # Fonts for Hebrew and Icons
     noto-fonts
     noto-fonts-cjk-sans
     noto-fonts-emoji
-    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+    nerd-fonts.jetbrains-mono # New syntax for NixOS Unstable/25.11
   ];
 
   # Niri Configuration
@@ -119,7 +119,6 @@
         Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
     }
 
-    // Animations (Optional but makes it feel "good")
     animations {
         slowdown 1.2
     }
