@@ -3,6 +3,7 @@
 # modules/home/niri/default.nix
 # modules/home/niri/default.nix
 # modules/home/niri/default.nix
+# modules/home/niri/default.nix
 { pkgs, config, lib, ... }: {
   imports = [ ../yazi.nix ];
 
@@ -51,8 +52,8 @@
     input {
         keyboard {
             xkb {
-                layout "us,il";
-                options "grp:alt_shift_toggle";
+                layout "us,il"
+                options "grp:alt_shift_toggle"
             }
         }
         touchpad { tap; natural-scroll; dwt; }
@@ -62,41 +63,45 @@
     output ".*" { scale 1.0; }
 
     layout {
-        gaps 12; // Plural 'gaps' is required
+        // 'gaps' must be a node with a value
+        gaps 12
         
         default-column-width { proportion 0.5; }
         
         preset-column-widths {
-            proportion 0.333;
-            proportion 0.5;
-            proportion 0.666;
+            proportion 0.333
+            proportion 0.5
+            proportion 0.666
         }
         
         focus-ring { width 4; active-color "#7aa2f7"; inactive-color "#414868"; }
     }
 
     // --- Background Services ---
-    spawn-at-startup "waybar";
-    spawn-at-startup "mako";
-    spawn-at-startup "swww-daemon";
-    spawn-at-startup "nm-applet";
-    spawn-at-startup "avizo-service";
-    spawn-at-startup "udiskie" "--tray";
-    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
-    spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store";
+    spawn-at-startup "waybar"
+    spawn-at-startup "mako"
+    spawn-at-startup "swww-daemon"
+    spawn-at-startup "nm-applet"
+    spawn-at-startup "avizo-service"
+    spawn-at-startup "udiskie" "--tray"
+    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
+    spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
 
     binds {
-        // --- Core ---
+        // --- Core Keybinds ---
         Mod+Return { spawn "foot"; }
         Mod+D { spawn "fuzzel"; }
         Mod+V { spawn "bash" "-c" "cliphist list | fuzzel -d | cliphist decode | wl-copy"; }
-        Mod+L { spawn "swaylock" "-f" "-c" "000000"; }
+        
+        // MOVED: Screen lock is now Mod+Alt+L to avoid conflict with Mod+L (Right)
+        Mod+Alt+L { spawn "swaylock" "-f" "-c" "000000"; }
+        
         Mod+E { spawn "foot" "yazi"; }
         Mod+Shift+E { spawn "dolphin"; }
         Mod+Shift+Q { spawn "wlogout"; }
         Mod+Shift+C { close-window; }
 
-        // --- Navigation (Combined Arrows and HJKL to avoid duplicates) ---
+        // --- Navigation (HJKL + Arrows) ---
         Mod+Left  { focus-column-left; }
         Mod+H     { focus-column-left; }
         Mod+Right { focus-column-right; }
@@ -126,17 +131,15 @@
         XF86MonBrightnessUp   { spawn "light" "-A" "5"; }
         XF86MonBrightnessDown { spawn "light" "-U" "5"; }
 
-        // Media Control
         XF86AudioPlay { spawn "playerctl" "play-pause"; }
         XF86AudioNext { spawn "playerctl" "next"; }
         XF86AudioPrev { spawn "playerctl" "previous"; }
 
-        // Screenshots
         Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
     }
   '';
 
-  # High-End Waybar with Hebrew Support
+  # Waybar Config
   programs.waybar = {
     enable = true;
     settings = [{
