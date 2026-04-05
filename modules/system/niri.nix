@@ -26,4 +26,4 @@
   
   # Ensure Hebrew and other fonts are available to Wayland apps
   fonts.fontconfig.enable = true;
-}}
+}
