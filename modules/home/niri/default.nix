@@ -20,7 +20,6 @@
     # Fonts for Hebrew and Icons
     noto-fonts
     noto-fonts-cjk-sans
-    noto-fonts-emoji
     nerd-fonts.jetbrains-mono # New syntax for NixOS Unstable/25.11
   ];
 
