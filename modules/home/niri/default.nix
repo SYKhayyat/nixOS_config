@@ -27,8 +27,8 @@
     pavucontrol          # Audio GUI
     networkmanagerapplet # Wi-Fi tray applet
     light                # Brightness control
+    kdePackages.dolphin  # GUI file manager
     
-    dolphin              # GUI file manager
     noto-fonts
     noto-fonts-cjk-sans
     noto-fonts-color-emoji
