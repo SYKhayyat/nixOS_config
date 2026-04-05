@@ -25,29 +25,39 @@
     playerctl            # Media control
     udiskie              # Auto-mount USBs
     pavucontrol          # Audio GUI
-    
-    # --- Fonts ---
+    networkmanagerapplet # Wi-Fi tray applet
+    light                # Brightness control
+    volumectl            # Volume control for avizo
+    dolphin              # GUI file manager
     noto-fonts
     noto-fonts-cjk-sans
-    noto-fonts-color-emoji 
-    culmus                 
+    noto-fonts-color-emoji
+    culmus
     nerd-fonts.jetbrains-mono
   ];
 
-  # Force Dark Theme across GTK and Qt
   gtk = {
     enable = true;
-    theme = { name = "Adwaita-dark"; package = pkgs.gnome-themes-extra; };
-    iconTheme = { name = "Papirus-Dark"; package = pkgs.papirus-icon-theme; };
-    cursorTheme = { name = "Adwaita"; package = pkgs.adwaita-icon-theme; };
+    theme = {
+      name = "Adwaita-dark";
+      package = pkgs.gnome-themes-extra;
+    };
+    iconTheme = {
+      name = "Papirus-Dark";
+      package = pkgs.papirus-icon-theme;
+    };
+    cursorTheme = {
+      name = "Adwaita";
+      package = pkgs.adwaita-icon-theme;
+    };
   };
+
   qt = {
     enable = true;
     platformTheme.name = "adwaita";
     style.name = "adwaita-dark";
   };
 
-  # Niri Configuration
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -56,28 +66,37 @@
                 options "grp:alt_shift_toggle"
             }
         }
-        touchpad { tap; natural-scroll; dwt; }
-        mouse { natural-scroll; }
+        touchpad {
+            tap
+            dwt
+        }
+        mouse { }
     }
 
-    output ".*" { scale 1.0; }
+    output ".*" {
+        scale 1.0
+    }
 
     layout {
-        // 'gaps' must be a node with a value
         gaps 12
-        
-        default-column-width { proportion 0.5; }
-        
+
+        default-column-width {
+            proportion 0.5
+        }
+
         preset-column-widths {
             proportion 0.333
             proportion 0.5
             proportion 0.666
         }
-        
-        focus-ring { width 4; active-color "#7aa2f7"; inactive-color "#414868"; }
+
+        focus-ring {
+            width 4
+            active-color "#7aa2f7"
+            inactive-color "#414868"
+        }
     }
 
-    // --- Background Services ---
     spawn-at-startup "waybar"
     spawn-at-startup "mako"
     spawn-at-startup "swww-daemon"
@@ -88,20 +107,18 @@
     spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
 
     binds {
-        // --- Core Keybinds ---
         Mod+Return { spawn "foot"; }
         Mod+D { spawn "fuzzel"; }
+Mod+N { spawn "foot" "-e" "nmtui"; }
         Mod+V { spawn "bash" "-c" "cliphist list | fuzzel -d | cliphist decode | wl-copy"; }
-        
-        // MOVED: Screen lock is now Mod+Alt+L to avoid conflict with Mod+L (Right)
+
         Mod+Alt+L { spawn "swaylock" "-f" "-c" "000000"; }
-        
+
         Mod+E { spawn "foot" "yazi"; }
         Mod+Shift+E { spawn "dolphin"; }
         Mod+Shift+Q { spawn "wlogout"; }
         Mod+Shift+C { close-window; }
 
-        // --- Navigation (HJKL + Arrows) ---
         Mod+Left  { focus-column-left; }
         Mod+H     { focus-column-left; }
         Mod+Right { focus-column-right; }
@@ -110,7 +127,7 @@
         Mod+K     { focus-window-up; }
         Mod+Down  { focus-window-down; }
         Mod+J     { focus-window-down; }
-        
+
         Mod+Shift+Left  { move-column-left; }
         Mod+Shift+H     { move-column-left; }
         Mod+Shift+Right { move-column-right; }
@@ -123,13 +140,12 @@
         Mod+R { switch-preset-column-width; }
         Mod+F { maximize-column; }
         Mod+Shift+F { fullscreen-window; }
-        
-        // --- Hardware Keys ---
-        XF86AudioRaiseVolume { spawn "volumectl" "-u" "up"; }
-        XF86AudioLowerVolume { spawn "volumectl" "-u" "down"; }
-        XF86AudioMute        { spawn "volumectl" "toggle-mute"; }
-        XF86MonBrightnessUp   { spawn "light" "-A" "5"; }
-        XF86MonBrightnessDown { spawn "light" "-U" "5"; }
+
+        XF86AudioRaiseVolume   { spawn "volumectl" "-u" "up"; }
+        XF86AudioLowerVolume   { spawn "volumectl" "-u" "down"; }
+        XF86AudioMute          { spawn "volumectl" "toggle-mute"; }
+        XF86MonBrightnessUp    { spawn "light" "-A" "5"; }
+        XF86MonBrightnessDown  { spawn "light" "-U" "5"; }
 
         XF86AudioPlay { spawn "playerctl" "play-pause"; }
         XF86AudioNext { spawn "playerctl" "next"; }
@@ -139,24 +155,36 @@
     }
   '';
 
-  # Waybar Config
   programs.waybar = {
     enable = true;
     settings = [{
       layer = "top";
       modules-left = [ "niri/window" "niri/workspaces" ];
       modules-center = [ "clock" ];
-      modules-right = [ "pulseaudio" "backlight" "cpu" "memory" "battery" "tray" ];
-      
+      modules-right = [ "network" "pulseaudio" "backlight" "cpu" "memory" "battery" "tray" ];
+
       clock = {
         format = "  {:%H:%M}";
         tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>";
       };
 
+      network = {
+        format-wifi = "󰤨";
+        format-ethernet = "󰈀";
+        format-disconnected = "󰤭";
+        format-alt = "{ifname}: {ipaddr}/{cidr}";
+        tooltip-format-wifi = "{essid} ({signalStrength}%)";
+        tooltip-format-ethernet = "{ifname}";
+        tooltip-format-disconnected = "Disconnected";
+        on-click = "foot -e nmtui";
+      };
+
       pulseaudio = {
         format = "{icon} {volume}%";
         format-muted = "󰝟";
-        format-icons = { default = ["󰕿" "󰖀" "󰕾"]; };
+        format-icons = {
+          default = [ "󰕿" "󰖀" "󰕾" ];
+        };
         on-click = "pavucontrol";
       };
 
@@ -165,23 +193,42 @@
       };
 
       battery = {
-        states = { warning = 30; critical = 15; };
+        states = {
+          warning = 30;
+          critical = 15;
+        };
         format = "{icon} {capacity}%";
-        format-icons = ["󰂎" "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹"];
+        format-icons = [ "󰂎" "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       };
     }];
-    
+
     style = ''
-      * { 
-        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew"; 
-        font-size: 13px; font-weight: bold; 
+      * {
+        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew";
+        font-size: 13px;
+        font-weight: bold;
       }
-      window#waybar { background: #1a1b26; color: #a9b1d6; }
-      #workspaces button { padding: 0 8px; color: #565f89; }
-      #workspaces button.focused { color: #7aa2f7; border-bottom: 2px solid #7aa2f7; }
-      #clock, #pulseaudio, #backlight, #cpu, #memory, #battery, #tray {
-        padding: 0 10px; margin: 4px 4px;
-        background: #24283b; border-radius: 6px;
+
+      window#waybar {
+        background: #1a1b26;
+        color: #a9b1d6;
+      }
+
+      #workspaces button {
+        padding: 0 8px;
+        color: #565f89;
+      }
+
+      #workspaces button.focused {
+        color: #7aa2f7;
+        border-bottom: 2px solid #7aa2f7;
+      }
+
+      #clock, #network, #pulseaudio, #backlight, #cpu, #memory, #battery, #tray {
+        padding: 0 10px;
+        margin: 4px 4px;
+        background: #24283b;
+        border-radius: 6px;
       }
     '';
   };
