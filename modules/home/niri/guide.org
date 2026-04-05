@@ -1,0 +1,74 @@
+#+TITLE: Niri Desktop Environment Guide
+#+AUTHOR: Shaul
+#+OPTIONS: 
+
+* Introduction to Niri
+Niri is a scrollable tiling compositor for Wayland. Unlike KDE Plasma, which uses windows that float on top of each other, Niri treats windows as a "Ribbon" that extends infinitely to the right.
+
+* The Environment Switch
+Your system is configured with a *Specialisation*. To move between KDE and Niri, you must trigger the system switch and then restart your session.
+
+** To Switch to Niri (from KDE)
+1. Open a terminal.
+2. Type the alias: ~to-niri~
+3. Enter your password.
+4. Log out of KDE Plasma.
+5. At the SDDM login screen, look for the session dropdown (bottom/top corner) and select **"niri"**.
+6. Log in.
+
+** To Switch to Plasma (from Niri)
+1. Open Foot (~Super + Return~).
+2. Type the alias: ~to-plasma~
+3. Enter your password.
+4. Log out of Niri (~Super + Shift + Q~).
+5. At the SDDM login screen, select **"Plasma (Wayland)"**.
+6. Log in.
+
+* Essential Navigation (The "Infinite Ribbon")
+Niri windows do not overlap. They sit side-by-side on a horizontal strip.
+
+| Action                   | Keybinding              |
+|--------------------------|-------------------------|
+| Scroll Ribbon Left/Right | ~Super + H / L~         |
+| Scroll Ribbon Left/Right | ~Super + Left / Right~  |
+| Move Window Left/Right   | ~Super + Shift + H / L~ |
+| Maximize Window          | ~Super + F~             |
+| Cycle Preset Widths      | ~Super + R~             |
+| Close Active Window      | ~Super + Shift + C~     |
+
+* Launching Applications
+Everything in Niri is designed to be fast and keyboard-driven.
+
+| Target App         | Keybinding            | Description                       |
+|--------------------|-----------------------|-----------------------------------|
+| Terminal (Foot)    | ~Super + Return~      | The fastest Wayland terminal      |
+| App Launcher       | ~Super + D~           | Fuzzel: Start typing to search    |
+| File Manager (CLI) | ~Super + E~           | Opens Yazi in Foot                |
+| File Manager (GUI) | ~Super + Shift + E~   | Opens Dolphin                     |
+| Power Menu         | ~Super + Shift + Q~   | Logout, Reboot, Shutdown          |
+
+* File Management with Yazi
+Yazi is your primary "fast" file manager. It is configured with an "Open With" menu.
+
+** Usage
+1. Open Yazi: ~Super + E~.
+2. Navigate with arrow keys or ~h/j/k/l~.
+3. **Open Default**: Press ~Enter~.
+4. **Open With Menu**: Press ~Shift + O~.
+   - Choose ~Reveal in Dolphin~ to jump to the GUI.
+   - Choose ~Edit~ to open in your terminal editor.
+
+* System Configuration
+- **Volume & Brightness**: Use your physical media keys. An OSD (On-Screen Display) will show the level.
+- **Screenshots**: Press ~Print Screen~. Draw a box with your mouse. The image is saved to your clipboard automatically.
+- **Bar (Waybar)**: Shows your clock, CPU/RAM usage, and system tray (WiFi/Bluetooth).
+
+* Troubleshooting
+** The screen is black / froze
+Press ~Ctrl + Alt + F2~ to go to a TTY. Log in and run:
+#+BEGIN_SRC bash
+sudo systemctl restart sddm
+#+END_SRC
+
+** My Path is not updating
+If you added a new folder to ~$HOME/Scripts~, it might not show up until you restart the terminal. If it still doesn't show, ensure you have logged out and back in at least once.
