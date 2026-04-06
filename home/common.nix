@@ -14,7 +14,10 @@
 
   # Let Home Manager manage itself
   programs.home-manager.enable = true;
-
+   home.file.".gtkrc-2.0" = {
+    text = ""; # Home Manager will create an empty file or you can add content here
+    force = true;
+  };
   # ══════════════════════════════════════════════════════════════════
   # SESSION PATH
   # Static paths available to both GUI and Terminal
