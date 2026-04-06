@@ -18,6 +18,15 @@
     text = ""; # Home Manager will create an empty file or you can add content here
     force = true;
   };
+gtk = {
+  enable = true;
+  # Nix will now manage .gtkrc-2.0 cleanly.
+  # You can set themes here instead of raw text:
+  theme = {
+    name = "Adwaita-dark";
+    package = pkgs.gnome-themes-extra;
+  };
+};
   # ══════════════════════════════════════════════════════════════════
   # SESSION PATH
   # Static paths available to both GUI and Terminal
