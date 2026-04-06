@@ -1,6 +1,9 @@
 # home/common.nix
 # Common Home Manager settings for all profiles
 
+# home/common.nix
+# Common Home Manager settings for all profiles
+
 { config, lib, pkgs, myConfig, ... }:
 
 {
@@ -14,19 +17,35 @@
 
   # Let Home Manager manage itself
   programs.home-manager.enable = true;
-   home.file.".gtkrc-2.0" = {
-    text = ""; # Home Manager will create an empty file or you can add content here
-    force = true;
+
+  # ══════════════════════════════════════════════════════════════════
+  # GTK & FORCE OVERWRITE (Fallback)
+  # ══════════════════════════════════════════════════════════════════
+
+  # Using the GTK module as the fallback. 
+  # lib.mkDefault (Priority 1000) allows other modules to override these values.
+  gtk = {
+    enable = true;
+    theme = {
+      name = lib.mkDefault "Adwaita-dark";
+      package = lib.mkDefault pkgs.gnome-themes-extra;
+    };
   };
-gtk = {
-  enable = true;
-  # Nix will now manage .gtkrc-2.0 cleanly.
-  # You can set themes here instead of raw text:
-  theme = {
-    name = "Adwaita-dark";
-    package = pkgs.gnome-themes-extra;
-  };
-};
+
+  # Advanced Git Overwrite Solution:
+  # This script runs BEFORE Home Manager checks for collisions (checkLinkTargets).
+  # It identifies specific files that are managed by Nix but currently exist 
+  # as "real" files (from your Git repo). It deletes them so Nix can link them.
+  home.activation.force-clean-git-files = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
+    for file in ".gtkrc-2.0" ".bashrc"; do
+      TARGET="$HOME/$file"
+      if [ -f "$TARGET" ] && [ ! -L "$TARGET" ]; then
+        echo "Cleanup: Removing $TARGET to allow Nix to manage it."
+        $DRY_RUN_CMD rm -f "$TARGET"
+      fi
+    done
+  '';
+
   # ══════════════════════════════════════════════════════════════════
   # SESSION PATH
   # Static paths available to both GUI and Terminal

@@ -4,6 +4,9 @@
 # modules/home/niri/default.nix
 # modules/home/niri/default.nix
 # modules/home/niri/default.nix
+# modules/home/niri/default.nix
+# Niri desktop configuration with high-priority theme overrides
+
 { pkgs, config, lib, ... }: {
   imports = [ ../yazi.nix ];
 
@@ -36,11 +39,16 @@
     nerd-fonts.jetbrains-mono
   ];
 
+  # ══════════════════════════════════════════════════════════════════
+  # GTK & QT OVERRIDES
+  # Using lib.mkForce (Priority 50) to outrank common.nix (Priority 1000)
+  # ══════════════════════════════════════════════════════════════════
+
   gtk = {
     enable = true;
     theme = {
-      name = "Adwaita-dark";
-      package = pkgs.gnome-themes-extra;
+      name = lib.mkForce "Adwaita-dark";
+      package = lib.mkForce pkgs.gnome-themes-extra;
     };
     iconTheme = {
       name = "Papirus-Dark";
@@ -54,9 +62,13 @@
 
   qt = {
     enable = true;
-    platformTheme.name = "adwaita";
-    style.name = "adwaita-dark";
+    platformTheme.name = lib.mkForce "adwaita";
+    style.name = lib.mkForce "adwaita-dark";
   };
+
+  # ══════════════════════════════════════════════════════════════════
+  # NIRI CONFIGURATION (KDL)
+  # ══════════════════════════════════════════════════════════════════
 
   xdg.configFile."niri/config.kdl".text = ''
     input {
@@ -109,7 +121,7 @@
     binds {
         Mod+Return { spawn "foot"; }
         Mod+D { spawn "fuzzel"; }
-Mod+N { spawn "foot" "-e" "nmtui"; }
+        Mod+N { spawn "foot" "-e" "nmtui"; }
         Mod+V { spawn "bash" "-c" "cliphist list | fuzzel -d | cliphist decode | wl-copy"; }
 
         Mod+Alt+L { spawn "swaylock" "-f" "-c" "000000"; }
@@ -154,6 +166,10 @@ Mod+N { spawn "foot" "-e" "nmtui"; }
         Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
     }
   '';
+
+  # ══════════════════════════════════════════════════════════════════
+  # WAYBAR CONFIGURATION
+  # ══════════════════════════════════════════════════════════════════
 
   programs.waybar = {
     enable = true;
