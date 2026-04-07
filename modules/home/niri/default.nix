@@ -75,7 +75,7 @@
         keyboard {
             xkb {
                 layout "us,il"
-                options "grp:alt_shift_toggle"
+            options "grp:win_space_toggle"
             }
         }
         touchpad {

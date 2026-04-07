@@ -83,6 +83,9 @@ in
     bat                     # Better 'cat'
     navi                    # Cheatsheet tool
     lynx                    # Terminal web browser
+    ytfzf                   # Terminal Youtube player
+    yt-dlp                  # Youtube downloader
+    mpv                     # Media player
 
     # ────────────────────────────────────────────────────────────────
     # TERMINAL EDITORS
