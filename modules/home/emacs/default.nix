@@ -1,33 +1,19 @@
 # modules/home/emacs/default.nix
-# Full Seforim-Ready Emacs configuration for Home Manager
 { config, lib, pkgs, myConfig, ... }:
 
 let
-  # Use Emacs 30 with PGTK (Wayland support)
   emacs = pkgs.emacs30-pgtk or pkgs.emacs30 or pkgs.emacs29-pgtk;
 
-  # Create emacs with all packages (Exhaustive List)
   emacsWithPackages = (pkgs.emacsPackagesFor emacs).emacsWithPackages (epkgs: with epkgs; [
-    # CORE
     use-package dash s f seq cl-lib diminish
-    # UI & APPEARANCE
     doom-themes doom-modeline nerd-icons all-the-icons all-the-icons-dired pulsar shrink-path
-    # COMPLETION & SEARCH
     vertico orderless marginalia consult embark embark-consult corfu anzu deadgrep engine-mode
-    # EDITING
     undo-tree avy ace-window multiple-cursors expand-region move-text crux visual-regexp wgrep
-    rainbow-delimiters goto-last-change beginend
-    # FILE/BUFFER
-    projectile consult-projectile dirvish
-    # ORG & NOTES
+    rainbow-delimiters goto-last-change beginend projectile consult-projectile dirvish
     org org-modern org-download org-roam org-roam-ui ox-pandoc citar citar-org-roam citeproc
-    # TERMINAL & TOOLS
-    vterm pdf-tools jinx gptel
-    # PROGRAMMING
-    magit git-gutter git-timemachine eglot eglot-java treesit-grammars.with-all-grammars
-    treesit-auto rust-mode cargo nix-mode markdown-mode typst-ts-mode yasnippet
-    yasnippet-snippets editorconfig envrc helpful which-key
-    # UTILITIES
+    vterm pdf-tools jinx gptel magit git-gutter git-timemachine eglot eglot-java
+    treesit-grammars.with-all-grammars treesit-auto rust-mode cargo nix-mode markdown-mode
+    typst-ts-mode yasnippet yasnippet-snippets editorconfig envrc helpful which-key
     gcmh hydra restart-emacs visual-fill-column
   ]);
 
@@ -37,20 +23,15 @@ in
 {
   home.packages = with pkgs; [
     emacsWithPackages
-    # Search Engines
     recoll plocate fd ripgrep
-    # LaTeX & Typesetting
     texlive.combined.scheme-full typst tinymist
-    # Utilities
     sqlite graphviz imagemagick tree-sitter hdate
-    # Language servers
     jdt-language-server nil rust-analyzer pyright lua-language-server
   ];
 
   home.sessionVariables = { EDITOR = "emacs"; VISUAL = "emacs"; };
 
   home.file.".config/emacs/early-init.el".text = ''
-    ;;; early-init.el - Optimizations
     (setq package-enable-at-startup nil load-prefer-newer t)
     (setq native-comp-eln-load-path (list (expand-file-name "~/.cache/emacs/eln-cache/")))
     (setq gc-cons-threshold most-positive-fixnum gc-cons-percentage 0.6)
@@ -62,7 +43,6 @@ in
   '';
 
   home.file.".config/emacs/init.el".text = ''
-    ;; init.el --- Modular Loader
     (defvar my/modules-dir (expand-file-name "modules" user-emacs-directory))
     (add-to-list 'load-path my/modules-dir)
     (defun my/tangle-modules ()
@@ -72,6 +52,7 @@ in
           (let* ((base (file-name-base org-file))
                  (el-file (expand-file-name (concat base ".el") my/modules-dir)))
             (when (or (not (file-exists-p el-file)) (file-newer-than-file-p org-file el-file))
+              (message "Tangling %s..." base)
               (org-babel-tangle-file org-file))))))
     (condition-case err (my/tangle-modules) (error (message "Tangling failed: %s" err)))
     (dolist (module '("00-core" "01-ui" "02-hebrew" "03-completion" "04-editing" "05-navigation"
@@ -85,19 +66,10 @@ in
   home.file.".recoll/recoll.conf".text = ''
     topdirs = ${seforimPath}
     followLinks = 1
-    indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf application/epub+zip application/vnd.openxmlformats-officedocument.wordprocessingml.document application/msword application/vnd.oasis.opendocument.text
-    [ext]
-    org = text/x-org
+    indexedmimetypes = text/x-org text/org text/plain application/pdf
     indexstemminglanguages = hebrew english
-    snippetMaxPosWalk = 1000000
-    maxTermExpand = 10000
     unac_except_stripping = true
-  '';
-
-  home.file.".recoll/mimeview".text = ''
-    [view]
-    text/x-org = emacsclient -n %f
-    application/pdf = emacsclient -n %f
+    snippetMaxPosWalk = 1000000
   '';
 
   home.activation.createOrgSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -105,14 +77,6 @@ in
     mkdir -p "${homeDir}/.cache/emacs/undo-tree-history"
     mkdir -p "${homeDir}/.cache/emacs/seforim"
     mkdir -p "${homeDir}/Documents/org"
-    mkdir -p "${homeDir}/Documents/roam/daily"
     mkdir -p "${seforimPath}/Bavli"
-
-    # Files creation
-    [ ! -f "${homeDir}/Documents/org/inbox.org" ] && echo "* Tasks\n* Notes" > "${homeDir}/Documents/org/inbox.org"
-    [ ! -f "${homeDir}/Documents/org/journal.org" ] && echo "#+TITLE: Journal" > "${homeDir}/Documents/org/journal.org"
-    [ ! -f "${homeDir}/Documents/org/research.org" ] && echo "#+TITLE: Research" > "${homeDir}/Documents/org/research.org"
-    [ ! -f "${homeDir}/Documents/bibliography.bib" ] && echo "% Bibliography" > "${homeDir}/Documents/bibliography.bib"
     [ ! -f "${homeDir}/.cache/emacs/seforim/study-log.el" ] && echo "nil" > "${homeDir}/.cache/emacs/seforim/study-log.el"
   '';
-}
