@@ -86,6 +86,7 @@ in
     ytfzf                   # Terminal Youtube player
     yt-dlp                  # Youtube downloader
     mpv                     # Media player
+    zip
 
     # ────────────────────────────────────────────────────────────────
     # TERMINAL EDITORS
