@@ -44,7 +44,7 @@ let
     fi
   '';
 
-  # --- ADVANCED SCRIPT: SWALLOW WRAPPER (Foreground Only) ---
+  # --- ADVANCED SCRIPT: SWALLOW WRAPPER ---
   swallow = pkgs.writeShellScriptBin "swallow" ''
     niri msg action set-window-opacity 0.0
     "$@"
@@ -59,6 +59,16 @@ let
     niri msg action focus-window --id "$ID"
   '';
 
+  # --- ADVANCED SCRIPT: ANNOTATED SCREENSHOT ---
+  screenshot = pkgs.writeShellScriptBin "screenshot-edit" ''
+    FILE="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"
+    mkdir -p "$(dirname "$FILE")"
+    grim -g "$(slurp)" "$FILE"
+    if [ -f "$FILE" ]; then
+       ${pkgs.swappy}/bin/swappy -f "$FILE"
+    fi
+  '';
+
 in {
   imports = [ ../yazi.nix ];
 
@@ -70,14 +80,21 @@ in {
     QT_QPA_PLATFORM = "wayland";
     GDK_BACKEND = "wayland";
   };
+ home.pointerCursor = {
+    name = "Adwaita";
+    package = pkgs.adwaita-icon-theme;
+    size = 24;
+    gtk.enable = true;
+    x11.enable = true;
+  };
 
   home.packages = with pkgs; [
     foot fuzzel waybar mako swww wlogout avizo
     grim slurp wl-clipboard cliphist swaylock-effects
-    swayidle playerctl udiskie pavucontrol light
+    swayidle playerctl udiskie pavucontrol light swappy
     networkmanagerapplet polkit_gnome
     libsecret fd fzf jq
-    powerSearch spotlight swallow teleport
+    powerSearch spotlight swallow teleport screenshot
   ];
 
   # 2. SERVICES
@@ -143,7 +160,7 @@ in {
     };
   };
 
-  # 4. NIRI CONFIGURATION
+  # 4. NIRI CONFIGURATION (Validated KDL)
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -157,7 +174,7 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll
+            natural-scroll false
         }
     }
 
@@ -250,10 +267,11 @@ in {
         Mod+Shift+Up { move-window-to-workspace-up; }
         Mod+Shift+Down { move-window-to-workspace-down; }
 
-        TouchpadSwipe3Left  { move-column-left; }
-        TouchpadSwipe3Right { move-column-right; }
-        TouchpadSwipe4Up    { focus-workspace-down; }
-        TouchpadSwipe4Down  { focus-workspace-up; }
+        // Touchpad Navigation (Swipe with Mod)
+        Mod+TouchpadScrollLeft  { focus-column-left; }
+        Mod+TouchpadScrollRight { focus-column-right; }
+        Mod+TouchpadScrollUp    { focus-workspace-up; }
+        Mod+TouchpadScrollDown  { focus-workspace-down; }
 
         Mod+R { switch-preset-column-width; }
         Mod+F { maximize-column; }
@@ -268,7 +286,7 @@ in {
         XF86MonBrightnessUp { spawn "light" "-A" "5"; }
         XF86MonBrightnessDown { spawn "light" "-U" "5"; }
 
-        Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
+        Print { spawn "screenshot-edit"; }
     }
   '';
 

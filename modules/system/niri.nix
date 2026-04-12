@@ -2,6 +2,7 @@
 # modules/system/niri.nix
 { pkgs, ... }: {
   programs.niri.enable = true;
+  programs.uwsm.enable = true;
 
   # Hardware Access & Power
   programs.light.enable = true; # Enables brightness control hardware access
