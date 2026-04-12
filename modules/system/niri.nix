@@ -3,7 +3,13 @@
 { pkgs, ... }: {
   programs.niri.enable = true;
   programs.uwsm.enable = true;
-
+  # --- ADD THIS BLOCK TO FIX THE ERROR ---
+  programs.uwsm.waylandCompositors.niri = {
+    prettyName = "Niri";
+    comment = "Scrollable tiling compositor";
+    binPath = "/run/current-system/sw/bin/niri";
+  };
+  # ---------------------------------------
   # Hardware Access & Power
   programs.light.enable = true; # Enables brightness control hardware access
   services.udisks2.enable = true; # Enables disk mounting permissions
