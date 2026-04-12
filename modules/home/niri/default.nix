@@ -10,7 +10,7 @@ let
   gray = "#414868";
   dark_bg = "#16161e";
 
-  # --- ADVANCED SCRIPT: POWER SEARCH (FD + FUZZEL + ACTIONS) ---
+  # ... (The scripts powerSearch, spotlight, swallow, teleport, screenshot remain exactly as they were) ...
   powerSearch = pkgs.writeShellScriptBin "power-search" ''
     FILE=$(fd . $HOME --exclude .cache --exclude .git | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
     [ -z "$FILE" ] && exit 0
@@ -27,7 +27,6 @@ let
     esac
   '';
 
-  # --- ADVANCED SCRIPT: FOCUS SPOTLIGHT (Deep Work Mode) ---
   spotlight = pkgs.writeShellScriptBin "niri-spotlight" ''
     STATE_FILE="/tmp/niri-spotlight-state"
     if [ ! -f "$STATE_FILE" ]; then
@@ -44,14 +43,12 @@ let
     fi
   '';
 
-  # --- ADVANCED SCRIPT: SWALLOW WRAPPER ---
   swallow = pkgs.writeShellScriptBin "swallow" ''
     niri msg action set-window-opacity 0.0
     "$@"
     niri msg action set-window-opacity 1.0
   '';
 
-  # --- ADVANCED SCRIPT: TELEPORT (Window Switcher) ---
   teleport = pkgs.writeShellScriptBin "teleport" ''
     WINDOW=$(niri msg --json windows | jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
     [ -z "$WINDOW" ] && exit 0
@@ -59,7 +56,6 @@ let
     niri msg action focus-window --id "$ID"
   '';
 
-  # --- ADVANCED SCRIPT: ANNOTATED SCREENSHOT ---
   screenshot = pkgs.writeShellScriptBin "screenshot-edit" ''
     FILE="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"
     mkdir -p "$(dirname "$FILE")"
@@ -74,19 +70,8 @@ in {
 
   # 1. ENVIRONMENT & FONTS
   fonts.fontconfig.enable = true;
-  home.sessionVariables = {
-    NIXOS_OZONE_WL = "1";
-    MOZ_ENABLE_WAYLAND = "1";
-    QT_QPA_PLATFORM = "wayland";
-    GDK_BACKEND = "wayland";
-  };
- home.pointerCursor = {
-    name = "Adwaita";
-    package = pkgs.adwaita-icon-theme;
-    size = 24;
-    gtk.enable = true;
-    x11.enable = true;
-  };
+
+  # REMOVED: home.sessionVariables (They break Konsole in Plasma)
 
   home.packages = with pkgs; [
     foot fuzzel waybar mako swww wlogout avizo
@@ -97,7 +82,7 @@ in {
     powerSearch spotlight swallow teleport screenshot
   ];
 
-  # 2. SERVICES
+  # ... (Services: gnome-keyring, swayidle, mako, kanshi remain exactly as they were) ...
   services.gnome-keyring.enable = true;
 
   services.swayidle = {
@@ -139,7 +124,7 @@ in {
     ];
   };
 
-  # 3. FUZZEL CONFIGURATION
+  # 3. FUZZEL CONFIGURATION (Remains same)
   programs.fuzzel = {
     enable = true;
     settings = {
@@ -160,8 +145,16 @@ in {
     };
   };
 
-  # 4. NIRI CONFIGURATION (Validated KDL)
+  # 4. NIRI CONFIGURATION (Added environment block)
   xdg.configFile."niri/config.kdl".text = ''
+    // These variables ONLY apply when you boot into Niri
+    environment {
+        QT_QPA_PLATFORM "wayland"
+        NIXOS_OZONE_WL "1"
+        MOZ_ENABLE_WAYLAND "1"
+        GDK_BACKEND "wayland"
+    }
+
     input {
         keyboard {
             xkb {
@@ -174,7 +167,8 @@ in {
         touchpad {
             tap
             dwt
-                    }
+            natural-scroll
+        }
     }
 
     output ".*" {
@@ -208,8 +202,6 @@ in {
         }
     }
 
-    // --- WINDOW RULES ---
-
     window-rule {
         match is-active=false;
         opacity 0.7
@@ -227,7 +219,6 @@ in {
         default-column-width { fixed 1100; }
     }
 
-    // --- STARTUP ---
     spawn-at-startup "uwsm" "app" "--" "waybar"
     spawn-at-startup "uwsm" "app" "--" "mako"
     spawn-at-startup "uwsm" "app" "--" "swww-daemon"
@@ -236,7 +227,6 @@ in {
     spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
     spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
 
-    // --- BINDS ---
     binds {
         Mod+Slash { show-hotkey-overlay; }
 
@@ -266,7 +256,6 @@ in {
         Mod+Shift+Up { move-window-to-workspace-up; }
         Mod+Shift+Down { move-window-to-workspace-down; }
 
-        // Touchpad Navigation (Swipe with Mod)
         Mod+TouchpadScrollLeft  { focus-column-left; }
         Mod+TouchpadScrollRight { focus-column-right; }
         Mod+TouchpadScrollUp    { focus-workspace-up; }
@@ -289,7 +278,7 @@ in {
     }
   '';
 
-  # 5. WAYBAR
+  # ... (Waybar, GTK/QT themes remain same) ...
   programs.waybar = {
     enable = true;
     settings = [{
@@ -371,7 +360,6 @@ in {
     '';
   };
 
-  # 6. GTK & QT THEMES
   gtk = {
     enable = true;
     theme = {
