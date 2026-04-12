@@ -18,8 +18,12 @@ let
     ACTION=$(echo -e "🚀 Open\n📁 Open Folder (Yazi)\n💻 Open Terminal Here" | ${pkgs.fuzzel}/bin/fuzzel -d -p "Action: ")
     case "$ACTION" in
         "🚀 Open") xdg-open "$FILE" ;;
-        "📁 Open Folder (Yazi)") ${pkgs.foot}/bin/foot -e ${pkgs.yazi}/bin/yazi "$(dirname "$FILE")" ;;
-        "💻 Open Terminal Here") ${pkgs.foot}/bin/foot -D "$(dirname "$FILE")" ;;
+        "📁 Open Folder (Yazi)")
+            DIR=$(dirname "$FILE")
+            ${pkgs.foot}/bin/foot -e ${pkgs.yazi}/bin/yazi "$DIR" ;;
+        "💻 Open Terminal Here")
+            DIR=$(dirname "$FILE")
+            ${pkgs.foot}/bin/foot -D "$DIR" ;;
     esac
   '';
 
@@ -30,17 +34,17 @@ let
         niri msg action toggle-window-floating
         niri msg action center-column
         niri msg action set-column-width "90%"
-        pkill -SIGUSR1 waybar # Hide Waybar
+        pkill -SIGUSR1 waybar
         touch "$STATE_FILE"
     else
         niri msg action toggle-window-floating
         niri msg action set-column-width "50%"
-        pkill -SIGUSR1 waybar # Show Waybar
+        pkill -SIGUSR1 waybar
         rm "$STATE_FILE"
     fi
   '';
 
-  # --- ADVANCED SCRIPT: SWALLOW WRAPPER (Foreground Only) ---
+  # --- ADVANCED SCRIPT: SWALLOW WRAPPER ---
   swallow = pkgs.writeShellScriptBin "swallow" ''
     niri msg action set-window-opacity 0.0
     "$@"
@@ -58,22 +62,29 @@ let
 in {
   imports = [ ../yazi.nix ];
 
+  # 1. ENVIRONMENT & FONTS
+  fonts.fontconfig.enable = true;
+  home.sessionVariables = {
+    NIXOS_OZONE_WL = "1";
+    MOZ_ENABLE_WAYLAND = "1";
+    QT_QPA_PLATFORM = "wayland";
+    GDK_BACKEND = "wayland";
+    SDL_VIDEODRIVER = "wayland";
+    CLUTTER_BACKEND = "wayland";
+  };
+
   home.packages = with pkgs; [
-    # Desktop Core
     foot fuzzel waybar mako swww wlogout avizo
     grim slurp wl-clipboard cliphist swaylock-effects
     swayidle playerctl udiskie pavucontrol light
-    networkmanagerapplet # Provides nm-applet and nm-connection-editor
+    networkmanagerapplet polkit_gnome
     libsecret fd fzf jq
-
-    # Our Custom Advanced Scripts
     powerSearch spotlight swallow teleport
   ];
 
-  # 1. FIX WIFI: Secret Service for Password Storage
+  # 2. SERVICES (Expanded for detail)
   services.gnome-keyring.enable = true;
 
-  # 2. POWER MANAGEMENT: Smart Idle & Lock
   services.swayidle = {
     enable = true;
     events = [
@@ -86,7 +97,53 @@ in {
     ];
   };
 
-  # 3. NIRI CONFIGURATION (KDL)
+  services.mako = {
+    enable = true;
+    backgroundColor = bg;
+    textColor = fg;
+    borderColor = blue;
+    borderSize = 2;
+    borderRadius = 12;
+    defaultTimeout = 5000;
+    font = "JetBrainsMono Nerd Font 10";
+  };
+
+  services.kanshi = {
+    enable = true;
+    settings = [
+      {
+        profile.name = "internal";
+        profile.outputs = [{
+          criteria = "eDP-1";
+          scale = 1.0;
+          status = "enable";
+        }];
+      }
+    ];
+  };
+
+  # 3. FUZZEL CONFIGURATION
+  programs.fuzzel = {
+    enable = true;
+    settings = {
+      main = {
+        font = "JetBrainsMono Nerd Font:size=13";
+        terminal = "foot";
+        prompt = "'󰍉 '";
+      };
+      colors = {
+        background = "1a1b26ff";
+        text = "c0caf5ff";
+        match = "7aa2f7ff";
+        selection = "414868ff";
+        selection-text = "c0caf5ff";
+        border = "7aa2f7ff";
+      };
+      border = { width = 2; radius = 10; };
+    };
+  };
+
+  # 4. NIRI CONFIGURATION (Expanded KDL)
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -108,6 +165,10 @@ in {
         scale 1.0
     }
 
+    xwayland {
+        enabled true
+    }
+
     layout {
         gaps 16
         center-focused-column "never"
@@ -125,55 +186,48 @@ in {
         }
     }
 
+    animations {
+        slowdown 1.2
+        workspace-switch {
+            spring stiffness 800 damping 60 epsilon 0.0001
+        }
+        window-open {
+            spring stiffness 800 damping 50 epsilon 0.0001
+        }
+    }
+
     // --- WINDOW RULES ---
 
-    // Idea #1: Inactive Window Dimming
     window-rule {
         match is-active=false;
         opacity 0.7
     }
 
-    // Floating Rules for Dialogs & Tools
     window-rule {
-        match is-active=true;
-        match title="Open File";
-        match title="Save File";
         match app-id="nm-connection-editor";
         match app-id="pavucontrol";
         open-floating true;
     }
 
-    // Scratchpad Styling
     window-rule {
         match title="scratchpad";
         open-floating true;
-        sticky true;
-        default-floating-width 1100
-        default-floating-height 650
+        default-column-width { fixed 1100; }
     }
 
-    // --- STARTUP (UWSM Wrapped) ---
+    // --- STARTUP ---
     spawn-at-startup "uwsm" "app" "--" "waybar"
     spawn-at-startup "uwsm" "app" "--" "mako"
     spawn-at-startup "uwsm" "app" "--" "swww-daemon"
     spawn-at-startup "uwsm" "app" "--" "nm-applet"
     spawn-at-startup "uwsm" "app" "--" "udiskie" "--tray"
+    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
     spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
-
-    // --- GESTURES (Spatial Navigation) ---
-    gestures {
-        swipe-left { move-column-left; }
-        swipe-right { move-column-right; }
-        swipe-up { focus-workspace-down; }
-        swipe-down { focus-workspace-up; }
-    }
 
     // --- BINDS ---
     binds {
-        // Help Discovery
         Mod+Slash { show-hotkey-overlay; }
 
-        // Essentials
         Mod+Return { spawn "uwsm" "app" "--" "foot"; }
         Mod+D { spawn "uwsm" "app" "--" "fuzzel"; }
         Mod+N { spawn "uwsm" "app" "--" "nm-connection-editor"; }
@@ -181,28 +235,34 @@ in {
         Mod+Shift+C { close-window; }
         Mod+Shift+Q { spawn "wlogout"; }
 
-        // Advanced Features
         Mod+Space { spawn "power-search"; }
         Mod+T { spawn "teleport"; }
         Mod+Alt+S { spawn "niri-spotlight"; }
         Mod+S { spawn "foot" "-t" "scratchpad"; }
 
-        // Spatial Navigation (Horizontal windows, vertical workspaces)
-        Mod+Left  { focus-column-left; }
+        Mod+Left { focus-column-left; }
         Mod+Right { focus-column-right; }
-        Mod+H     { focus-column-left; }
-        Mod+L     { focus-column-right; }
-        Mod+Up    { focus-workspace-up; }
-        Mod+Down  { focus-workspace-down; }
-        Mod+K     { focus-workspace-up; }
-        Mod+J     { focus-workspace-down; }
+        Mod+H { focus-column-left; }
+        Mod+L { focus-column-right; }
+        Mod+Up { focus-workspace-up; }
+        Mod+Down { focus-workspace-down; }
+        Mod+K { focus-workspace-up; }
+        Mod+J { focus-workspace-down; }
 
-        Mod+Shift+Left  { move-column-left; }
+        Mod+Shift+Left { move-column-left; }
         Mod+Shift+Right { move-column-right; }
-        Mod+Shift+Up    { move-window-to-workspace-up; }
-        Mod+Shift+Down  { move-window-to-workspace-down; }
+        Mod+Shift+H { move-column-left; }
+        Mod+Shift+L { move-column-right; }
+        Mod+Shift+Up { move-window-to-workspace-up; }
+        Mod+Shift+Down { move-window-to-workspace-down; }
+        Mod+Shift+K { move-window-to-workspace-up; }
+        Mod+Shift+J { move-window-to-workspace-down; }
 
-        // Layout Control
+        TouchpadSwipe3Left  { move-column-left; }
+        TouchpadSwipe3Right { move-column-right; }
+        TouchpadSwipe4Up    { focus-workspace-down; }
+        TouchpadSwipe4Down  { focus-workspace-up; }
+
         Mod+R { switch-preset-column-width; }
         Mod+F { maximize-column; }
         Mod+Shift+F { fullscreen-window; }
@@ -210,18 +270,17 @@ in {
         Mod+Period { expel-window-from-column; }
         Mod+C { center-column; }
 
-        // Hardware Controls
-        XF86AudioRaiseVolume   { spawn "volumectl" "-u" "up"; }
-        XF86AudioLowerVolume   { spawn "volumectl" "-u" "down"; }
-        XF86AudioMute          { spawn "volumectl" "toggle-mute"; }
-        XF86MonBrightnessUp    { spawn "light" "-A" "5"; }
-        XF86MonBrightnessDown  { spawn "light" "-U" "5"; }
+        XF86AudioRaiseVolume { spawn "volumectl" "-u" "up"; }
+        XF86AudioLowerVolume { spawn "volumectl" "-u" "down"; }
+        XF86AudioMute { spawn "volumectl" "toggle-mute"; }
+        XF86MonBrightnessUp { spawn "light" "-A" "5"; }
+        XF86MonBrightnessDown { spawn "light" "-U" "5"; }
 
         Print { spawn "bash" "-c" "grim -g \"$(slurp)\" - | wl-copy"; }
     }
   '';
 
-  # 4. WAYBAR: Floating Island Style
+  # 5. WAYBAR (Expanded Styling)
   programs.waybar = {
     enable = true;
     settings = [{
@@ -234,7 +293,10 @@ in {
 
       "niri/workspaces" = {
         format = "{icon}";
-        format-icons = { default = "○"; focused = "●"; };
+        format-icons = {
+            default = "○";
+            focused = "●";
+        };
       };
 
       "custom/help" = {
@@ -255,16 +317,27 @@ in {
         on-click = "pavucontrol";
       };
 
-      clock = { format = "󰥔  {:%H:%M}"; };
+      clock = {
+        format = "󰥔  {:%H:%M}";
+      };
+
+      battery = {
+        format = "{icon} {capacity}%";
+        format-icons = ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"];
+      };
     }];
 
     style = ''
       * {
-        font-family: "JetBrainsMono Nerd Font";
+        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew";
         font-size: 13px;
         border: none;
       }
-      window#waybar { background: transparent; }
+
+      window#waybar {
+        background: transparent;
+      }
+
       #window, #workspaces, #network, #pulseaudio, #battery, #clock, #tray, #custom-help {
         background: ${bg};
         color: ${fg};
@@ -273,13 +346,23 @@ in {
         border-radius: 12px;
         border: 1px solid ${gray};
       }
-      #workspaces button { color: ${gray}; }
-      #workspaces button.focused { color: ${blue}; }
-      #custom-help { color: ${magenta}; }
+
+      #workspaces button {
+        color: ${gray};
+        padding: 0 4px;
+      }
+
+      #workspaces button.focused {
+        color: ${blue};
+      }
+
+      #custom-help {
+        color: ${magenta};
+      }
     '';
   };
 
-  # 5. THEME OVERRIDES
+  # 6. GTK & QT THEMES
   gtk = {
     enable = true;
     theme = {
@@ -290,11 +373,15 @@ in {
       name = "Papirus-Dark";
       package = pkgs.papirus-icon-theme;
     };
+    cursorTheme = {
+      name = "Adwaita";
+      package = pkgs.adwaita-icon-theme;
+    };
   };
 
   qt = {
     enable = true;
-    platformTheme.name = "adwaita";
-    style.name = "adwaita-dark";
+    platformTheme.name = lib.mkForce "adwaita";
+    style.name = lib.mkForce "adwaita-dark";
   };
 }
