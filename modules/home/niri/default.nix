@@ -23,40 +23,31 @@ let
     esac
   '';
 
-  # --- ADVANCED SCRIPT: FOCUS SPOTLIGHT (Idea #3) ---
+  # --- ADVANCED SCRIPT: FOCUS SPOTLIGHT (Deep Work Mode) ---
   spotlight = pkgs.writeShellScriptBin "niri-spotlight" ''
     STATE_FILE="/tmp/niri-spotlight-state"
     if [ ! -f "$STATE_FILE" ]; then
-        # Entering Spotlight
         niri msg action toggle-window-floating
         niri msg action center-column
-        # Enlarge: Use proportion logic
         niri msg action set-column-width "90%"
-        # Dim others (via a temporary rule or global opacity)
-        # Note: Niri doesn't have a 'dim others' command, so we set global background opacity
-        # and hide the bar for immersion
-        pkill -SIGUSR1 waybar
+        pkill -SIGUSR1 waybar # Hide Waybar
         touch "$STATE_FILE"
     else
-        # Exiting Spotlight
         niri msg action toggle-window-floating
         niri msg action set-column-width "50%"
-        pkill -SIGUSR1 waybar
+        pkill -SIGUSR1 waybar # Show Waybar
         rm "$STATE_FILE"
     fi
   '';
 
-  # --- ADVANCED SCRIPT: SWALLOW WRAPPER (Idea #2) ---
-  # Usage: swallow imv photo.jpg
+  # --- ADVANCED SCRIPT: SWALLOW WRAPPER (Foreground Only) ---
   swallow = pkgs.writeShellScriptBin "swallow" ''
-    WINDOW_ID=$(niri msg --json windows | jq '.[] | select(.is_focused == true) | .id')
     niri msg action set-window-opacity 0.0
     "$@"
     niri msg action set-window-opacity 1.0
   '';
 
-  # --- ADVANCED SCRIPT: TELEPORT (Idea #4) ---
-  # Uses Fuzzel to list windows and jump to them instantly
+  # --- ADVANCED SCRIPT: TELEPORT (Window Switcher) ---
   teleport = pkgs.writeShellScriptBin "teleport" ''
     WINDOW=$(niri msg --json windows | jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
     [ -z "$WINDOW" ] && exit 0
@@ -68,18 +59,21 @@ in {
   imports = [ ../yazi.nix ];
 
   home.packages = with pkgs; [
+    # Desktop Core
     foot fuzzel waybar mako swww wlogout avizo
     grim slurp wl-clipboard cliphist swaylock-effects
     swayidle playerctl udiskie pavucontrol light
-    networkmanagerapplet
+    networkmanagerapplet # Provides nm-applet and nm-connection-editor
     libsecret fd fzf jq
+
+    # Our Custom Advanced Scripts
     powerSearch spotlight swallow teleport
   ];
 
-  # --- SERVICES (The "Invisible" Logic) ---
+  # 1. FIX WIFI: Secret Service for Password Storage
+  services.gnome-keyring.enable = true;
 
-  services.gnome-keyring.enable = true; # Fixes Wi-Fi forgotten passwords
-
+  # 2. POWER MANAGEMENT: Smart Idle & Lock
   services.swayidle = {
     enable = true;
     events = [
@@ -92,7 +86,7 @@ in {
     ];
   };
 
-  # --- NIRI CONFIG (KDL) ---
+  # 3. NIRI CONFIGURATION (KDL)
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -131,7 +125,7 @@ in {
         }
     }
 
-    # --- WINDOW RULES ---
+    // --- WINDOW RULES ---
 
     // Idea #1: Inactive Window Dimming
     window-rule {
@@ -139,7 +133,7 @@ in {
         opacity 0.7
     }
 
-    // Rules for Dialogs and Tools
+    // Floating Rules for Dialogs & Tools
     window-rule {
         match is-active=true;
         match title="Open File";
@@ -158,7 +152,7 @@ in {
         default-floating-height 650
     }
 
-    # --- STARTUP ---
+    // --- STARTUP (UWSM Wrapped) ---
     spawn-at-startup "uwsm" "app" "--" "waybar"
     spawn-at-startup "uwsm" "app" "--" "mako"
     spawn-at-startup "uwsm" "app" "--" "swww-daemon"
@@ -166,7 +160,7 @@ in {
     spawn-at-startup "uwsm" "app" "--" "udiskie" "--tray"
     spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
 
-    # --- GESTURES (Spatial) ---
+    // --- GESTURES (Spatial Navigation) ---
     gestures {
         swipe-left { move-column-left; }
         swipe-right { move-column-right; }
@@ -174,8 +168,11 @@ in {
         swipe-down { focus-workspace-up; }
     }
 
-    # --- BINDS ---
+    // --- BINDS ---
     binds {
+        // Help Discovery
+        Mod+Slash { show-hotkey-overlay; }
+
         // Essentials
         Mod+Return { spawn "uwsm" "app" "--" "foot"; }
         Mod+D { spawn "uwsm" "app" "--" "fuzzel"; }
@@ -185,17 +182,16 @@ in {
         Mod+Shift+Q { spawn "wlogout"; }
 
         // Advanced Features
-        Mod+Space { spawn "power-search"; }      // Power Search (Idea #4)
-        Mod+T { spawn "teleport"; }              // Interactive Teleport (Idea #4)
-        Mod+Alt+S { spawn "niri-spotlight"; }    // Deep Work Spotlight (Idea #3)
-        Mod+S { spawn "foot" "-t" "scratchpad"; } // Quick Scratchpad
+        Mod+Space { spawn "power-search"; }
+        Mod+T { spawn "teleport"; }
+        Mod+Alt+S { spawn "niri-spotlight"; }
+        Mod+S { spawn "foot" "-t" "scratchpad"; }
 
-        // Spatial Navigation (Mod+HJKL or Mod+Arrows)
+        // Spatial Navigation (Horizontal windows, vertical workspaces)
         Mod+Left  { focus-column-left; }
         Mod+Right { focus-column-right; }
         Mod+H     { focus-column-left; }
         Mod+L     { focus-column-right; }
-
         Mod+Up    { focus-workspace-up; }
         Mod+Down  { focus-workspace-down; }
         Mod+K     { focus-workspace-up; }
@@ -206,7 +202,7 @@ in {
         Mod+Shift+Up    { move-window-to-workspace-up; }
         Mod+Shift+Down  { move-window-to-workspace-down; }
 
-        // Layout Manipulation
+        // Layout Control
         Mod+R { switch-preset-column-width; }
         Mod+F { maximize-column; }
         Mod+Shift+F { fullscreen-window; }
@@ -214,7 +210,7 @@ in {
         Mod+Period { expel-window-from-column; }
         Mod+C { center-column; }
 
-        // Multimedia
+        // Hardware Controls
         XF86AudioRaiseVolume   { spawn "volumectl" "-u" "up"; }
         XF86AudioLowerVolume   { spawn "volumectl" "-u" "down"; }
         XF86AudioMute          { spawn "volumectl" "toggle-mute"; }
@@ -225,7 +221,7 @@ in {
     }
   '';
 
-  # --- WAYBAR (Floating Island Design) ---
+  # 4. WAYBAR: Floating Island Style
   programs.waybar = {
     enable = true;
     settings = [{
@@ -234,11 +230,17 @@ in {
       margin = "8 12 0 12";
       modules-left = [ "niri/window" ];
       modules-center = [ "niri/workspaces" ];
-      modules-right = [ "network" "pulseaudio" "battery" "clock" "tray" ];
+      modules-right = [ "custom/help" "network" "pulseaudio" "battery" "clock" "tray" ];
 
       "niri/workspaces" = {
         format = "{icon}";
         format-icons = { default = "○"; focused = "●"; };
+      };
+
+      "custom/help" = {
+        format = "󰞋";
+        on-click = "niri msg action show-hotkey-overlay";
+        tooltip-format = "Show Shortcuts (Mod+/)";
       };
 
       network = {
@@ -263,7 +265,7 @@ in {
         border: none;
       }
       window#waybar { background: transparent; }
-      #window, #workspaces, #network, #pulseaudio, #battery, #clock, #tray {
+      #window, #workspaces, #network, #pulseaudio, #battery, #clock, #tray, #custom-help {
         background: ${bg};
         color: ${fg};
         padding: 4px 14px;
@@ -273,10 +275,11 @@ in {
       }
       #workspaces button { color: ${gray}; }
       #workspaces button.focused { color: ${blue}; }
+      #custom-help { color: ${magenta}; }
     '';
   };
 
-  # --- GTK & THEME OVERRIDES ---
+  # 5. THEME OVERRIDES
   gtk = {
     enable = true;
     theme = {
