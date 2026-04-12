@@ -174,8 +174,7 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll false
-        }
+                    }
     }
 
     output ".*" {
