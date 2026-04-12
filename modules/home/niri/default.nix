@@ -71,7 +71,7 @@ in {
     foot fuzzel waybar mako swww wlogout avizo
     grim slurp wl-clipboard cliphist swaylock-effects
     swayidle playerctl udiskie pavucontrol light
-    networkmanagerapplet nm-connection-editor
+    networkmanagerapplet
     libsecret fd fzf jq
     powerSearch spotlight swallow teleport
   ];
