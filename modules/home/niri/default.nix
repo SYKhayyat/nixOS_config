@@ -97,15 +97,18 @@ in {
     ];
   };
 
+  # UPDATED MAKO SETTINGS (Fixed Warnings)
   services.mako = {
     enable = true;
-    backgroundColor = bg;
-    textColor = fg;
-    borderColor = blue;
-    borderSize = 2;
-    borderRadius = 12;
-    defaultTimeout = 5000;
-    font = "JetBrainsMono Nerd Font 10";
+    settings = {
+      background-color = bg;
+      text-color = fg;
+      border-color = blue;
+      border-size = 2;
+      border-radius = 12;
+      default-timeout = 5000;
+      font = "JetBrainsMono Nerd Font 10";
+    };
   };
 
   services.kanshi = {
