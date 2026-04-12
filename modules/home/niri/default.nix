@@ -44,7 +44,7 @@ let
     fi
   '';
 
-  # --- ADVANCED SCRIPT: SWALLOW WRAPPER ---
+  # --- ADVANCED SCRIPT: SWALLOW WRAPPER (Foreground Only) ---
   swallow = pkgs.writeShellScriptBin "swallow" ''
     niri msg action set-window-opacity 0.0
     "$@"
@@ -82,7 +82,7 @@ in {
     powerSearch spotlight swallow teleport
   ];
 
-  # 2. SERVICES (Expanded for detail)
+  # 2. SERVICES
   services.gnome-keyring.enable = true;
 
   services.swayidle = {
@@ -143,7 +143,7 @@ in {
     };
   };
 
-  # 4. NIRI CONFIGURATION (Expanded KDL)
+  # 4. NIRI CONFIGURATION
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -251,12 +251,8 @@ in {
 
         Mod+Shift+Left { move-column-left; }
         Mod+Shift+Right { move-column-right; }
-        Mod+Shift+H { move-column-left; }
-        Mod+Shift+L { move-column-right; }
         Mod+Shift+Up { move-window-to-workspace-up; }
         Mod+Shift+Down { move-window-to-workspace-down; }
-        Mod+Shift+K { move-window-to-workspace-up; }
-        Mod+Shift+J { move-window-to-workspace-down; }
 
         TouchpadSwipe3Left  { move-column-left; }
         TouchpadSwipe3Right { move-column-right; }
@@ -280,7 +276,7 @@ in {
     }
   '';
 
-  # 5. WAYBAR (Expanded Styling)
+  # 5. WAYBAR
   programs.waybar = {
     enable = true;
     settings = [{
@@ -323,7 +319,7 @@ in {
 
       battery = {
         format = "{icon} {capacity}%";
-        format-icons = ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"];
+        format-icons = [ "󰂎" "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       };
     }];
 
