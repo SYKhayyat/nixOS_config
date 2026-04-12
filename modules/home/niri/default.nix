@@ -69,8 +69,6 @@ in {
     MOZ_ENABLE_WAYLAND = "1";
     QT_QPA_PLATFORM = "wayland";
     GDK_BACKEND = "wayland";
-    SDL_VIDEODRIVER = "wayland";
-    CLUTTER_BACKEND = "wayland";
   };
 
   home.packages = with pkgs; [
@@ -145,7 +143,7 @@ in {
     };
   };
 
-  # 4. NIRI CONFIGURATION (Validated KDL)
+  # 4. NIRI CONFIGURATION
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -165,10 +163,6 @@ in {
 
     output ".*" {
         scale 1.0
-    }
-
-    xwayland {
-        enabled true
     }
 
     layout {
@@ -191,10 +185,10 @@ in {
     animations {
         slowdown 1.2
         workspace-switch {
-            spring stiffness=800 damping=60 epsilon=0.0001
+            spring stiffness=800 damping-ratio=1.0 epsilon=0.0001
         }
         window-open {
-            spring stiffness=800 damping=50 epsilon=0.0001
+            spring stiffness=800 damping-ratio=1.0 epsilon=0.0001
         }
     }
 
