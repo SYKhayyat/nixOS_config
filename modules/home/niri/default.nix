@@ -97,7 +97,6 @@ in {
     ];
   };
 
-  # UPDATED MAKO SETTINGS (Fixed Warnings)
   services.mako = {
     enable = true;
     settings = {
@@ -146,7 +145,7 @@ in {
     };
   };
 
-  # 4. NIRI CONFIGURATION
+  # 4. NIRI CONFIGURATION (Validated KDL)
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -192,10 +191,10 @@ in {
     animations {
         slowdown 1.2
         workspace-switch {
-            spring stiffness 800 damping 60 epsilon 0.0001
+            spring stiffness=800 damping=60 epsilon=0.0001
         }
         window-open {
-            spring stiffness 800 damping 50 epsilon 0.0001
+            spring stiffness=800 damping=50 epsilon=0.0001
         }
     }
 
