@@ -1,6 +1,4 @@
 # modules/system/core.nix
-# Core system settings: boot, networking, localization, Nix configuration
-
 { config, lib, pkgs, myConfig, ... }:
 
 {
@@ -46,31 +44,41 @@
     trusted-users = [ "root" myConfig.username ];
   };
 
-  # Automatic garbage collection
   nix.gc = {
     automatic = true;
     dates = "weekly";
     options = "--delete-older-than 14d";
   };
 
-  # Allow unfree packages (required for some software)
   nixpkgs.config.allowUnfree = true;
 
   # ══════════════════════════════════════════════════════════════════
-  # SECURITY
+  # SECURITY & PORTALS
   # ══════════════════════════════════════════════════════════════════
 
   security.rtkit.enable = true;  # Required for PipeWire
+  security.polkit.enable = true; # Required for privilege escalation
+
+  # XDG Portals: Critical for Niri to handle secrets and file dialogs
+  xdg.portal = {
+    enable = true;
+    xdgOpenUsePortal = true;
+    extraPortals = [
+      pkgs.xdg-desktop-portal-gtk
+      pkgs.xdg-desktop-portal-gnome
+    ];
+    config.common.default = [ "gtk" ];
+  };
 
   # ══════════════════════════════════════════════════════════════════
   # BASIC SERVICES
   # ══════════════════════════════════════════════════════════════════
 
   services.openssh.enable = true;
+  services.dbus.enable = true;
 
   # ══════════════════════════════════════════════════════════════════
   # STATE VERSION
-  # Do not change this after initial installation
   # ══════════════════════════════════════════════════════════════════
 
   system.stateVersion = "25.11";

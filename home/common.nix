@@ -63,11 +63,12 @@
     nfu = "cd ~/nixos-config && nix flake update";
     nconf = "cd ~/nixos-config && $EDITOR .";
     ngc = "sudo nix-collect-garbage --delete-older-than 14d";
-
+    wifi = "nmtui";
     # ── COMMON SHORTCUTS ────────────────────────────────────────────
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";
+    
   };
 
   programs.git = {

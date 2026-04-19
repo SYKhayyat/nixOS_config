@@ -1,10 +1,5 @@
 # hosts/desktop/configuration.nix
 # Main desktop system configuration
-# Imports all system modules and defines the user account
-
-# hosts/desktop/configuration.nix
-# hosts/desktop/configuration.nix
-# Main desktop system configuration
 { config, lib, pkgs, inputs, myConfig, unstable, ... }:
 
 {
@@ -18,21 +13,20 @@
     ../../modules/system/development.nix
     ../../modules/system/services.nix
     ../../modules/system/cli-tools.nix
-    ../../modules/system/file-sync.nix   
+    ../../modules/system/file-sync.nix
   ];
 
   # ══════════════════════════════════════════════════════════════════
   # NIRI SPECIALISATION
-  # This creates the "Niri Mode" that you switch to via 'to-niri'
   # ══════════════════════════════════════════════════════════════════
   specialisation.niri.configuration = {
     # Disable Plasma when in Niri mode to save resources and prevent conflicts
     services.desktopManager.plasma6.enable = lib.mkForce false;
-    
+
     # Import the Niri system-level module
     imports = [ ../../modules/system/niri.nix ];
 
-    # Label it so it shows up as a separate entry in your boot menu (GRUB/Systemd-boot)
+    # Label it so it shows up as a separate entry in your boot menu
     system.nixos.tags = [ "niri" ];
   };
 
@@ -45,8 +39,8 @@
     extraGroups = [
       "networkmanager"
       "wheel"
-      "video"   # REQUIRED: For brightness control
-      "input"   # REQUIRED: For specialized mouse/keyboard input
+      "video"   # For brightness control
+      "input"   # For specialized mouse/keyboard input
       "mlocate"
       "plocate"
     ];

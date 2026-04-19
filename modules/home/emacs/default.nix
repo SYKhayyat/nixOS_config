@@ -16,14 +16,14 @@ let
     vertico orderless marginalia consult embark embark-consult corfu anzu deadgrep engine-mode
     # EDITING
     undo-tree avy ace-window multiple-cursors expand-region move-text crux visual-regexp wgrep
-    rainbow-delimiters goto-last-change beginend
+    rainbow-delimiters goto-last-change beginend nov pdf-view-restore valign focus olivetti
+    # PROGRAMMING
     # FILE & BUFFER MANAGEMENT
     projectile consult-projectile dirvish
     # ORG & NOTES
     org org-modern org-download org-roam org-roam-ui ox-pandoc citar citar-org-roam citeproc
     # TERMINAL & TOOLS
-    vterm pdf-tools jinx gptel
-    # PROGRAMMING
+    vterm pdf-tools jinx gptel eat
     magit git-gutter git-timemachine eglot eglot-java treesit-grammars.with-all-grammars
     treesit-auto rust-mode cargo nix-mode markdown-mode typst-ts-mode yasnippet
     yasnippet-snippets editorconfig envrc helpful which-key
@@ -41,7 +41,7 @@ in
   home.packages = with pkgs; [
     emacsWithPackages
     # Search Engines (Required for Seforim 2.0)
-    recoll plocate fd ripgrep
+    recoll plocate fd ripgrep ripgrep-all pandoc poppler-utils # Required for rga (ripgrep-all)
     # LaTeX & Typesetting
     texlive.combined.scheme-full typst tinymist
     # Utilities

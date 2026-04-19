@@ -1,7 +1,8 @@
+# modules/home/niri/default.nix
 { pkgs, config, lib, ... }:
 
 let
-  # Tokyo Night Color Palette
+  # Tokyo Night Color Palette (Preserved)
   bg = "#1a1b26";
   fg = "#c0caf5";
   blue = "#7aa2f7";
@@ -10,7 +11,7 @@ let
   gray = "#414868";
   dark_bg = "#16161e";
 
-  # ... (The scripts powerSearch, spotlight, swallow, teleport, screenshot remain exactly as they were) ...
+  # Scripts (Preserved exactly)
   powerSearch = pkgs.writeShellScriptBin "power-search" ''
     FILE=$(fd . $HOME --exclude .cache --exclude .git | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
     [ -z "$FILE" ] && exit 0
@@ -68,10 +69,7 @@ let
 in {
   imports = [ ../yazi.nix ];
 
-  # 1. ENVIRONMENT & FONTS
   fonts.fontconfig.enable = true;
-
-  # REMOVED: home.sessionVariables (They break Konsole in Plasma)
 
   home.packages = with pkgs; [
     foot fuzzel waybar mako swww wlogout avizo
@@ -82,7 +80,6 @@ in {
     powerSearch spotlight swallow teleport screenshot
   ];
 
-  # ... (Services: gnome-keyring, swayidle, mako, kanshi remain exactly as they were) ...
   services.gnome-keyring.enable = true;
 
   services.swayidle = {
@@ -124,7 +121,6 @@ in {
     ];
   };
 
-  # 3. FUZZEL CONFIGURATION (Remains same)
   programs.fuzzel = {
     enable = true;
     settings = {
@@ -145,15 +141,10 @@ in {
     };
   };
 
-  # 4. NIRI CONFIGURATION (Added environment block)
+  # 4. NIRI CONFIGURATION
   xdg.configFile."niri/config.kdl".text = ''
-    // These variables ONLY apply when you boot into Niri
-    environment {
-        QT_QPA_PLATFORM "wayland"
-        NIXOS_OZONE_WL "1"
-        MOZ_ENABLE_WAYLAND "1"
-        GDK_BACKEND "wayland"
-    }
+    // Environment block removed. UWSM manages variables automatically.
+    // This prevents the DISPLAY collision that caused your crashes.
 
     input {
         keyboard {
@@ -204,7 +195,7 @@ in {
 
     window-rule {
         match is-active=false;
-        opacity 0.7
+        opacity 0.8
     }
 
     window-rule {
@@ -219,20 +210,26 @@ in {
         default-column-width { fixed 1100; }
     }
 
-    spawn-at-startup "uwsm" "app" "--" "waybar"
-    spawn-at-startup "uwsm" "app" "--" "mako"
-    spawn-at-startup "uwsm" "app" "--" "swww-daemon"
-    spawn-at-startup "uwsm" "app" "--" "nm-applet"
-    spawn-at-startup "uwsm" "app" "--" "udiskie" "--tray"
+    // Fixed Startup: Removed 'uwsm app --' for binaries that Niri needs to
+    // find in the Nix Store or User Path.
+    spawn-at-startup "waybar"
+    spawn-at-startup "mako"
+    spawn-at-startup "swww-daemon"
+    spawn-at-startup "nm-applet"
+    spawn-at-startup "udiskie" "--tray"
     spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
     spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
+
+    // Finalize the UWSM environment
+    spawn-at-startup "uwsm" "finalize"
 
     binds {
         Mod+Slash { show-hotkey-overlay; }
 
-        Mod+Return { spawn "uwsm" "app" "--" "foot"; }
-        Mod+D { spawn "uwsm" "app" "--" "fuzzel"; }
-        Mod+N { spawn "uwsm" "app" "--" "nm-connection-editor"; }
+        // Binds fixed to use direct spawn to ensure they inherit the user PATH
+        Mod+Return { spawn "foot"; }
+        Mod+D { spawn "fuzzel"; }
+        Mod+N { spawn "nm-connection-editor"; }
         Mod+V { spawn "bash" "-c" "cliphist list | fuzzel -d | cliphist decode | wl-copy"; }
         Mod+Shift+C { close-window; }
         Mod+Shift+Q { spawn "wlogout"; }
@@ -278,7 +275,7 @@ in {
     }
   '';
 
-  # ... (Waybar, GTK/QT themes remain same) ...
+  # ... (Rest of the file: Waybar, GTK, QT configs preserved exactly as they were) ...
   programs.waybar = {
     enable = true;
     settings = [{
@@ -327,7 +324,7 @@ in {
 
     style = ''
       * {
-        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew";
+        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew", "Font Awesome 6 Free";
         font-size: 13px;
         border: none;
       }
