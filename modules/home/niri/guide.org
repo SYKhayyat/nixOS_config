@@ -1,0 +1,127 @@
+#+TITLE: Niri Desktop Environment Guide
+#+AUTHOR: Shaul
+#+OPTIONS: 
+
+#+TITLE: Niri Desktop Environment: The Shaul Edition
+#+AUTHOR: Shaul
+#+OPTIONS: toc:2
+
+    Introduction to Niri
+    Niri is a scrollable tiling compositor for Wayland. Unlike KDE Plasma, which uses windows that float on top of each other, Niri treats windows as a "Ribbon" that extends infinitely to the right.
+
+This setup is "Riced" to be keyboard-centric, blazing fast, and fully integrated with your Hebrew/English workflow.
+
+    The Environment Switch
+    Your system uses a NixOS Specialisation. To move between KDE and Niri, you must trigger the system switch and then change the session at the login screen.
+
+** To Switch to Niri (from KDE)
+
+    Open a terminal.
+
+    Type: to-niri (This triggers the specialisation switch).
+
+    Log out of KDE Plasma.
+
+    At the SDDM login screen, select "niri" from the session list (usually a dropdown in the corner).
+
+    Log in.
+
+** To Switch to Plasma (from Niri)
+
+    Open a terminal (Mod+Return).
+
+    Type: to-plasma.
+
+    Log out (Mod+Shift+Q).
+
+    At the SDDM login screen, select "Plasma (Wayland)".
+
+    Log in.
+
+    Core Mental Model: The Infinite Ribbon
+
+    Windows exist on a horizontal strip.
+
+    You don't "minimize" windows; you just scroll past them.
+
+    New windows open to the right of your current focus.
+
+    Keyboard Shortcuts (The "Vim-Emacs" Way)
+    The =Mod= key is usually the Super/Windows key.
+
+** Navigation (HJKL)
+| Action | Keybinding |
+|--------------------------|-------------------------|
+| Scroll Ribbon Left/Right | Mod + H / L |
+| Focus Window Up/Down | Mod + K / J |
+| Move Window Left/Right | Mod + Shift + H / L |
+| Move Window Up/Down | Mod + Shift + K / J |
+| Maximize Column | Mod + F |
+| Fullscreen Window | Mod + Shift + F |
+| Cycle Column Widths | Mod + R |
+
+** Launching Applications
+| Target App | Keybinding | Description |
+|--------------------|-----------------------|------------------------------------|
+| Terminal (Foot) | Mod + Return | The fastest Wayland terminal |
+| App Launcher | Mod + D | Fuzzel: Start typing to search |
+| File Manager (CLI) | Mod + E | Opens Yazi in Foot |
+| File Manager (GUI) | Mod + Shift + E | Opens Dolphin |
+| Clipboard History | Mod + V | Searchable list of copied items |
+
+** System Control
+| Action | Keybinding | Description |
+|--------------------|-----------------------|------------------------------------|
+| Close Window | Mod + Shift + C | Kills the active window |
+| Power Menu | Mod + Shift + Q | Logout, Reboot, Shutdown (wlogout) |
+| Lock Screen | Mod + L | Blurs screen and locks (swaylock) |
+| Take Screenshot | Print Screen | Select an area to copy to clipboard|
+
+    Hardware & Media Keys
+    Your laptop's physical keys are fully mapped:
+
+    Brightness: The dedicated Sun/Brightness keys change intensity in 5% increments.
+
+    Volume: The speaker keys control audio. Clicking the volume icon in the bar opens =pavucontrol= for fine-tuning.
+
+    Media: Play/Pause, Next, and Previous keys work for Spotify, YouTube (via browser), and VLC via =playerctl=.
+
+    Hebrew Support & Typing
+
+    Layout Toggle: Press Alt + Shift to toggle between US English and Hebrew (il).
+
+    Status Bar: The Waybar at the top uses Noto Sans Hebrew and Culmus fonts, ensuring the clock and window titles render perfectly in Hebrew.
+
+    The "Rice" Features
+    ** Clipboard History (Mod + V)
+    Every time you copy text, it is saved. Pressing Mod + V opens a small searchable menu. Type to find an old snippet, press Enter, and it is ready to be pasted (Ctrl + V or Shift + Insert).
+
+** Auto-Mounting USBs
+When you plug in a USB drive, a notification will appear. The drive will be automatically available in Yazi (Mod+E) and Dolphin (Mod+Shift+E).
+
+** Dark Mode Integration
+Your system is forced into Adwaita-Dark. This applies to:
+
+    All GTK4/GNOME apps.
+
+    All Qt6/KDE apps.
+
+    The Waybar and App Launcher.
+
+    Troubleshooting
+    ** Screen is black or Niri froze
+
+    Press Ctrl + Alt + F2 to drop to a text console.
+
+    Log in with your username and password.
+
+    Run sudo systemctl restart sddm to reset the graphics.
+
+** Niri won't start after an update
+Run the validator to check for syntax errors:
+#+BEGIN_SRC bash
+niri validate --config ~/.config/niri/config.kdl
+#+END_SRC
+
+** Permission Denied for Brightness
+Ensure your user is in the =video= group. Check by typing groups in a terminal. If =video= is missing, ensure you have run the latest system rebuild (nrs).
