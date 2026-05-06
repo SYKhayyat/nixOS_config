@@ -1,4 +1,3 @@
-# modules/home/waybar.nix
 { pkgs, config, lib, ... }:
 
 let
@@ -14,24 +13,22 @@ in {
       layer = "top";
       position = "top";
       margin = "8 12 0 12";
-      modules-left = [ "hyprland/workspaces" ];  # or "niri/workspaces" depending on env, but waybar autodetects
-      modules-center = [ "clock" ];
-      modules-right = [ "tray" "pulseaudio" "network" "battery" ];
 
-      "hyprland/workspaces" = {
-        format = "{icon}";
-        format-icons = {
-          default = "○";
-          focused = "●";
-        };
-      };
+      modules-left = [ "niri/window" "hyprland/window" ];
+      modules-center = [ "niri/workspaces" "hyprland/workspaces" ];
+      modules-right = [ "tray" "pulseaudio" "network" "battery" "clock" ];
+
       "niri/workspaces" = {
         format = "{icon}";
-        format-icons = {
-          default = "○";
-          focused = "●";
-        };
+        format-icons = { default = "○"; focused = "●"; };
       };
+      "hyprland/workspaces" = {
+        format = "{icon}";
+        on-click = "activate";
+      };
+      "niri/window" = { format = "󰖲 {title}"; max-length = 30; };
+      "hyprland/window" = { format = "󰖲 {title}"; max-length = 30; };
+
       network = {
         format-wifi = "󰤨  {essid}";
         format-disconnected = "󰤭  None";
@@ -42,42 +39,32 @@ in {
         format-icons = [ "󰕿" "󰖀" "󰕾" ];
         on-click = "pavucontrol";
       };
-      clock = {
-        format = "󰥔  {:%H:%M}";
-      };
+      clock = { format = "󰥔  {:%H:%M}"; };
       battery = {
         format = "{icon} {capacity}%";
         format-icons = [ "󰂎" "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       };
-      tray = {
-        spacing = 10;
-      };
+      tray = { spacing = 10; };
     }];
 
     style = ''
       * {
         font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew", "Font Awesome 6 Free";
-        font-size: 13px;
+        font-size: 12px;
         border: none;
       }
-      window#waybar {
-        background: transparent;
-      }
-      #workspaces, #network, #pulseaudio, #battery, #clock, #tray {
+      window#waybar { background: transparent; }
+      #window, #workspaces, #network, #pulseaudio, #battery, #clock, #tray {
         background: ${bg};
         color: ${fg};
-        padding: 4px 14px;
+        padding: 2px 12px;
         margin: 0 4px;
-        border-radius: 12px;
+        border-radius: 10px;
         border: 1px solid ${gray};
       }
-      #workspaces button {
-        color: ${gray};
-        padding: 0 4px;
-      }
-      #workspaces button.focused {
-        color: ${blue};
-      }
+      #workspaces button { color: ${gray}; padding: 0 4px; }
+      #workspaces button.focused { color: ${blue}; }
+      #workspaces button.active { color: ${blue}; }
     '';
   };
 }

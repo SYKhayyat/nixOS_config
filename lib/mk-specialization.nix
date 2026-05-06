@@ -20,7 +20,6 @@
     services.displayManager.sddm.enable = lib.mkForce true;
     services.displayManager.sddm.wayland.enable = true;
 
-    # FIX: Use mkForce to stop specialisations from inheriting "plasma" default session
     services.displayManager.defaultSession = lib.mkForce (
       if desktopEnvironment == "plasma" then "plasma"
       else if desktopEnvironment == "hyprland" then "hyprland-uwsm"

@@ -53,23 +53,27 @@
   services.openssh.enable = true;
   services.dbus.enable = true;
 
+  security.pam.services.hyprlock = {};
+
   services.displayManager.sddm = {
     enable = true;
     wayland.enable = true;
   };
-  services.displayManager.defaultSession = "plasma";
 
-  # FIX: Clean scaling variables.
-  # Removed manual QT_STYLE_OVERRIDE to avoid conflict with qt.style
   environment.sessionVariables = {
     QT_AUTO_SCREEN_SCALE_FACTOR = "0";
     QT_SCALE_FACTOR = "1";
     QT_WAYLAND_RECONNECT = "1";
+    QT_STYLE_OVERRIDE = lib.mkForce "breeze";
+    QT_QPA_PLATFORMTHEME = lib.mkForce "kde";
+    GDK_SCALE = "1";
+    GDK_DPI_SCALE = "1";
     _JAVA_OPTIONS = "-Dsun.java2d.uiScale=1";
+    NIXOS_OZONE_WL = "1";
+    MOZ_ENABLE_WAYLAND = "1";
+    XCURSOR_SIZE = "24";
   };
 
-  # FIX: Properly set Breeze as the system-wide Qt style.
-  # This automatically sets QT_STYLE_OVERRIDE=breeze correctly.
   qt = {
     enable = lib.mkForce true;
     platformTheme = "kde";
@@ -81,17 +85,13 @@
     base16Scheme = "${pkgs.base16-schemes}/share/themes/tokyo-night-dark.yaml";
     image = ../../wallpaper.jpg;
     polarity = "dark";
-
     fonts = {
       monospace = { package = pkgs.nerd-fonts.jetbrains-mono; name = "JetBrainsMono Nerd Font"; };
       sansSerif = { package = pkgs.noto-fonts; name = "Noto Sans"; };
       serif = { package = pkgs.noto-fonts; name = "Noto Serif"; };
       emoji = { package = pkgs.noto-fonts-color-emoji; name = "Noto Color Emoji"; };
     };
-
-    targets = {
-      gtk.enable = true;
-    };
+    targets.gtk.enable = true;
   };
 
   users.users.${myConfig.username} = {
@@ -102,6 +102,4 @@
   };
 
   system.stateVersion = "25.11";
-  zramSwap.enable = true;
-  zramSwap.memoryPercent = 50;
 }

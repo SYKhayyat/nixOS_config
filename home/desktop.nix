@@ -4,20 +4,31 @@
   imports = [
     ./common.nix
     ../modules/home/emacs
+    ../modules/home/p10k.nix
   ] ++ (if desktopEnvironment == "niri" then [
     ../modules/home/niri
-    ../modules/home/waybar.nix
-    ../modules/home/scripts.nix
-    ../modules/home/lock-niri.nix
   ] else if desktopEnvironment == "hyprland" then [
     ../modules/home/hyprland
-    ../modules/home/waybar.nix
-    ../modules/home/scripts.nix
-    ../modules/home/lock-idle.nix
   ] else []);
 
+  # FIX: Disable Stylix KDE/Qt and link Firefox profile for theming
   stylix.targets.kde.enable = false;
   stylix.targets.qt.enable = false;
+  stylix.targets.firefox.profileNames = [ myConfig.username ]; # FIX: Stylix profile warning
+  stylix.fonts.sizes.applications = 9;
+  stylix.fonts.sizes.desktop = 9;
+
+  programs.firefox = {
+    enable = true;
+    # FIX: Silence the .mozilla/firefox path migration warning
+    configPath = ".mozilla/firefox";
+    profiles.${myConfig.username} = {
+      settings = {
+        "layout.css.devPixelsPerPx" = "1.0";
+        "browser.uidensity" = 1; # Compact mode for 768p
+      };
+    };
+  };
 
   programs.plasma = {
     enable = (desktopEnvironment == "plasma");
@@ -37,7 +48,10 @@
       lookAndFeel = "org.kde.breeze.desktop";
       theme = "breeze-dark";
       iconTheme = "breeze-dark";
-      cursor.theme = "Breeze_Snow";
+      cursor = {
+        theme = "Breeze_Snow";
+        size = 24;
+      };
     };
 
     panels = [
@@ -57,35 +71,15 @@
   };
 
   home.packages = with pkgs; [
-    libreoffice-qt-fresh
-    kdePackages.calligra
-    gimp-with-plugins
-    gimpPlugins.gmic
-    gimpPlugins.resynthesizer
-    krita
-    krita-plugin-gmic
-    inkscape-with-extensions
-    pinta
-    photoflare
-    pixeluvo
-    digikam
-    rawtherapee
-    darktable
-    sly
-    rapidraw
-    graphicsmagick_q16
-    vlc
-    audacity
-    lmms
-    scribus
-    persepolis
-    onedriver
-    tor-browser
-    qutebrowser
-    firefox
+    libreoffice-qt-fresh kdePackages.calligra
+    gimp-with-plugins gimpPlugins.gmic gimpPlugins.resynthesizer
+    krita krita-plugin-gmic inkscape-with-extensions
+    pinta photoflare pixeluvo digikam rawtherapee darktable
+    sly rapidraw graphicsmagick_q16
+    vlc audacity lmms scribus persepolis onedriver
+    tor-browser qutebrowser firefox
   ];
 
-  # FIX: Set style to breeze at home level to prevent overrides
   home.sessionVariables = {
     TERMINAL = "foot";
     QT_STYLE_OVERRIDE = lib.mkForce "breeze";

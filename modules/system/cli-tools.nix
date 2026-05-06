@@ -5,13 +5,13 @@ let
 in
 {
   environment.systemPackages = with pkgs; [
-    # ESSENTIAL TOOLS
+    # ESSENTIALS
     git wget curl htop tree
 
-    # FILE SEARCH
+    # FILE SEARCH (Unabridged)
     fd ripgrep ripgrep-all fzf fzy plocate recoll
     fsearch kdePackages.kfind television docfd skim ugrep tre
-    (aspellWithDicts (d: [ d.en d.he d.en-computers ]))
+    (pkgs.aspellWithDicts (d: [ d.en d.he d.en-computers ]))
 
     # FILE MANAGEMENT
     nnn ranger mc fdupes ncdu peazip
@@ -22,14 +22,8 @@ in
     # SPELL CHECKING
     enchant hunspellWithDicts
 
-    # SEARCH INDEXING
-    xapian
-
-    # DOWNLOADERS
-    aria2
-
-    # TERMINAL UTILITIES
-    bat navi lynx ytfzf yt-dlp mpv
+    # DOWNLOADERS & TERMINAL UTILITIES
+    aria2 bat navi lynx ytfzf yt-dlp mpv xapian
 
     # TERMINAL EDITORS
     vim neovim helix

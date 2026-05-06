@@ -1,4 +1,3 @@
-# modules/home/lock-niri.nix
 { pkgs, lib, ... }: {
   home.packages = [ pkgs.swaylock pkgs.swayidle ];
 
@@ -7,8 +6,8 @@
     # Lock after 5 minutes of inactivity
     timeout 300 swaylock -f -c 000000 resume
 
-    # Turn off screen after 10 minutes
-    timeout 600 niri msg action quit resume
+    # Turn off screen after 10 minutes (instead of quitting niri)
+    timeout 600 niri msg action power-off-monitors resume   # ← was 'quit'
   '';
 
   # Run swayidle as a user service

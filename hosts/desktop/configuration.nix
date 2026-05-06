@@ -14,7 +14,6 @@ in
     ../../modules/system/services.nix
   ];
 
-  # Default for the main system
   services.displayManager.defaultSession = "plasma";
 
   home-manager = {

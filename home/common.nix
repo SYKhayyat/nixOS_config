@@ -2,33 +2,39 @@
 
 let
   plasmaWipe = pkgs.writeShellScriptBin "plasma-wipe" ''
-    echo "KDE PLASMA 6 NUCLEAR WIPE"
+    echo "══════════════════════════════════════════════════════════════"
+    echo "          KDE PLASMA 6 NUCLEAR WIPE SCRIPT"
+    echo "══════════════════════════════════════════════════════════════"
     read -p "Proceed? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         killall -u ${myConfig.username} kwin_wayland plasmashell 2>/dev/null || true
         rm -rf ~/.config/plasma* ~/.config/kde* ~/.config/kdeglobals ~/.config/kwin*
         rm -rf ~/.local/share/plasma* ~/.local/share/desktop-directories
-        rm -rf ~/.cache/plasma* ~/.cache/kde* ~/.cache/kwin* ~/.cache/kscreen
+        rm -rf ~/.cache/plasma* ~/.cache/kde* ~/.cache/kwin*
+        rm -f ~/.config/zsh/.p10k.zsh ~/.p10k.zsh
         echo "Wipe complete. Rebooting..."
         sudo reboot
     fi
   '';
 in
 {
+  imports = [ ./../modules/home/scripts.nix ];
+
   home.username = myConfig.username;
   home.homeDirectory = myConfig.homeDir;
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
 
+  # FIX: Silence GTK4 warning
   gtk.gtk4.theme = null;
-  xdg.userDirs.setSessionVariables = true;
 
   home.activation.force-clean-git-files = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
     for file in ".gtkrc-2.0" ".bashrc"; do
       TARGET="$HOME/$file"
       if [ -f "$TARGET" ] && [ ! -L "$TARGET" ]; then
+        echo "Cleanup: Removing $TARGET to allow Nix to manage it."
         $DRY_RUN_CMD rm -f "$TARGET"
       fi
     done
@@ -39,11 +45,12 @@ in
     enableCompletion = true;
     syntaxHighlighting.enable = true;
 
-    # FIX: Silences the 25.11 deprecation warning by defining the path clearly
+    # FIX: Absolute path logic for NixOS 25.11 to silence deprecation warning
     dotDir = ".config/zsh";
 
     oh-my-zsh = {
       enable = true;
+      theme = "";
       plugins = [ "git" "systemd" "command-not-found" "sudo" "extract" ];
     };
 
@@ -68,10 +75,12 @@ in
   home.shellAliases = {
     nrs = "sudo nixos-rebuild switch --flake ~/nixos-config#desktop";
     ll = "ls -la";
+    la = "ls -A";
+    l = "ls -CF";
   };
 
   home.packages = with pkgs; [
-    pamixer brightnessctl playerctl libsecret plasmaWipe
+    pamixer brightnessctl playerctl libsecret jq fd fzf plasmaWipe
   ];
 
   programs.git = {
@@ -88,6 +97,5 @@ in
 
   programs.fzf.enable = true;
   programs.bat.enable = true;
-  programs.direnv.enable = true;
   xdg.enable = true;
 }

@@ -1,4 +1,3 @@
-# modules/home/emacs/default.nix
 { config, lib, pkgs, myConfig, ... }:
 
 let
@@ -16,6 +15,7 @@ let
     treesit-auto rust-mode cargo nix-mode markdown-mode typst-ts-mode yasnippet
     yasnippet-snippets editorconfig envrc helpful which-key
     gcmh hydra restart-emacs visual-fill-column
+    valign focus olivetti   # <-- added for 04-editing
   ]);
 
   seforimPath = myConfig.seforimPath;
@@ -35,7 +35,6 @@ in
     VISUAL = "emacsclient -c -a ''";
   };
 
-  # Emacs daemon service
   services.emacs = {
     enable = true;
     package = emacsWithPackages;
@@ -59,6 +58,7 @@ in
 
   home.file.".config/emacs/init.el".text = ''
     ;; init.el --- Modular Loader
+    (require 'server)   ;; <-- fix: define server-running-p before use
     (defvar my/modules-dir (expand-file-name "modules" user-emacs-directory))
     (add-to-list 'load-path my/modules-dir)
     (defun my/tangle-modules ()
@@ -78,7 +78,7 @@ in
                       "22-dirvish" "23-vterm-pro" "24-scholar-search" "25-nix-system"))
       (condition-case err (require (intern module)) (error (message "Failed: %s: %s" module err))))
 
-    ;; Daemon-specific: use server-start if not already running
+    ;; Daemon check: server is already started by 'services.emacs', but we still need to ensure server-running-p is defined.
     (unless (server-running-p)
       (server-start))
   '';

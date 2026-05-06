@@ -1,196 +1,158 @@
-# modules/home/hyprland/default.nix
-{ config, lib, pkgs, ... }:
+{ pkgs, config, lib, ... }:
 
 let
   bg = "#1a1b26";
   fg = "#c0caf5";
   blue = "#7aa2f7";
-  wallpaper = toString ./../../../wallpaper.jpg;
+  magenta = "#bb9af7";
+  gray = "#414868";
 in {
-  imports = [ ../yazi.nix ../waybar.nix ];
-
-  fonts.fontconfig.enable = true;
+  imports = [ ../yazi.nix ../waybar.nix ../lock-niri.nix ];   # ← was lock-idle.nix
 
   home.packages = with pkgs; [
-    foot
-    fuzzel
-    waybar
-    mako
     awww
-    wlogout
-    avizo
-    grim
-    slurp
-    wl-clipboard
-    cliphist
-    playerctl
-    udiskie
-    pavucontrol
-    swappy
-    networkmanagerapplet
-    polkit_gnome
-    libsecret
-    fd
-    fzf
-    jq
-    hyprpaper
-    hyprpicker
-    font-awesome
+    mako
+    waybar
+    fuzzel
+    xwayland-satellite
   ];
 
-  services.gnome-keyring.enable = true;
-
-  services.mako = {
-    enable = true;
-    settings = lib.mkForce {
-      background-color = "${bg}";
-      text-color = "${fg}";
-      border-color = "${blue}";
-      border-size = 2;
-      border-radius = 12;
-      default-timeout = 5000;
-      font = "JetBrainsMono Nerd Font 10";
-    };
-  };
-
-  programs.fuzzel = {
-    enable = true;
-    settings = lib.mkForce {
-      main = {
-        font = "JetBrainsMono Nerd Font:size=13";
-        terminal = "xdg-terminal-exec";
-        prompt = "'󰍉 '";
-      };
-      colors = {
-        background = "1a1b26ff";
-        text = "c0caf5ff";
-        match = "7aa2f7ff";
-        selection = "414868ff";
-        selection-text = "c0caf5ff";
-        border = "7aa2f7ff";
-      };
-      border = { width = 2; radius = 10; };
-    };
-  };
-
-  xdg.configFile."hypr/hyprland.conf".text = ''
-    monitor = eDP-1,preferred,auto,1
-
-    exec-once = waybar
-    exec-once = mako
-    exec-once = awww-daemon
-    exec-once = nm-applet --indicator
-    exec-once = udiskie --tray
-    exec-once = ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1
-    exec-once = wl-paste --watch cliphist store
-    exec-once = uwsm finalize
-
+  # Master Niri KDL Configuration
+  xdg.configFile."niri/config.kdl".text = ''
     input {
-        kb_layout = us,il
-        kb_options = grp:alt_shift_toggle,caps:escape
-        repeat_delay = 250
-        repeat_rate = 40
+        keyboard {
+            xkb {
+                layout "us,il"
+                options "grp:win_space_toggle,caps:escape"
+            }
+            repeat-delay 250
+            repeat-rate 40
+        }
         touchpad {
-            natural_scroll = true
-            tap-to-click = true
+            tap
+            dwt
+            natural-scroll false // Traditional
+        }
+        mouse {
+            natural-scroll false
         }
     }
 
-    general {
-        gaps_in = 8
-        gaps_out = 16
-        border_size = 2
-        col.active_border = ${blue}
-        col.inactive_border = 0x414868
-        layout = master
+    output ".*" {
+        scale 1.0
     }
 
-    decoration {
-        rounding = 10
-        blur {
-            enabled = true
-            size = 5
-            passes = 2
+    layout {
+        gaps 8 // Optimized for 768p
+        center-focused-column "never"
+        preset-column-widths {
+            proportion 0.333
+            proportion 0.5
+            proportion 0.666
+        }
+        default-column-width { proportion 0.5; }
+
+        focus-ring {
+            width 4
+            active-color "${blue}"
+            inactive-color "${gray}"
+        }
+
+        // Space Saving: Disable window titlebars
+        border {
+            width 2
+            active-color "${blue}"
+            inactive-color "${gray}"
         }
     }
 
     animations {
-        enabled = true
-        bezier = myBezier, 0.05, 0.9, 0.1, 1.05
-        animation = windows, 1, 7, myBezier
-        animation = border, 1, 10, default
-        animation = fade, 1, 7, default
-        animation = workspaces, 1, 6, default
+        slowdown 1.2
+        workspace-switch { spring stiffness=800 damping-ratio=1.0 epsilon=0.0001; }
+        window-open { spring stiffness=800 damping-ratio=1.0 epsilon=0.0001; }
     }
 
-    windowrulev2 = float, class:(pavucontrol)
-    windowrulev2 = float, class:(nm-connection-editor)
-    windowrulev2 = float, title:(scratchterm)
-    windowrulev2 = float, title:(emacs-scratch)
-    windowrulev2 = size 1100 800, title:(scratchterm)
-    windowrulev2 = center, title:(scratchterm)
-    windowrulev2 = center, title:(emacs-scratch)
+    window-rule {
+        match is-active=false;
+        opacity 0.7
+    }
 
-    $mainMod = SUPER
+    window-rule {
+        match app-id="nm-connection-editor";
+        match app-id="pavucontrol";
+        open-floating true;
+    }
 
-    bind = $mainMod, Return, exec, xdg-terminal-exec
-    bind = $mainMod, D, exec, fuzzel
-    bind = $mainMod, N, exec, nm-connection-editor
-    bind = $mainMod, V, exec, bash -c "cliphist list | fuzzel -d | cliphist decode | wl-copy"
-    bind = $mainMod SHIFT, C, killactive
-    bind = $mainMod SHIFT, Q, exec, wlogout
+    window-rule {
+        match app-id="scratchpad";
+        open-floating true;
+        default-column-width { fixed 1100; }
+    }
 
-    bind = $mainMod, Space, exec, power-search
-    bind = $mainMod, T, exec, teleport
-    bind = $mainMod ALT, S, exec, spotlight
+    spawn-at-startup "waybar"
+    spawn-at-startup "mako"
+    spawn-at-startup "awww-daemon"
+    spawn-at-startup "nm-applet"
+    spawn-at-startup "udiskie" "--tray"
+    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
+    spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
+    spawn-at-startup "uwsm" "finalize"
+    spawn-at-startup "bash" "-c" "awww img /etc/nixos/wallpaper.jpg"
 
-    bind = $mainMod, grave, exec, toggle-scratchpad-terminal
-    bind = $mainMod SHIFT, grave, exec, toggle-scratchpad-emacs
+    binds {
+        Mod+Slash { show-hotkey-overlay; }
+        Mod+Return { spawn "foot"; }
+        Mod+D { spawn "fuzzel"; }
+        Mod+N { spawn "nm-connection-editor"; }
+        Mod+V { spawn "bash" "-c" "cliphist list | fuzzel -d | cliphist decode | wl-copy"; }
+        Mod+Shift+C { close-window; }
+        Mod+Shift+Q { spawn "wlogout"; }
 
-    bind = $mainMod, H, movefocus, l
-    bind = $mainMod, L, movefocus, r
-    bind = $mainMod, K, movefocus, u
-    bind = $mainMod, J, movefocus, d
-    bind = $mainMod SHIFT, H, movewindow, l
-    bind = $mainMod SHIFT, L, movewindow, r
-    bind = $mainMod SHIFT, K, movewindow, u
-    bind = $mainMod SHIFT, J, movewindow, d
+        // Universal Script Binds
+        Mod+Space { spawn "power-search"; }
+        Mod+T { spawn "teleport"; }
+        Mod+Alt+S { spawn "spotlight"; }
+        Mod+grave { spawn "toggle-scratchpad-terminal"; }
+        Mod+Shift+grave { spawn "toggle-scratchpad-emacs"; }
 
-    bind = $mainMod, 1, workspace, 1
-    bind = $mainMod, 2, workspace, 2
-    bind = $mainMod, 3, workspace, 3
-    bind = $mainMod, 4, workspace, 4
-    bind = $mainMod, 5, workspace, 5
-    bind = $mainMod SHIFT, 1, movetoworkspace, 1
-    bind = $mainMod SHIFT, 2, movetoworkspace, 2
-    bind = $mainMod SHIFT, 3, movetoworkspace, 3
-    bind = $mainMod SHIFT, 4, movetoworkspace, 4
-    bind = $mainMod SHIFT, 5, movetoworkspace, 5
+        // Navigation (HJKL)
+        Mod+H { focus-column-left; }
+        Mod+L { focus-column-right; }
+        Mod+K { focus-workspace-up; }
+        Mod+J { focus-workspace-down; }
+        Mod+Shift+H { move-column-left; }
+        Mod+Shift+L { move-column-right; }
+        Mod+Shift+K { move-window-to-workspace-up; }
+        Mod+Shift+J { move-window-to-workspace-down; }
 
-    bind = $mainMod, F, fullscreen
-    bind = $mainMod SHIFT, F, togglefloating
+        // Tiling & Floating Logic (The Hybrid)
+        Mod+Comma  { consume-window-into-column; }
+        Mod+Period { expel-window-from-column; }
+        Mod+Shift+Space { toggle-window-floating; }
+        Mod+C { center-column; }
 
-    bind = , XF86AudioRaiseVolume, exec, volctl up
-    bind = , XF86AudioLowerVolume, exec, volctl down
-    bind = , XF86AudioMute, exec, volctl toggle-mute
-    bind = , XF86MonBrightnessUp, exec, light -A 5
-    bind = , XF86MonBrightnessDown, exec, light -U 5
+        // Touchpad Navigation (Req 5.3)
+        Mod+TouchpadScrollLeft  { focus-column-left; }
+        Mod+TouchpadScrollRight { focus-column-right; }
+        Mod+TouchpadScrollUp    { focus-workspace-up; }
+        Mod+TouchpadScrollDown  { focus-workspace-down; }
 
-    bind = , Print, exec, screenshot-edit
+        Mod+R { switch-preset-column-width; }
+        Mod+F { maximize-column; }
+        Mod+Shift+F { fullscreen-window; }
+
+        // Hardware Controls
+        XF86AudioRaiseVolume { spawn "volctl" "up"; }
+        XF86AudioLowerVolume { spawn "volctl" "down"; }
+        XF86AudioMute { spawn "volctl" "mute"; }
+        XF86MonBrightnessUp { spawn "volctl" "br-up"; }
+        XF86MonBrightnessDown { spawn "volctl" "br-down"; }
+
+        Print { spawn "screenshot-edit"; }
+
+        // Resolution Magnifier
+        Mod+Equal { set-column-width "+10%"; }
+        Mod+Minus { set-column-width "-10%"; }
+    }
   '';
-
-  systemd.user.services.awww-wallpaper = {
-    Unit = {
-      Description = "Set wallpaper on awww";
-      After = [ "graphical-session-pre.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.awww}/bin/awww set ${wallpaper}";
-    };
-    Install = {
-      WantedBy = [ "graphical-session.target" ];
-    };
-  };
 }
