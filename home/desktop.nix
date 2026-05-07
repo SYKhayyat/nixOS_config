@@ -18,6 +18,8 @@
   stylix.fonts.sizes.applications = 9;
   stylix.fonts.sizes.desktop = 9;
 
+
+
   programs.firefox = {
     enable = true;
     configPath = lib.mkForce ".mozilla/firefox";

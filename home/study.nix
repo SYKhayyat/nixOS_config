@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ./emacs
+    ../modules/home/emacs
   ];
 
   home.username = myConfig.username;
@@ -22,12 +22,17 @@
 
   # SSH
   programs.ssh.enable = true;
+    programs.ssh.enableDefaultConfig = false;
 
   # Git (for your notes sync)
-  programs.git = {
+    programs.git = {
     enable = true;
-    userName = myConfig.fullName;
-    userEmail = "shaul@example.com";
+    settings = {
+      user = {
+        name = myConfig.fullName;
+        email = "shaul@example.com";
+      };
+    };
   };
 
   # Emacs daemon

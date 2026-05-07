@@ -29,12 +29,6 @@ in
     sqlite graphviz imagemagick tree-sitter hdate
     jdt-language-server nil rust-analyzer pyright lua-language-server
   ];
-
-  home.sessionVariables = {
-    EDITOR = "emacsclient -c -a ''";
-    VISUAL = "emacsclient -c -a ''";
-  };
-
   services.emacs = {
     enable = true;
     package = emacsWithPackages;

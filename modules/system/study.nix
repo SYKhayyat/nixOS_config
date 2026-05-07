@@ -5,7 +5,7 @@
   services.xserver.enable = true;
   services.xserver.displayManager.lightdm.enable = true;
   services.xserver.desktopManager.lxqt.enable = true;
-  services.xserver.xkb = {
+  services.xserver.xkb = lib.mkForce {
     layout = "us,il";
     options = "grp:win_space_toggle,caps:escape";
   };
@@ -25,7 +25,7 @@
     yt-dlp mpv
 
     # Document viewer
-    okular
+    kdePackages.okular
 
     # Office
     libreoffice-qt-fresh

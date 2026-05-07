@@ -16,7 +16,8 @@
 
   services.xserver.enable = true;
   services.xserver.xkb = {
-    layout = "us";
+    layout = "us,il";
+    options = "grp:win_space_toggle,caps:escape";
     variant = "";
   };
 
