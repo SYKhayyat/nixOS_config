@@ -10,12 +10,23 @@
       config.common.default = [ "gtk" ];
       extraPortals =
         if desktopEnvironment == "plasma" then [ pkgs.kdePackages.xdg-desktop-portal-kde ]
-        else [ pkgs.xdg-desktop-portal-gtk pkgs.xdg-desktop-portal-gnome ];
+        else [
+          pkgs.xdg-desktop-portal-gtk
+          pkgs.xdg-desktop-portal-gnome
+          pkgs.xdg-desktop-portal-hyprland
+        ];
     };
 
-    # We keep SDDM enabled so you have a login manager,
-    # but we only enable the Plasma desktop manager if we are in the plasma env.
     services.displayManager.sddm.enable = lib.mkForce true;
+    services.displayManager.sddm.wayland.enable = true;
+
+    services.displayManager.defaultSession = lib.mkForce (
+      if desktopEnvironment == "plasma" then "plasma"
+      else if desktopEnvironment == "hyprland" then "hyprland-uwsm"
+      else if desktopEnvironment == "niri" then "niri-uwsm"
+      else null
+    );
+
     services.desktopManager.plasma6.enable = lib.mkForce (desktopEnvironment == "plasma");
 
     imports = extraModules;
@@ -448,123 +459,44 @@ in
     };
   };
 }
-# modules/system/cli-tools.nix
-# System-wide command-line tools
-
 { config, lib, pkgs, ... }:
 
 let
   hunspellWithDicts = pkgs.hunspell.withDicts (d: [ d.en_US d.he_IL ]);
 in
 {
-  # ══════════════════════════════════════════════════════════════════
-  # COMMAND-LINE TOOLS
-  # ══════════════════════════════════════════════════════════════════
-
   environment.systemPackages = with pkgs; [
-    # ────────────────────────────────────────────────────────────────
-    # ESSENTIAL TOOLS
-    # ────────────────────────────────────────────────────────────────
-    git
-    wget
-    curl
-    htop
-    tree
+    # ESSENTIALS
+    git wget curl htop tree
 
-    # ────────────────────────────────────────────────────────────────
-    # FILE SEARCH
-    # ────────────────────────────────────────────────────────────────
-    fd                      # Better 'find'
-    ripgrep                 # Better 'grep'
-    ripgrep-all             # Ripgrep for all file types
-    fzf                     # Fuzzy finder
-    fzy                     # Another fuzzy finder
-    plocate                 # Fast 'locate'
-    recoll                  # Full-text search
-    (aspellWithDicts (d: [ d.en d.he ]))
-    fsearch                 # GUI file search
-    kdePackages.kfind       # KDE file search
-    television              # File finder TUI
-    docfd                   # Document fuzzy finder
-    skim                    # Fuzzy finder (Rust)
-    ugrep                   # Modern, maintained grep replacement
-    tre                     # Tree-like list with git support
+    # FILE SEARCH (Unabridged)
+    fd ripgrep ripgrep-all fzf fzy plocate recoll
+    fsearch kdePackages.kfind television docfd skim ugrep tre
+    (pkgs.aspellWithDicts (d: [ d.en d.he d.en-computers ]))
 
-    # ────────────────────────────────────────────────────────────────
     # FILE MANAGEMENT
-    # ────────────────────────────────────────────────────────────────
-    nnn                     # Terminal file manager
-    ranger                  # Terminal file manager
-    mc                      # Midnight Commander
-    fdupes                  # Duplicate finder
-    ncdu                    # Disk usage analyzer
-    peazip                  # Archive manager
+    nnn ranger mc fdupes ncdu peazip
 
-    # ────────────────────────────────────────────────────────────────
     # DOCUMENT TOOLS
-    # ────────────────────────────────────────────────────────────────
-    pandoc                  # Document converter
-    poppler                 # PDF library
-    poppler-utils           # PDF utilities
-    antiword                # Word document converter
-    catdoc                  # Word/Excel/PowerPoint viewer
-    unzip                   # Archive extraction
+    pandoc poppler poppler-utils antiword catdoc unzip zip
 
-    # ────────────────────────────────────────────────────────────────
     # SPELL CHECKING
-    # ────────────────────────────────────────────────────────────────
-    enchant
-    hunspellWithDicts
-    (aspellWithDicts (dicts: with dicts; [ en en-computers he ]))
+    enchant hunspellWithDicts
 
-    # ────────────────────────────────────────────────────────────────
-    # SEARCH INDEXING
-    # ────────────────────────────────────────────────────────────────
-    xapian
+    # DOWNLOADERS & TERMINAL UTILITIES
+    aria2 bat navi lynx ytfzf yt-dlp mpv xapian
 
-    # ────────────────────────────────────────────────────────────────
-    # DOWNLOADERS
-    # ────────────────────────────────────────────────────────────────
-    aria2                   # Download manager
-
-    # ────────────────────────────────────────────────────────────────
-    # TERMINAL UTILITIES
-    # ────────────────────────────────────────────────────────────────
-    bat                     # Better 'cat'
-    navi                    # Cheatsheet tool
-    lynx                    # Terminal web browser
-    ytfzf                   # Terminal Youtube player
-    yt-dlp                  # Youtube downloader
-    mpv                     # Media player
-    zip
-
-    # ────────────────────────────────────────────────────────────────
     # TERMINAL EDITORS
-    # ────────────────────────────────────────────────────────────────
-    vim
-    neovim
-    helix
+    vim neovim helix
 
-    # ────────────────────────────────────────────────────────────────
     # NIX TOOLS
-    # ────────────────────────────────────────────────────────────────
-    nh                      # Nix helper
-    home-manager
-    # ────────────────────────────────────────────────────────────────
+    nh home-manager
+
     # AI TOOLS
-    # ────────────────────────────────────────────────────────────────
     opencode
   ];
 
-  # ══════════════════════════════════════════════════════════════════
-  # FIREFOX
-  # ══════════════════════════════════════════════════════════════════
-
   programs.firefox.enable = true;
-
-  # ══════════════════════════════════════════════════════════════════
-  # ENVIRONMENT VARIABLES
-  # ══════════════════════════════════════════════════════════════════
 
   environment.sessionVariables = {
     DICPATH = lib.mkForce "${hunspellWithDicts}/share/hunspell";
@@ -766,7 +698,10 @@ in
 
   programs.zsh.enable = true;
 
-  boot.loader.systemd-boot.enable = true;
+  boot.loader.systemd-boot = {
+    enable = true;
+    configurationLimit = 10;
+  };
   boot.loader.efi.canTouchEfiVariables = true;
 
   networking.hostName = myConfig.hostname;
@@ -811,41 +746,45 @@ in
   services.openssh.enable = true;
   services.dbus.enable = true;
 
+  security.pam.services.hyprlock = {};
+
+  services.displayManager.sddm = {
+    enable = true;
+    wayland.enable = true;
+  };
+
+  environment.sessionVariables = {
+    QT_AUTO_SCREEN_SCALE_FACTOR = "0";
+    QT_SCALE_FACTOR = "1";
+    QT_WAYLAND_RECONNECT = "1";
+    QT_STYLE_OVERRIDE = lib.mkForce "breeze";
+    QT_QPA_PLATFORMTHEME = lib.mkForce "kde";
+    GDK_SCALE = "1";
+    GDK_DPI_SCALE = "1";
+    _JAVA_OPTIONS = "-Dsun.java2d.uiScale=1";
+    NIXOS_OZONE_WL = "1";
+    MOZ_ENABLE_WAYLAND = "1";
+    XCURSOR_SIZE = "24";
+  };
+
+  qt = {
+    enable = lib.mkForce true;
+    platformTheme = "kde";
+    style = "breeze";
+  };
+
   stylix = {
     enable = true;
     base16Scheme = "${pkgs.base16-schemes}/share/themes/tokyo-night-dark.yaml";
     image = ../../wallpaper.jpg;
     polarity = "dark";
-
-    # FIXED: Added explicit font sizes to prevent "ungainly big" UI
     fonts = {
-      sizes = {
-        applications = 10;
-        terminal = 11;
-        desktop = 10;
-        popups = 10;
-      };
-      monospace = {
-        package = pkgs.nerd-fonts.jetbrains-mono;
-        name = "JetBrainsMono Nerd Font";
-      };
-      sansSerif = {
-        package = pkgs.noto-fonts;
-        name = "Noto Sans";
-      };
-      serif = {
-        package = pkgs.noto-fonts;
-        name = "Noto Serif";
-      };
-      emoji = {
-        package = pkgs.noto-fonts-color-emoji;
-        name = "Noto Color Emoji";
-      };
+      monospace = { package = pkgs.nerd-fonts.jetbrains-mono; name = "JetBrainsMono Nerd Font"; };
+      sansSerif = { package = pkgs.noto-fonts; name = "Noto Sans"; };
+      serif = { package = pkgs.noto-fonts; name = "Noto Serif"; };
+      emoji = { package = pkgs.noto-fonts-color-emoji; name = "Noto Color Emoji"; };
     };
-
-    targets = {
-      gtk.enable = true;
-    };
+    targets.gtk.enable = true;
   };
 
   users.users.${myConfig.username} = {
@@ -856,86 +795,18 @@ in
   };
 
   system.stateVersion = "25.11";
-  zramSwap.enable = true;
-  zramSwap.memoryPercent = 50;
 }
-# modules/home/hyprland/default.nix
 { config, lib, pkgs, ... }:
 
 let
   bg = "#1a1b26";
-  fg = "#c0caf5";
   blue = "#7aa2f7";
   wallpaper = toString ./../../../wallpaper.jpg;
 in {
-  imports = [ ../yazi.nix ../waybar.nix ];
-
-  fonts.fontconfig.enable = true;
-
-  home.packages = with pkgs; [
-    foot
-    fuzzel
-    waybar
-    mako
-    awww
-    wlogout
-    avizo
-    grim
-    slurp
-    wl-clipboard
-    cliphist
-    playerctl
-    udiskie
-    pavucontrol
-    swappy
-    networkmanagerapplet
-    polkit_gnome
-    libsecret
-    fd
-    fzf
-    jq
-    hyprpaper
-    hyprpicker
-    font-awesome
-  ];
-
-  services.gnome-keyring.enable = true;
-
-  services.mako = {
-    enable = true;
-    settings = lib.mkForce {
-      background-color = "${bg}";
-      text-color = "${fg}";
-      border-color = "${blue}";
-      border-size = 2;
-      border-radius = 12;
-      default-timeout = 5000;
-      font = "JetBrainsMono Nerd Font 10";
-    };
-  };
-
-  programs.fuzzel = {
-    enable = true;
-    settings = lib.mkForce {
-      main = {
-        font = "JetBrainsMono Nerd Font:size=13";
-        terminal = "xdg-terminal-exec";
-        prompt = "'󰍉 '";
-      };
-      colors = {
-        background = "1a1b26ff";
-        text = "c0caf5ff";
-        match = "7aa2f7ff";
-        selection = "414868ff";
-        selection-text = "c0caf5ff";
-        border = "7aa2f7ff";
-      };
-      border = { width = 2; radius = 10; };
-    };
-  };
+  imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ];
 
   xdg.configFile."hypr/hyprland.conf".text = ''
-    monitor = eDP-1,preferred,auto,1
+    monitor = eDP-1, 1366x768@60, 0x0, 1
 
     exec-once = waybar
     exec-once = mako
@@ -944,58 +815,69 @@ in {
     exec-once = udiskie --tray
     exec-once = ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1
     exec-once = wl-paste --watch cliphist store
+    exec-once = awww img ${wallpaper}
     exec-once = uwsm finalize
 
     input {
         kb_layout = us,il
-        # Changed to avoid Super+Space conflict with power-search
-        kb_options = grp:alt_shift_toggle,caps:escape
+        kb_options = grp:win_space_toggle,caps:escape
         repeat_delay = 250
         repeat_rate = 40
         touchpad {
-            natural_scroll = true
+            natural_scroll = false // Traditional
             tap-to-click = true
         }
     }
 
     general {
-        gaps_in = 8
-        gaps_out = 16
+        gaps_in = 4
+        gaps_out = 8
         border_size = 2
         col.active_border = ${blue}
         col.inactive_border = 0x414868
-        layout = master
+        layout = master // Default
     }
 
+    # FIX: Modern nested decoration syntax for 25.11
     decoration {
         rounding = 10
+        active_opacity = 1.0
+        inactive_opacity = 0.8
+
         blur {
             enabled = true
             size = 5
             passes = 2
+            new_optimizations = true
         }
     }
 
     animations {
         enabled = true
         bezier = myBezier, 0.05, 0.9, 0.1, 1.05
-        animation = windows, 1, 7, myBezier
+        animation = windows, 1, 5, myBezier
+        animation = windowsOut, 1, 5, default, popin 80%
         animation = border, 1, 10, default
-        animation = fade, 1, 7, default
-        animation = workspaces, 1, 6, default
+        animation = fade, 1, 5, default
+        animation = workspaces, 1, 5, default
+    }
+
+    # Swallow Feature (Space saving on small screen)
+    misc {
+        enable_swallow = true
+        swallow_regex = ^(foot)$
     }
 
     windowrulev2 = float, class:(pavucontrol)
     windowrulev2 = float, class:(nm-connection-editor)
-    windowrulev2 = float, title:(scratchterm)
+    windowrulev2 = float, class:(scratchpad)
     windowrulev2 = float, title:(emacs-scratch)
-    windowrulev2 = size 1100 800, title:(scratchterm)
-    windowrulev2 = center, title:(scratchterm)
-    windowrulev2 = center, title:(emacs-scratch)
+    windowrulev2 = size 1100 700, class:(scratchpad)
+    windowrulev2 = center, class:(scratchpad)
 
     $mainMod = SUPER
 
-    bind = $mainMod, Return, exec, xdg-terminal-exec
+    bind = $mainMod, Return, exec, foot
     bind = $mainMod, D, exec, fuzzel
     bind = $mainMod, N, exec, nm-connection-editor
     bind = $mainMod, V, exec, bash -c "cliphist list | fuzzel -d | cliphist decode | wl-copy"
@@ -1005,19 +887,21 @@ in {
     bind = $mainMod, Space, exec, power-search
     bind = $mainMod, T, exec, teleport
     bind = $mainMod ALT, S, exec, spotlight
-
     bind = $mainMod, grave, exec, toggle-scratchpad-terminal
     bind = $mainMod SHIFT, grave, exec, toggle-scratchpad-emacs
 
+    # Navigation
     bind = $mainMod, H, movefocus, l
     bind = $mainMod, L, movefocus, r
     bind = $mainMod, K, movefocus, u
     bind = $mainMod, J, movefocus, d
-    bind = $mainMod SHIFT, H, movewindow, l
-    bind = $mainMod SHIFT, L, movewindow, r
-    bind = $mainMod SHIFT, K, movewindow, u
-    bind = $mainMod SHIFT, J, movewindow, d
 
+    # Layout Toggle: Master <-> Dwindle
+    bind = $mainMod SHIFT, R, exec, hyprctl keyword general:layout $(hyprctl getoption general:layout | grep -q master && echo dwindle || echo master)
+    bind = $mainMod, F, fullscreen, 0
+    bind = $mainMod SHIFT, Space, togglefloating
+
+    # Workspaces
     bind = $mainMod, 1, workspace, 1
     bind = $mainMod, 2, workspace, 2
     bind = $mainMod, 3, workspace, 3
@@ -1026,38 +910,17 @@ in {
     bind = $mainMod SHIFT, 1, movetoworkspace, 1
     bind = $mainMod SHIFT, 2, movetoworkspace, 2
     bind = $mainMod SHIFT, 3, movetoworkspace, 3
-    bind = $mainMod SHIFT, 4, movetoworkspace, 4
-    bind = $mainMod SHIFT, 5, movetoworkspace, 5
 
-    bind = $mainMod, F, fullscreen
-    bind = $mainMod SHIFT, F, togglefloating
-
-    bind = , XF86AudioRaiseVolume, exec, volumectl -u up
-    bind = , XF86AudioLowerVolume, exec, volumectl -u down
-    bind = , XF86AudioMute, exec, volumectl toggle-mute
-    bind = , XF86MonBrightnessUp, exec, light -A 5
-    bind = , XF86MonBrightnessDown, exec, light -U 5
+    # Hardware (volctl)
+    bind = , XF86AudioRaiseVolume, exec, volctl up
+    bind = , XF86AudioLowerVolume, exec, volctl down
+    bind = , XF86AudioMute, exec, volctl mute
+    bind = , XF86MonBrightnessUp, exec, volctl br-up
+    bind = , XF86MonBrightnessDown, exec, volctl br-down
 
     bind = , Print, exec, screenshot-edit
   '';
-
-  # Reliable wallpaper service for Hyprland
-  systemd.user.services.awww-wallpaper = {
-    Unit = {
-      Description = "Set wallpaper on awww";
-      After = [ "graphical-session-pre.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.awww}/bin/awww set ${wallpaper}";
-    };
-    Install = {
-      WantedBy = [ "graphical-session.target" ];
-    };
-  };
 }
-# modules/home/waybar.nix
 { pkgs, config, lib, ... }:
 
 let
@@ -1073,24 +936,22 @@ in {
       layer = "top";
       position = "top";
       margin = "8 12 0 12";
-      modules-left = [ "hyprland/workspaces" ];  # or "niri/workspaces" depending on env, but waybar autodetects
-      modules-center = [ "clock" ];
-      modules-right = [ "tray" "pulseaudio" "network" "battery" ];
 
-      "hyprland/workspaces" = {
-        format = "{icon}";
-        format-icons = {
-          default = "○";
-          focused = "●";
-        };
-      };
+      modules-left = [ "niri/window" "hyprland/window" ];
+      modules-center = [ "niri/workspaces" "hyprland/workspaces" ];
+      modules-right = [ "tray" "pulseaudio" "network" "battery" "clock" ];
+
       "niri/workspaces" = {
         format = "{icon}";
-        format-icons = {
-          default = "○";
-          focused = "●";
-        };
+        format-icons = { default = "○"; focused = "●"; };
       };
+      "hyprland/workspaces" = {
+        format = "{icon}";
+        on-click = "activate";
+      };
+      "niri/window" = { format = "󰖲 {title}"; max-length = 30; };
+      "hyprland/window" = { format = "󰖲 {title}"; max-length = 30; };
+
       network = {
         format-wifi = "󰤨  {essid}";
         format-disconnected = "󰤭  None";
@@ -1101,42 +962,32 @@ in {
         format-icons = [ "󰕿" "󰖀" "󰕾" ];
         on-click = "pavucontrol";
       };
-      clock = {
-        format = "󰥔  {:%H:%M}";
-      };
+      clock = { format = "󰥔  {:%H:%M}"; };
       battery = {
         format = "{icon} {capacity}%";
         format-icons = [ "󰂎" "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       };
-      tray = {
-        spacing = 10;
-      };
+      tray = { spacing = 10; };
     }];
 
     style = ''
       * {
         font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew", "Font Awesome 6 Free";
-        font-size: 13px;
+        font-size: 12px;
         border: none;
       }
-      window#waybar {
-        background: transparent;
-      }
-      #workspaces, #network, #pulseaudio, #battery, #clock, #tray {
+      window#waybar { background: transparent; }
+      #window, #workspaces, #network, #pulseaudio, #battery, #clock, #tray {
         background: ${bg};
         color: ${fg};
-        padding: 4px 14px;
+        padding: 2px 12px;
         margin: 0 4px;
-        border-radius: 12px;
+        border-radius: 10px;
         border: 1px solid ${gray};
       }
-      #workspaces button {
-        color: ${gray};
-        padding: 0 4px;
-      }
-      #workspaces button.focused {
-        color: ${blue};
-      }
+      #workspaces button { color: ${gray}; padding: 0 4px; }
+      #workspaces button.focused { color: ${blue}; }
+      #workspaces button.active { color: ${blue}; }
     '';
   };
 }
@@ -1169,73 +1020,80 @@ in {
     };
   };
 }
-# modules/home/lock-idle.nix
-{ pkgs, config, lib, ... }:
+{ pkgs, lib, config, ... }:
 
 let
   bg = "#1a1b26";
   blue = "#7aa2f7";
 in {
-  home.packages = with pkgs; [
-    hyprlock
-    hypridle
-  ];
+  home.packages = with pkgs; [ hyprlock hypridle ];
 
+  # Hyprlock: The Screen Locker
   xdg.configFile."hypr/hyprlock.conf".text = ''
     background {
-        monitor = eDP-1
+        monitor =
         path = screenshot
         blur_passes = 3
         blur_size = 7
     }
 
     input-field {
-        monitor = eDP-1
+        monitor =
         size = 200, 50
         outline_thickness = 3
-        dots_size = 0.2
-        dots_spacing = 0.2
+        dots_size = 0.33
+        dots_spacing = 0.15
         dots_center = true
         outer_color = rgb(${blue})
         inner_color = rgb(${bg})
         font_color = rgb(${blue})
-        fade_on_empty = false
-        placeholder_text = <i>Password</i>
+        fade_on_empty = true
+        placeholder_text = <i>Password...</i>
         hide_input = false
+        position = 0, -20
+        halign = center
+        valign = center
     }
 
     label {
-        monitor = eDP-1
-        text = cmd[update:1000] echo "$(date +"%H:%M")"
+        monitor =
+        text = $TIME
         color = rgb(${blue})
-        font_size = 60
-        position = 0, -200
+        font_size = 64
+        font_family = JetBrainsMono Nerd Font
+        position = 0, 80
         halign = center
         valign = center
     }
   '';
 
+  # Hypridle: The Idle Manager (Req 8.1)
   services.hypridle = {
     enable = true;
     settings = {
       general = {
         lock_cmd = "pidof hyprlock || hyprlock";
         before_sleep_cmd = "loginctl lock-session";
+        after_sleep_cmd = "hyprctl dispatch dpms on || niri msg action power-on-monitors";
       };
+
       listener = [
         {
+          # 300s: Reduce brightness to 10%
           timeout = 300;
-          on-timeout = "light -S 10";
-          on-resume = "light -S 100";
+          on-timeout = "brightnessctl set 10%";
+          on-resume = "brightnessctl set 100%";
         }
         {
+          # 420s: Lock screen
           timeout = 420;
-          on-timeout = "hyprlock";
+          on-timeout = "loginctl lock-session";
         }
         {
+          # 600s: Turn off monitors
           timeout = 600;
-          on-timeout = "hyprctl dispatch dpms off";
-          on-resume = "hyprctl dispatch dpms on";
+          on-timeout = "hyprctl dispatch dpms off || niri msg action power-off-monitors";
+          on-resume = "hyprctl dispatch dpms on || niri msg action power-on-monitors";
         }
       ];
     };
@@ -1390,203 +1248,205 @@ in
     [ ! -f "${homeDir}/.cache/emacs/seforim/study-log.el" ] && echo "nil" > "${homeDir}/.cache/emacs/seforim/study-log.el"
   '';
 }
-# modules/home/hyprland/default.nix
-{ config, lib, pkgs, ... }:
+{ pkgs, config, lib, ... }:
 
 let
   bg = "#1a1b26";
   fg = "#c0caf5";
   blue = "#7aa2f7";
-  wallpaper = toString ./../../../wallpaper.jpg;
+  magenta = "#bb9af7";
+  gray = "#414868";
 in {
-  imports = [ ../yazi.nix ../waybar.nix ];
-
-  fonts.fontconfig.enable = true;
+  imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ];
 
   home.packages = with pkgs; [
-    foot
-    fuzzel
-    waybar
-    mako
     awww
-    wlogout
-    avizo
-    grim
-    slurp
-    wl-clipboard
-    cliphist
-    playerctl
-    udiskie
-    pavucontrol
-    swappy
-    networkmanagerapplet
-    polkit_gnome
-    libsecret
-    fd
-    fzf
-    jq
-    hyprpaper
-    hyprpicker
-    font-awesome
+    mako
+    waybar
+    fuzzel
+    xwayland-satellite
   ];
 
-  services.gnome-keyring.enable = true;
-
-  services.mako = {
-    enable = true;
-    settings = lib.mkForce {
-      background-color = "${bg}";
-      text-color = "${fg}";
-      border-color = "${blue}";
-      border-size = 2;
-      border-radius = 12;
-      default-timeout = 5000;
-      font = "JetBrainsMono Nerd Font 10";
-    };
-  };
-
-  programs.fuzzel = {
-    enable = true;
-    settings = lib.mkForce {
-      main = {
-        font = "JetBrainsMono Nerd Font:size=13";
-        terminal = "xdg-terminal-exec";
-        prompt = "'󰍉 '";
-      };
-      colors = {
-        background = "1a1b26ff";
-        text = "c0caf5ff";
-        match = "7aa2f7ff";
-        selection = "414868ff";
-        selection-text = "c0caf5ff";
-        border = "7aa2f7ff";
-      };
-      border = { width = 2; radius = 10; };
-    };
-  };
-
-  xdg.configFile."hypr/hyprland.conf".text = ''
-    monitor = eDP-1,preferred,auto,1
-
-    exec-once = waybar
-    exec-once = mako
-    exec-once = awww-daemon
-    exec-once = nm-applet --indicator
-    exec-once = udiskie --tray
-    exec-once = ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1
-    exec-once = wl-paste --watch cliphist store
-    exec-once = uwsm finalize
-
+  # Master Niri KDL Configuration
+  xdg.configFile."niri/config.kdl".text = ''
     input {
-        kb_layout = us,il
-        kb_options = grp:alt_shift_toggle,caps:escape
-        repeat_delay = 250
-        repeat_rate = 40
+        keyboard {
+            xkb {
+                layout "us,il"
+                options "grp:win_space_toggle,caps:escape"
+            }
+            repeat-delay 250
+            repeat-rate 40
+        }
         touchpad {
-            natural_scroll = true
-            tap-to-click = true
+            tap
+            dwt
+            natural-scroll false // Traditional
+        }
+        mouse {
+            natural-scroll false
         }
     }
 
-    general {
-        gaps_in = 8
-        gaps_out = 16
-        border_size = 2
-        col.active_border = ${blue}
-        col.inactive_border = 0x414868
-        layout = master
+    output ".*" {
+        scale 1.0
     }
 
-    decoration {
-        rounding = 10
-        blur {
-            enabled = true
-            size = 5
-            passes = 2
+    layout {
+        gaps 8 // Optimized for 768p
+        center-focused-column "never"
+        preset-column-widths {
+            proportion 0.333
+            proportion 0.5
+            proportion 0.666
+        }
+        default-column-width { proportion 0.5; }
+
+        focus-ring {
+            width 4
+            active-color "${blue}"
+            inactive-color "${gray}"
+        }
+
+        // Space Saving: Disable window titlebars
+        border {
+            width 2
+            active-color "${blue}"
+            inactive-color "${gray}"
         }
     }
 
     animations {
-        enabled = true
-        bezier = myBezier, 0.05, 0.9, 0.1, 1.05
-        animation = windows, 1, 7, myBezier
-        animation = border, 1, 10, default
-        animation = fade, 1, 7, default
-        animation = workspaces, 1, 6, default
+        slowdown 1.2
+        workspace-switch { spring stiffness=800 damping-ratio=1.0 epsilon=0.0001; }
+        window-open { spring stiffness=800 damping-ratio=1.0 epsilon=0.0001; }
     }
 
-    windowrulev2 = float, class:(pavucontrol)
-    windowrulev2 = float, class:(nm-connection-editor)
-    windowrulev2 = float, title:(scratchterm)
-    windowrulev2 = float, title:(emacs-scratch)
-    windowrulev2 = size 1100 800, title:(scratchterm)
-    windowrulev2 = center, title:(scratchterm)
-    windowrulev2 = center, title:(emacs-scratch)
+    window-rule {
+        match is-active=false;
+        opacity 0.7
+    }
 
-    $mainMod = SUPER
+    window-rule {
+        match app-id="nm-connection-editor";
+        match app-id="pavucontrol";
+        open-floating true;
+    }
 
-    bind = $mainMod, Return, exec, xdg-terminal-exec
-    bind = $mainMod, D, exec, fuzzel
-    bind = $mainMod, N, exec, nm-connection-editor
-    bind = $mainMod, V, exec, bash -c "cliphist list | fuzzel -d | cliphist decode | wl-copy"
-    bind = $mainMod SHIFT, C, killactive
-    bind = $mainMod SHIFT, Q, exec, wlogout
+    window-rule {
+        match app-id="scratchpad";
+        open-floating true;
+        default-column-width { fixed 1100; }
+    }
 
-    bind = $mainMod, Space, exec, power-search
-    bind = $mainMod, T, exec, teleport
-    bind = $mainMod ALT, S, exec, spotlight
+    spawn-at-startup "waybar"
+    spawn-at-startup "mako"
+    spawn-at-startup "awww-daemon"
+    spawn-at-startup "nm-applet"
+    spawn-at-startup "udiskie" "--tray"
+    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
+    spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store"
+    spawn-at-startup "uwsm" "finalize"
 
-    bind = $mainMod, grave, exec, toggle-scratchpad-terminal
-    bind = $mainMod SHIFT, grave, exec, toggle-scratchpad-emacs
+    binds {
+        Mod+Slash { show-hotkey-overlay; }
+        Mod+Return { spawn "foot"; }
+        Mod+D { spawn "fuzzel"; }
+        Mod+N { spawn "nm-connection-editor"; }
+        Mod+V { spawn "bash" "-c" "cliphist list | fuzzel -d | cliphist decode | wl-copy"; }
+        Mod+Shift+C { close-window; }
+        Mod+Shift+Q { spawn "wlogout"; }
 
-    bind = $mainMod, H, movefocus, l
-    bind = $mainMod, L, movefocus, r
-    bind = $mainMod, K, movefocus, u
-    bind = $mainMod, J, movefocus, d
-    bind = $mainMod SHIFT, H, movewindow, l
-    bind = $mainMod SHIFT, L, movewindow, r
-    bind = $mainMod SHIFT, K, movewindow, u
-    bind = $mainMod SHIFT, J, movewindow, d
+        // Universal Script Binds
+        Mod+Space { spawn "power-search"; }
+        Mod+T { spawn "teleport"; }
+        Mod+Alt+S { spawn "spotlight"; }
+        Mod+grave { spawn "toggle-scratchpad-terminal"; }
+        Mod+Shift+grave { spawn "toggle-scratchpad-emacs"; }
 
-    bind = $mainMod, 1, workspace, 1
-    bind = $mainMod, 2, workspace, 2
-    bind = $mainMod, 3, workspace, 3
-    bind = $mainMod, 4, workspace, 4
-    bind = $mainMod, 5, workspace, 5
-    bind = $mainMod SHIFT, 1, movetoworkspace, 1
-    bind = $mainMod SHIFT, 2, movetoworkspace, 2
-    bind = $mainMod SHIFT, 3, movetoworkspace, 3
-    bind = $mainMod SHIFT, 4, movetoworkspace, 4
-    bind = $mainMod SHIFT, 5, movetoworkspace, 5
+        // Navigation (HJKL)
+        Mod+H { focus-column-left; }
+        Mod+L { focus-column-right; }
+        Mod+K { focus-workspace-up; }
+        Mod+J { focus-workspace-down; }
+        Mod+Shift+H { move-column-left; }
+        Mod+Shift+L { move-column-right; }
+        Mod+Shift+K { move-window-to-workspace-up; }
+        Mod+Shift+J { move-window-to-workspace-down; }
 
-    bind = $mainMod, F, fullscreen
-    bind = $mainMod SHIFT, F, togglefloating
+        // Tiling & Floating Logic (The Hybrid)
+        Mod+Comma  { consume-window-into-column; }
+        Mod+Period { expel-window-from-column; }
+        Mod+Shift+Space { toggle-window-floating; }
+        Mod+C { center-column; }
 
-    bind = , XF86AudioRaiseVolume, exec, volctl up
-    bind = , XF86AudioLowerVolume, exec, volctl down
-    bind = , XF86AudioMute, exec, volctl toggle-mute
-    bind = , XF86MonBrightnessUp, exec, light -A 5
-    bind = , XF86MonBrightnessDown, exec, light -U 5
+        // Touchpad Navigation (Req 5.3)
+        Mod+TouchpadScrollLeft  { focus-column-left; }
+        Mod+TouchpadScrollRight { focus-column-right; }
+        Mod+TouchpadScrollUp    { focus-workspace-up; }
+        Mod+TouchpadScrollDown  { focus-workspace-down; }
 
-    bind = , Print, exec, screenshot-edit
+        Mod+R { switch-preset-column-width; }
+        Mod+F { maximize-column; }
+        Mod+Shift+F { fullscreen-window; }
+
+        // Hardware Controls
+        XF86AudioRaiseVolume { spawn "volctl" "up"; }
+        XF86AudioLowerVolume { spawn "volctl" "down"; }
+        XF86AudioMute { spawn "volctl" "mute"; }
+        XF86MonBrightnessUp { spawn "volctl" "br-up"; }
+        XF86MonBrightnessDown { spawn "volctl" "br-down"; }
+
+        Print { spawn "screenshot-edit"; }
+
+        // Resolution Magnifier
+        Mod+Equal { set-column-width "+10%"; }
+        Mod+Minus { set-column-width "-10%"; }
+    }
   '';
-
-  systemd.user.services.awww-wallpaper = {
-    Unit = {
-      Description = "Set wallpaper on awww";
-      After = [ "graphical-session-pre.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.awww}/bin/awww set ${wallpaper}";
-    };
-    Install = {
-      WantedBy = [ "graphical-session.target" ];
-    };
-  };
 }
-{ pkgs, lib, ... }:
+{ config, lib, pkgs, ... }:
+
+{
+  # FIX: Write to the root home directory for maximum compatibility
+  home.file.".p10k.zsh".text = ''
+    'builtin' 'local' '-a' 'p10k_config_opts'
+    [[ ! -o 'aliases'         ]] || p10k_config_opts+=('aliases')
+    [[ ! -o 'sh_glob'         ]] || p10k_config_opts+=('sh_glob')
+    [[ ! -o 'no_brace_expand' ]] || p10k_config_opts+=('no_brace_expand')
+    'builtin' 'setopt' 'no_aliases' 'no_sh_glob' 'brace_expand'
+
+    () {
+      setup() {
+        # Visual Style: Lean, 2-line, Many Icons
+        typeset -g POWERLEVEL9K_MODE=nerdfont-v3
+        typeset -g POWERLEVEL9K_ICON_PADDING=moderate
+        typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=false
+        typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_CHAR=' '
+
+        typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir vcs prompt_char)
+        typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status command_execution_time nix_shell battery time)
+
+        # ABSOLUTE PATH FIX
+        typeset -g POWERLEVEL9K_DIR_PATH_SEPARATOR='/'
+        typeset -g POWERLEVEL9K_DIR_TRUNCATE_BEFORE_MARKER=false
+        typeset -g POWERLEVEL9K_DIR_MAX_NUM_ELEMENTS=
+
+        # TRANSIENT PROMPT
+        typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
+
+        # COLORS (Tokyo Night)
+        typeset -g POWERLEVEL9K_OS_ICON_FOREGROUND=212
+        typeset -g POWERLEVEL9K_DIR_FOREGROUND=31
+        typeset -g POWERLEVEL9K_VCS_CLEAN_FOREGROUND=76
+      }
+      setup
+    }
+    (( ''${#p10k_config_opts} )) && setopt ''${p10k_config_opts[@]}
+    'unfunction' 'setup'
+  '';
+}
+{ pkgs, lib, config, ... }:
 
 let
   compositorDetect = ''
@@ -1602,7 +1462,6 @@ let
   powerSearch = pkgs.writeShellScriptBin "power-search" ''
     ${compositorDetect}
     if [ "$COMPOSITOR" = "plasma" ]; then
-      # Use KRunner for Plasma
       dbus-send --session --dest=org.kde.krunner --type=method_call /App org.kde.krunner.App.display
       exit 0
     fi
@@ -1618,7 +1477,7 @@ let
             ${pkgs.foot}/bin/foot -e ${pkgs.yazi}/bin/yazi "$DIR" ;;
         "💻 Open Terminal Here")
             DIR=$(dirname "$FILE")
-            xdg-terminal-exec -D "$DIR" ;;
+            ${pkgs.foot}/bin/foot -D "$DIR" ;;
     esac
   '';
 
@@ -1629,13 +1488,15 @@ let
     if [ "$COMPOSITOR" = "niri" ]; then
       if [ ! -f "$STATE_FILE" ]; then
           niri msg action toggle-window-floating
-          niri msg action set-window-size 90% 90%
-          niri msg action center-window
-          pkill -SIGUSR2 waybar
+          niri msg action center-column
+          niri msg action set-column-width "90%"
+          pgrep -x waybar && pkill -SIGUSR1 waybar
           touch "$STATE_FILE"
       else
           niri msg action toggle-window-floating
-          pkill -SIGUSR2 waybar
+          niri msg action set-column-width "50%"
+          pgrep -x waybar || waybar &
+          pkill -SIGUSR1 waybar
           rm "$STATE_FILE"
       fi
     elif [ "$COMPOSITOR" = "hyprland" ]; then
@@ -1643,14 +1504,28 @@ let
           hyprctl dispatch togglefloating
           hyprctl dispatch centerwindow
           hyprctl dispatch resizeactive exact 90% 90%
-          pkill -SIGUSR2 waybar
+          pkill -SIGUSR1 waybar
           touch "$STATE_FILE"
       else
           hyprctl dispatch togglefloating
-          hyprctl dispatch resizeactive exact 50% 50%
-          pkill -SIGUSR2 waybar
+          pkill -SIGUSR1 waybar
           rm "$STATE_FILE"
       fi
+    fi
+  '';
+
+  teleport = pkgs.writeShellScriptBin "teleport" ''
+    ${compositorDetect}
+    if [ "$COMPOSITOR" = "niri" ]; then
+      WINDOW=$(niri msg --json windows | jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
+      [ -z "$WINDOW" ] && exit 0
+      ID=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
+      niri msg action focus-window --id "$ID"
+    elif [ "$COMPOSITOR" = "hyprland" ]; then
+      WINDOW=$(hyprctl clients -j | jq -r '.[] | "\(.title) | \(.class) | \(.address)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
+      [ -z "$WINDOW" ] && exit 0
+      ADDR=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
+      hyprctl dispatch focuswindow "address:$ADDR"
     fi
   '';
 
@@ -1669,114 +1544,80 @@ let
     fi
   '';
 
-  teleport = pkgs.writeShellScriptBin "teleport" ''
-    ${compositorDetect}
-    if [ "$COMPOSITOR" = "niri" ]; then
-      WINDOW=$(niri msg --json windows | jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
-      [ -z "$WINDOW" ] && exit 0
-      ID=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
-      niri msg action focus-window --id "$ID"
-    elif [ "$COMPOSITOR" = "hyprland" ]; then
-      hyprctl clients -j | jq -r '.[] | "\(.title) | \(.class) | \(.address)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: " | while read -r line; do
-        ADDR=$(echo "$line" | awk -F '|' '{print $NF}' | tr -d ' ')
-        hyprctl dispatch focuswindow "address:$ADDR"
-      done
-    fi
+  volctl = pkgs.writeShellScriptBin "volctl" ''
+    case "''${1:-}" in
+      up)   ${pkgs.pamixer}/bin/pamixer -i 5 ;;
+      down) ${pkgs.pamixer}/bin/pamixer -d 5 ;;
+      mute) ${pkgs.pamixer}/bin/pamixer -t ;;
+      br-up)   ${pkgs.brightnessctl}/bin/brightnessctl set +5% ;;
+      br-down) ${pkgs.brightnessctl}/bin/brightnessctl set 5%- ;;
+    esac
   '';
 
   screenshot = pkgs.writeShellScriptBin "screenshot-edit" ''
     FILE="$HOME/Pictures/Screenshots/$(date +%Y-%m-%d_%H-%M-%S).png"
     mkdir -p "$(dirname "$FILE")"
     ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" "$FILE"
-    if [ -f "$FILE" ]; then
-       ${pkgs.swappy}/bin/swappy -f "$FILE"
-    fi
+    [ -f "$FILE" ] && ${pkgs.swappy}/bin/swappy -f "$FILE"
   '';
 
-  toggleTermScratch = pkgs.writeShellScriptBin "toggle-scratchpad-terminal" ''
+  toggleTerm = pkgs.writeShellScriptBin "toggle-scratchpad-terminal" ''
     ${compositorDetect}
-    TERM_TITLE="scratchterm"
-
+    ID="scratchpad"
     if [ "$COMPOSITOR" = "niri" ]; then
-      if niri msg --json windows | jq -e '.[] | select(.title == "'$TERM_TITLE'")' > /dev/null; then
-        niri msg action focus-window --title "$TERM_TITLE"
+      if niri msg --json windows | jq -e ".[] | select(.app_id == \"$ID\")" > /dev/null; then
+        niri msg action focus-window --app-id "$ID"
       else
-        ${pkgs.foot}/bin/foot --title="$TERM_TITLE" &
-        sleep 0.5
-        niri msg action focus-window --title "$TERM_TITLE"
+        ${pkgs.foot}/bin/foot --app-id="$ID" &
       fi
     elif [ "$COMPOSITOR" = "hyprland" ]; then
-      if hyprctl clients -j | jq -e '.[] | select(.title == "'$TERM_TITLE'")' > /dev/null; then
-        hyprctl dispatch focuswindow "title:$TERM_TITLE"
-      else
-        ${pkgs.foot}/bin/foot --title="$TERM_TITLE" &
-        sleep 0.5
-        hyprctl dispatch focuswindow "title:$TERM_TITLE"
-      fi
+       if hyprctl clients -j | jq -e ".[] | select(.class == \"$ID\")" > /dev/null; then
+         hyprctl dispatch focuswindow "class:$ID"
+       else
+         ${pkgs.foot}/bin/foot --class="$ID" &
+       fi
     fi
   '';
 
-  toggleEmacsScratch = pkgs.writeShellScriptBin "toggle-scratchpad-emacs" ''
+  toggleEmacs = pkgs.writeShellScriptBin "toggle-scratchpad-emacs" ''
     ${compositorDetect}
-    FRAME_NAME="emacs-scratch"
-
-    ${pkgs.emacs}/bin/emacsclient -a "" -e "(+ 1 1)" > /dev/null 2>&1
-
+    NAME="emacs-scratch"
     ${pkgs.emacs}/bin/emacsclient -a "" -e "(progn
-      (unless (seq-find (lambda (f) (string= (frame-parameter f 'name) \"$FRAME_NAME\")) (frame-list))
-        (make-frame '((name . \"$FRAME_NAME\") (width . 80) (height . 25) (menu-bar-lines . 0) (tool-bar-lines . 0))))
-      (select-frame-by-name \"$FRAME_NAME\"))"
-
+      (unless (seq-find (lambda (f) (string= (frame-parameter f 'name) \"$NAME\")) (frame-list))
+        (make-frame '((name . \"$NAME\") (width . 110) (height . 30))))
+      (select-frame-by-name \"$NAME\"))"
+    sleep 0.2
     if [ "$COMPOSITOR" = "niri" ]; then
-      sleep 0.3
-      niri msg action focus-window --title "$FRAME_NAME"
+      niri msg action focus-window --title "$NAME"
     elif [ "$COMPOSITOR" = "hyprland" ]; then
-      sleep 0.3
-      hyprctl dispatch focuswindow "title:$FRAME_NAME"
+      hyprctl dispatch focuswindow "title:$NAME"
     fi
-  '';
-
-  volctl = pkgs.writeShellScriptBin "volctl" ''
-    set -euo pipefail
-    STEP=3
-    case "''${1:-}" in
-      up)   ${pkgs.pamixer}/bin/pamixer -i $STEP ;;
-      down) ${pkgs.pamixer}/bin/pamixer -d $STEP ;;
-      toggle-mute) ${pkgs.pamixer}/bin/pamixer -t ;;
-      br-up) ${pkgs.brightnessctl}/bin/brightnessctl set +5% ;;
-      br-down) ${pkgs.brightnessctl}/bin/brightnessctl set 5%- ;;
-      *) echo "Usage: volctl up|down|toggle-mute|br-up|br-down" >&2; exit 1 ;;
-    esac
   '';
 
 in {
-  home.packages = with pkgs; [
-    pamixer
-    brightnessctl
-    powerSearch
-    spotlight
-    swallow
-    teleport
-    screenshot
-    toggleTermScratch
-    toggleEmacsScratch
-    volctl
+  home.packages = [
+    powerSearch spotlight teleport swallow
+    volctl screenshot toggleTerm toggleEmacs
   ];
 }
 {
   description = "Shaul's NixOS Configuration";
 
   inputs = {
-    #  nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     stylix.url = "github:danth/stylix";
+    plasma-manager = {
+      url = "github:nix-community/plasma-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, stylix, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, stylix, plasma-manager, ... }@inputs:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
@@ -1791,32 +1632,56 @@ in {
         timezone = "America/New_York";
         locale = "en_US.UTF-8";
         seforimPath = "/home/shaul/Documents/seforim";
-        desktopEnvironment = "plasma";
       };
     in
     {
       nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit inputs myConfig; unstable = pkgs; };
+        specialArgs = { inherit inputs myConfig; };
         modules = [
           ./hosts/desktop/configuration.nix
           home-manager.nixosModules.home-manager
           stylix.nixosModules.stylix
+          {
+            home-manager.sharedModules = [
+              plasma-manager.homeModules.plasma-manager
+            ];
+          }
         ];
       };
     };
 }
 { config, lib, pkgs, myConfig, ... }:
 
+let
+  plasmaWipe = pkgs.writeShellScriptBin "plasma-wipe" ''
+    echo "══════════════════════════════════════════════════════════════"
+    echo "          KDE PLASMA 6 NUCLEAR WIPE SCRIPT"
+    echo "══════════════════════════════════════════════════════════════"
+    read -p "Proceed? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        killall -u ${myConfig.username} kwin_wayland plasmashell 2>/dev/null || true
+        rm -rf ~/.config/plasma* ~/.config/kde* ~/.config/kdeglobals ~/.config/kwin*
+        rm -rf ~/.local/share/plasma* ~/.local/share/desktop-directories
+        rm -rf ~/.cache/plasma* ~/.cache/kde* ~/.cache/kwin*
+        rm -f ~/.config/zsh/.p10k.zsh ~/.p10k.zsh
+        echo "Wipe complete. Rebooting..."
+        sudo reboot
+    fi
+  '';
+in
 {
+  imports = [ ./../modules/home/scripts.nix ];
+
   home.username = myConfig.username;
   home.homeDirectory = myConfig.homeDir;
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
 
+  # FIX: Silence GTK4 warning
   gtk.gtk4.theme = null;
-  xdg.userDirs.setSessionVariables = true;
 
   home.activation.force-clean-git-files = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
     for file in ".gtkrc-2.0" ".bashrc"; do
@@ -1828,19 +1693,17 @@ in {
     done
   '';
 
-  home.sessionPath = [
-    "${config.home.homeDirectory}/Scripts"
-  ];
-
-  programs.bash.enable = false;
   programs.zsh = {
     enable = true;
     enableCompletion = true;
     syntaxHighlighting.enable = true;
+
+    # FIX: Absolute path logic for NixOS 25.11 to silence deprecation warning
     dotDir = ".config/zsh";
 
     oh-my-zsh = {
       enable = true;
+      theme = "";
       plugins = [ "git" "systemd" "command-not-found" "sudo" "extract" ];
     };
 
@@ -1853,70 +1716,41 @@ in {
     ];
 
     initContent = ''
-      # Load p10k config if it exists
       [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-      # fzf-tab integration
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.zsh
 
-      # Scripts path recursive detection
       if [ -d "$HOME/Scripts" ]; then
-        SCRIPTS_PATH=$(find "$HOME/Scripts" -type d -not -path '*/.*' -printf ":%p")
-        export PATH="$PATH$SCRIPTS_PATH"
+        export PATH="$PATH$(find "$HOME/Scripts" -maxdepth 2 -type d -not -path '.*' -printf ":%p")"
       fi
     '';
   };
 
-  xdg.enable = true;
-  xdg.userDirs = {
-    enable = true;
-    createDirectories = true;
-    documents = "${config.home.homeDirectory}/Documents";
-    download = "${config.home.homeDirectory}/Downloads";
-    music = "${config.home.homeDirectory}/Music";
-    pictures = "${config.home.homeDirectory}/Pictures";
-    videos = "${config.home.homeDirectory}/Videos";
-  };
-
   home.shellAliases = {
     nrs = "sudo nixos-rebuild switch --flake ~/nixos-config#desktop";
-    nrt = "sudo nixos-rebuild test --flake ~/nixos-config#desktop";
-    nrb = "sudo nixos-rebuild build --flake ~/nixos-config#desktop";
-    nfu = "cd ~/nixos-config && nix flake update";
-    nconf = "cd ~/nixos-config && $EDITOR .";
-    ngc = "sudo nix-collect-garbage --delete-older-than 14d";
-    wifi = "nmtui";
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";
   };
 
+  home.packages = with pkgs; [
+    pamixer brightnessctl playerctl libsecret jq fd fzf plasmaWipe
+  ];
+
   programs.git = {
     enable = true;
-    userName = myConfig.fullName;
-    userEmail = "shaul@example.com"; # Added to prevent git errors
-    extraConfig = {
+    settings = {
+      user = {
+        name = myConfig.fullName;
+        email = "shaul@example.com";
+      };
       init.defaultBranch = "main";
       pull.rebase = true;
     };
   };
 
-  programs.fzf = {
-    enable = true;
-    enableZshIntegration = true;
-  };
-
-  programs.bat = {
-    enable = true;
-    config = {
-      theme = lib.mkForce "TwoDark";
-    };
-  };
-
-  programs.direnv = {
-    enable = true;
-    nix-direnv.enable = true;
-  };
+  programs.fzf.enable = true;
+  programs.bat.enable = true;
+  xdg.enable = true;
 }
 { config, lib, pkgs, myConfig, desktopEnvironment ? "plasma", unstable, ... }:
 
@@ -1924,49 +1758,89 @@ in {
   imports = [
     ./common.nix
     ../modules/home/emacs
-    # waybar and scripts removed from global imports to prevent Plasma conflicts
+    ../modules/home/p10k.nix
   ] ++ (if desktopEnvironment == "niri" then [
     ../modules/home/niri
-    ../modules/home/waybar.nix
-    ../modules/home/scripts.nix
-    ../modules/home/lock-niri.nix
   ] else if desktopEnvironment == "hyprland" then [
     ../modules/home/hyprland
-    ../modules/home/waybar.nix
-    ../modules/home/scripts.nix
-    ../modules/home/lock-idle.nix
-  ] else []); # Plasma session now stays clean
+  ] else []);
+
+  # FIX: Disable Stylix KDE/Qt and link Firefox profile for theming
+  stylix.targets.kde.enable = false;
+  stylix.targets.qt.enable = false;
+  stylix.targets.firefox.profileNames = [ myConfig.username ]; # FIX: Stylix profile warning
+  stylix.fonts.sizes.applications = 9;
+  stylix.fonts.sizes.desktop = 9;
+
+  programs.firefox = {
+    enable = true;
+    # FIX: Silence the .mozilla/firefox path migration warning
+    configPath = ".mozilla/firefox";
+    profiles.${myConfig.username} = {
+      settings = {
+        "layout.css.devPixelsPerPx" = "1.0";
+        "browser.uidensity" = 1; # Compact mode for 768p
+      };
+    };
+  };
+
+  programs.plasma = {
+    enable = (desktopEnvironment == "plasma");
+    overrideConfig = true;
+
+    configFile = {
+      "kcmfonts"."General"."forceFontDPI" = 96;
+      "kdeglobals"."KScreen"."ScaleFactor" = 1;
+      "kdeglobals"."General"."font" = "Noto Sans,9,-1,5,50,0,0,0,0,0";
+      "kdeglobals"."General"."fixed" = "JetBrainsMono Nerd Font,9,-1,5,50,0,0,0,0,0";
+      "kdeglobals"."General"."menuFont" = "Noto Sans,9,-1,5,50,0,0,0,0,0";
+      "kdeglobals"."General"."toolBarFont" = "Noto Sans,8,-1,5,50,0,0,0,0,0";
+      "kdeglobals"."KDE"."widgetStyle" = "Breeze";
+    };
+
+    workspace = {
+      lookAndFeel = "org.kde.breeze.desktop";
+      theme = "breeze-dark";
+      iconTheme = "breeze-dark";
+      cursor = {
+        theme = "Breeze_Snow";
+        size = 24;
+      };
+    };
+
+    panels = [
+      {
+        location = "bottom";
+        height = 32;
+        widgets = [
+          "org.kde.plasma.kickoff"
+          "org.kde.plasma.pager"
+          "org.kde.plasma.icontasks"
+          "org.kde.plasma.marginsseparator"
+          "org.kde.plasma.systemtray"
+          "org.kde.plasma.digitalclock"
+        ];
+      }
+    ];
+  };
 
   home.packages = with pkgs; [
-    libreoffice-qt-fresh
-    kdePackages.calligra
-    gimp-with-plugins
-    gimpPlugins.gmic
-    gimpPlugins.resynthesizer
-    krita
-    krita-plugin-gmic
-    inkscape-with-extensions
-    pinta
-    photoflare
-    pixeluvo
-    digikam
-    rawtherapee
-    darktable
-    sly
-    rapidraw
-    graphicsmagick_q16
-    vlc
-    audacity
-    lmms
-    scribus
-    persepolis
-    onedriver
-    tor-browser
-    qutebrowser
-    firefox
+    libreoffice-qt-fresh kdePackages.calligra
+    gimp-with-plugins gimpPlugins.gmic gimpPlugins.resynthesizer
+    krita krita-plugin-gmic inkscape-with-extensions
+    pinta photoflare pixeluvo digikam rawtherapee darktable
+    sly rapidraw graphicsmagick_q16
+    vlc audacity lmms scribus persepolis onedriver
+    tor-browser qutebrowser firefox
   ];
 
-  home.sessionVariables.TERMINAL = "foot";
+  home.sessionVariables = {
+    TERMINAL = "foot";
+    QT_STYLE_OVERRIDE = lib.mkForce "breeze";
+    QT_QPA_PLATFORMTHEME = lib.mkForce "kde";
+    GDK_SCALE = "1";
+    GDK_DPI_SCALE = "1";
+  };
 }
 # hosts/minimal/configuration.nix
 # Minimal system for recovery or testing
@@ -2048,7 +1922,6 @@ nix.extraOptions = "!include /etc/nix/tokens.conf";
 
   system.stateVersion = "25.11";
 }
-# hosts/desktop/configuration.nix
 { config, lib, pkgs, myConfig, ... }:
 
 let
@@ -2065,10 +1938,12 @@ in
     ../../modules/system/services.nix
   ];
 
+  services.displayManager.defaultSession = "plasma";
+
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
-    backupCommand = "true";               # silently overwrite, no backups
+    backupCommand = "true";
     extraSpecialArgs = {
       inherit myConfig;
       desktopEnvironment = "plasma";

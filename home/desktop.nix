@@ -5,27 +5,26 @@
     ./common.nix
     ../modules/home/emacs
     ../modules/home/p10k.nix
+    ../modules/home/foot.nix
   ] ++ (if desktopEnvironment == "niri" then [
     ../modules/home/niri
   ] else if desktopEnvironment == "hyprland" then [
     ../modules/home/hyprland
   ] else []);
 
-  # FIX: Disable Stylix KDE/Qt and link Firefox profile for theming
   stylix.targets.kde.enable = false;
   stylix.targets.qt.enable = false;
-  stylix.targets.firefox.profileNames = [ myConfig.username ]; # FIX: Stylix profile warning
+  stylix.targets.firefox.profileNames = [ myConfig.username ];
   stylix.fonts.sizes.applications = 9;
   stylix.fonts.sizes.desktop = 9;
 
   programs.firefox = {
     enable = true;
-    # FIX: Silence the .mozilla/firefox path migration warning
-    configPath = ".mozilla/firefox";
+    configPath = lib.mkForce ".mozilla/firefox";
     profiles.${myConfig.username} = {
       settings = {
         "layout.css.devPixelsPerPx" = "1.0";
-        "browser.uidensity" = 1; # Compact mode for 768p
+        "browser.uidensity" = 1;
       };
     };
   };
@@ -77,7 +76,7 @@
     pinta photoflare pixeluvo digikam rawtherapee darktable
     sly rapidraw graphicsmagick_q16
     vlc audacity lmms scribus persepolis onedriver
-    tor-browser qutebrowser firefox
+    tor-browser qutebrowser firefox  nushell
   ];
 
   home.sessionVariables = {

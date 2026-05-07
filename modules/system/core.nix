@@ -1,7 +1,11 @@
 { config, lib, pkgs, myConfig, ... }:
 
 {
-  nix.extraOptions = "!include /etc/nix/tokens.conf";
+   nix.extraOptions = "!include /etc/nix/tokens.conf";
+
+  hardware.graphics = {
+  enable = true;
+};
 
   programs.zsh.enable = true;
 

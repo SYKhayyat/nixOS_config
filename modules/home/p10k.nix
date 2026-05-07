@@ -1,41 +1,37 @@
 { config, lib, pkgs, ... }:
 
 {
-  # FIX: Write to the root home directory for maximum compatibility
   home.file.".p10k.zsh".text = ''
-    'builtin' 'local' '-a' 'p10k_config_opts'
-    [[ ! -o 'aliases'         ]] || p10k_config_opts+=('aliases')
-    [[ ! -o 'sh_glob'         ]] || p10k_config_opts+=('sh_glob')
-    [[ ! -o 'no_brace_expand' ]] || p10k_config_opts+=('no_brace_expand')
-    'builtin' 'setopt' 'no_aliases' 'no_sh_glob' 'brace_expand'
+    # Clean Bash‑like prompt – single line, no clutter
+    # Rebuilt after manual deletion
+    POWERLEVEL9K_MODE=nerdfont-v3
+    POWERLEVEL9K_ICON_PADDING=none
 
-    () {
-      setup() {
-        # Visual Style: Lean, 2-line, Many Icons
-        typeset -g POWERLEVEL9K_MODE=nerdfont-v3
-        typeset -g POWERLEVEL9K_ICON_PADDING=moderate
-        typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=false
-        typeset -g POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_CHAR=' '
+    # Keep everything on one line
+    POWERLEVEL9K_PROMPT_ADD_NEWLINE=false
+    POWERLEVEL9K_MULTILINE_FIRST_PROMPT_GAP_CHAR=
 
-        typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir vcs prompt_char)
-        typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status command_execution_time nix_shell battery time)
+    # Left side: only the current directory and the prompt character
+    POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(dir prompt_char)
 
-        # ABSOLUTE PATH FIX
-        typeset -g POWERLEVEL9K_DIR_PATH_SEPARATOR='/'
-        typeset -g POWERLEVEL9K_DIR_TRUNCATE_BEFORE_MARKER=false
-        typeset -g POWERLEVEL9K_DIR_MAX_NUM_ELEMENTS=
+    # Completely empty right prompt
+    POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=()
 
-        # TRANSIENT PROMPT
-        typeset -g POWERLEVEL9K_TRANSIENT_PROMPT=always
+    # Directory: ~‑expanded, shown in bright white (high contrast)
+    POWERLEVEL9K_DIR_FOREGROUND=15
+    POWERLEVEL9K_DIR_PATH_SEPARATOR='/'
+    POWERLEVEL9K_DIR_TRUNCATE_BEFORE_MARKER=false
+    POWERLEVEL9K_DIR_MAX_NUM_ELEMENTS=
 
-        # COLORS (Tokyo Night)
-        typeset -g POWERLEVEL9K_OS_ICON_FOREGROUND=212
-        typeset -g POWERLEVEL9K_DIR_FOREGROUND=31
-        typeset -g POWERLEVEL9K_VCS_CLEAN_FOREGROUND=76
-      }
-      setup
-    }
-    (( ''${#p10k_config_opts} )) && setopt ''${p10k_config_opts[@]}
-    'unfunction' 'setup'
+    # Prompt symbol: green '$' or '#' on success, red on error
+    POWERLEVEL9K_PROMPT_CHAR_OK_VIINS_FOREGROUND=10
+    POWERLEVEL9K_PROMPT_CHAR_OK_VIREG_FOREGROUND=10
+    POWERLEVEL9K_PROMPT_CHAR_ERROR_VIINS_FOREGROUND=9
+    POWERLEVEL9K_PROMPT_CHAR_ERROR_VIREG_FOREGROUND=9
+    POWERLEVEL9K_PROMPT_CHAR_OK_VICMD_FOREGROUND=10
+    POWERLEVEL9K_PROMPT_CHAR_ERROR_VICMD_FOREGROUND=10
+
+    # Disable instant prompt (keeps everything simple)
+    POWERLEVEL9K_INSTANT_PROMPT=off
   '';
 }

@@ -1,9 +1,9 @@
-{ pkgs, ... }: {
+{ pkgs, lib, ... }: {
   programs.foot = {
     enable = true;
     settings = {
       main = {
-        font = "JetBrainsMono Nerd Font:size=10";
+      font = lib.mkForce "JetBrainsMono Nerd Font:size=10";
       };
     };
   };

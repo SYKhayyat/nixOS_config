@@ -1,7 +1,7 @@
-{ lib, pkgs, myConfig, desktopEnvironment, extraModules, unstable ? null }:
+{ lib, pkgs, myConfig, desktopEnvironment, extraModules, unstable ? null, homeDesktopPath ? null }:
 
 {
-  configuration = { ... }: {
+  configuration = { config, ... }: {
     _module.args.myConfig = myConfig // { inherit desktopEnvironment; };
 
     xdg.portal = {
@@ -17,13 +17,14 @@
         ];
     };
 
-    services.displayManager.sddm.enable = lib.mkForce true;
-    services.displayManager.sddm.wayland.enable = true;
+    services.displayManager.sddm.enable = lib.mkForce (desktopEnvironment != "lxqt");
+    services.displayManager.sddm.wayland.enable = lib.mkForce (desktopEnvironment != "lxqt");
 
     services.displayManager.defaultSession = lib.mkForce (
       if desktopEnvironment == "plasma" then "plasma"
       else if desktopEnvironment == "hyprland" then "hyprland-uwsm"
       else if desktopEnvironment == "niri" then "niri-uwsm"
+      else if desktopEnvironment == "lxqt" then "lxqt"
       else null
     );
 
@@ -31,7 +32,7 @@
 
     imports = extraModules;
 
-    home-manager = {
+    home-manager = lib.mkIf (homeDesktopPath != null) {
       useGlobalPkgs = true;
       useUserPackages = true;
       backupCommand = "true";
@@ -41,7 +42,7 @@
         unstable = if unstable != null then unstable else pkgs;
       };
       users.${myConfig.username} = {
-        imports = [ ../home/desktop.nix ];
+        imports = [ homeDesktopPath ];
       };
     };
   };

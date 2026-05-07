@@ -23,7 +23,7 @@ let
     case "$ENGINE" in
       *plocate*)
         if command -v plocate >/dev/null; then
-          FILE=$(plocate -i '' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
+          FILE=$(plocate -i "" | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
         else
           ${pkgs.libnotify}/bin/notify-send "plocate not found; falling back to fd"
           FILE=$(fd . $HOME/Documents $HOME/Downloads --max-depth 4 --exclude .cache --exclude .git | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
@@ -143,7 +143,7 @@ let
        if hyprctl clients -j | jq -e ".[] | select(.class == \"$ID\")" > /dev/null; then
          hyprctl dispatch focuswindow "class:$ID"
        else
-         ${pkgs.foot}/bin/foot --app-id="$ID" &   # ← changed --class to --app-id
+         ${pkgs.foot}/bin/foot --app-id="$ID" &
        fi
     fi
   '';

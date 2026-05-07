@@ -2,6 +2,8 @@
 
 let
   mkSpecialization = import ../../lib/mk-specialization.nix;
+  homeDesktopPath = ../../home/desktop.nix;
+  homeStudyPath = ../../home/study.nix;
 in
 {
   imports = [
@@ -26,21 +28,43 @@ in
       unstable = pkgs;
     };
     users.${myConfig.username} = {
-      imports = [ ../../home/desktop.nix ];
+      imports = [ homeDesktopPath ];
     };
   };
 
   specialisation = {
-    niri = mkSpecialization {
+    minimal = mkSpecialization {
       inherit lib pkgs myConfig;
+      extraModules = [
+        ../../modules/system/minimal.nix
+      ];
+      # No home-manager for minimal — just raw system
+      homeDesktopPath = null;
+    };
+
+    niri = mkSpecialization {
+      inherit lib pkgs myConfig homeDesktopPath;
       desktopEnvironment = "niri";
-      extraModules = [ ../../modules/system/niri.nix ];
+      extraModules = [
+        ../../modules/system/niri.nix
+      ];
     };
 
     hyprland = mkSpecialization {
-      inherit lib pkgs myConfig;
+      inherit lib pkgs myConfig homeDesktopPath;
       desktopEnvironment = "hyprland";
-      extraModules = [ ../../modules/system/hyprland.nix ];
+      extraModules = [
+        ../../modules/system/hyprland.nix
+      ];
+    };
+
+    study = mkSpecialization {
+      inherit lib pkgs myConfig;
+      desktopEnvironment = "lxqt";
+      extraModules = [
+        ../../modules/system/study.nix
+      ];
+      homeDesktopPath = homeStudyPath;
     };
   };
 }

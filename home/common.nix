@@ -46,8 +46,7 @@ in
     syntaxHighlighting.enable = true;
 
     # FIX: Absolute path logic for NixOS 25.11 to silence deprecation warning
-    dotDir = ".config/zsh";
-
+dotDir = lib.mkForce "${config.home.homeDirectory}/.config/zsh";
     oh-my-zsh = {
       enable = true;
       theme = "";
