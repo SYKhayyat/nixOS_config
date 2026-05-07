@@ -3,6 +3,7 @@
 {
   imports = [
     ../modules/home/emacs
+    ../modules/home/niri
   ];
 
   home.username = myConfig.username;
@@ -10,15 +11,6 @@
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
-
-  # Small fonts like Plasma
-  gtk = {
-    enable = true;
-    font = {
-      name = "Noto Sans";
-      size = 9;
-    };
-  };
 
   home.packages = with pkgs; [
     git
@@ -29,6 +21,10 @@
     yt-dlp
     mpv
     foot
+    yazi
+    ranger
+    zathura
+    kdePackages.kate
     wl-clipboard
   ];
 

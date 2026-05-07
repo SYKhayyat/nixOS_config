@@ -24,7 +24,7 @@
       if desktopEnvironment == "plasma" then "plasma"
       else if desktopEnvironment == "hyprland" then "hyprland-uwsm"
       else if desktopEnvironment == "niri" then "niri-uwsm"
-      else if desktopEnvironment == "lxqt" then "lxqt"
+      else if desktopEnvironment == "lxqt" then "lxqt-wayland"
       else null
     ));
 

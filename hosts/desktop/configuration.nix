@@ -13,7 +13,7 @@ in
     ../../modules/system/development.nix
     ../../modules/system/file-sync.nix
     ../../modules/system/services.nix
-    ../../modules/system/desktop.nix   # plasma default
+    ../../modules/system/desktop.nix
   ];
 
   services.displayManager.defaultSession = "plasma";
@@ -45,7 +45,7 @@ in
       inherit lib pkgs myConfig homeDesktopPath;
       desktopEnvironment = "niri";
       extraModules = [
-        ../../modules/system/desktop.nix   # needed for SDDM etc.
+        ../../modules/system/desktop.nix
         ../../modules/system/niri.nix
       ];
     };
@@ -54,16 +54,16 @@ in
       inherit lib pkgs myConfig homeDesktopPath;
       desktopEnvironment = "hyprland";
       extraModules = [
-        ../../modules/system/desktop.nix   # needed for SDDM etc.
+        ../../modules/system/desktop.nix
         ../../modules/system/hyprland.nix
       ];
     };
 
     study = mkSpecialization {
       inherit lib pkgs myConfig;
-      desktopEnvironment = "lxqt";
+      desktopEnvironment = "niri";
       extraModules = [
-        ../../modules/system/study.nix
+        ../../modules/system/niri.nix
       ];
       homeDesktopPath = homeStudyPath;
     };
