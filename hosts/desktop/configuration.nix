@@ -9,11 +9,11 @@ in
   imports = [
     ./hardware-configuration.nix
     ../../modules/system/core.nix
-    ../../modules/system/desktop.nix
     ../../modules/system/cli-tools.nix
     ../../modules/system/development.nix
     ../../modules/system/file-sync.nix
     ../../modules/system/services.nix
+    ../../modules/system/desktop.nix   # plasma default
   ];
 
   services.displayManager.defaultSession = "plasma";
@@ -38,7 +38,6 @@ in
       extraModules = [
         ../../modules/system/minimal.nix
       ];
-      # No home-manager for minimal — just raw system
       homeDesktopPath = null;
     };
 
@@ -46,6 +45,7 @@ in
       inherit lib pkgs myConfig homeDesktopPath;
       desktopEnvironment = "niri";
       extraModules = [
+        ../../modules/system/desktop.nix   # needed for SDDM etc.
         ../../modules/system/niri.nix
       ];
     };
@@ -54,6 +54,7 @@ in
       inherit lib pkgs myConfig homeDesktopPath;
       desktopEnvironment = "hyprland";
       extraModules = [
+        ../../modules/system/desktop.nix   # needed for SDDM etc.
         ../../modules/system/hyprland.nix
       ];
     };

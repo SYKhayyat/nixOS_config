@@ -2,7 +2,7 @@
 
 {
   # No X11, no desktop, no display manager
-  services.xserver.enable = false;
+  services.xserver.enable = lib.mkForce false;
 
   # Basic networking
   networking.networkmanager.enable = true;
@@ -28,6 +28,6 @@
   # Enable man pages
   documentation.man.enable = true;
 
-  # No firewall (recovery mode — you can enable later)
+  # No firewall (recovery mode)
   networking.firewall.enable = false;
 }
