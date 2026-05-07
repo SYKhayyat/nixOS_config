@@ -11,21 +11,31 @@
 
   programs.home-manager.enable = true;
 
-  # Minimal packages for studying
-  home.packages = with pkgs; [
-    # YouTube frontend
-    ytfzf
+  # Small fonts like Plasma
+  gtk = {
+    enable = true;
+    font = {
+      name = "Noto Sans";
+      size = 9;
+    };
+  };
 
-    # Clipboard
+  home.packages = with pkgs; [
+    git
+    ripgrep
+    fd
+    fzf
+    ytfzf
+    yt-dlp
+    mpv
+    foot
     wl-clipboard
   ];
 
-  # SSH
   programs.ssh.enable = true;
-    programs.ssh.enableDefaultConfig = false;
+  programs.ssh.enableDefaultConfig = false;
 
-  # Git (for your notes sync)
-    programs.git = {
+  programs.git = {
     enable = true;
     settings = {
       user = {
@@ -35,12 +45,5 @@
     };
   };
 
-  # Emacs daemon
-  services.emacs = {
-    enable = true;
-    defaultEditor = true;
-  };
-
-  # Fonts for the terminal
   fonts.fontconfig.enable = true;
 }

@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 
 {
-  # Minimal display manager
+  # Display server with Wayland LXQt session
   services.xserver.enable = true;
   services.xserver.displayManager.lightdm.enable = true;
   services.xserver.desktopManager.lxqt.enable = true;
@@ -10,8 +10,14 @@
     options = "grp:win_space_toggle,caps:escape";
   };
 
-  # No browser, just the essentials
+  # Default to Wayland session
+  services.displayManager.defaultSession = "lxqt-wayland";
+
+  # No browser, just essentials
   environment.systemPackages = with pkgs; [
+    # Wayland session for LXQt
+    lxqt.lxqt-wayland-session
+
     # Terminal
     foot
 
@@ -29,6 +35,11 @@
 
     # Office
     libreoffice-qt-fresh
+
+    # Fonts
+    noto-fonts
+    jetbrains-mono
+    nerd-fonts.jetbrains-mono
   ];
 
   # Audio (needed for mpv)
@@ -38,6 +49,22 @@
     pulse.enable = true;
   };
 
-  # No networking restrictions, just no browser installed
+  # No firewall restrictions
   networking.networkmanager.enable = true;
+
+  # Font configuration
+  fonts = {
+    fontDir.enable = true;
+    packages = with pkgs; [
+      noto-fonts
+      jetbrains-mono
+      nerd-fonts.jetbrains-mono
+    ];
+    fontconfig = {
+      defaultFonts = {
+        sansSerif = [ "Noto Sans" ];
+        monospace = [ "JetBrainsMono Nerd Font" ];
+      };
+    };
+  };
 }
