@@ -1,10 +1,10 @@
-{ lib, pkgs, myConfig, desktopEnvironment, extraModules, unstable ? null, homeDesktopPath ? null }:
+{ lib, pkgs, myConfig, extraModules, unstable ? null, homeDesktopPath ? null, desktopEnvironment ? null }:
 
 {
   configuration = { config, ... }: {
     _module.args.myConfig = myConfig // { inherit desktopEnvironment; };
 
-    xdg.portal = {
+    xdg.portal = lib.mkIf (desktopEnvironment != null) {
       enable = true;
       xdgOpenUsePortal = true;
       config.common.default = [ "gtk" ];
@@ -17,16 +17,16 @@
         ];
     };
 
-    services.displayManager.sddm.enable = lib.mkForce (desktopEnvironment != "lxqt");
-    services.displayManager.sddm.wayland.enable = lib.mkForce (desktopEnvironment != "lxqt");
+    services.displayManager.sddm.enable = lib.mkForce (desktopEnvironment != null && desktopEnvironment != "lxqt");
+    services.displayManager.sddm.wayland.enable = lib.mkForce (desktopEnvironment != null && desktopEnvironment != "lxqt");
 
-    services.displayManager.defaultSession = lib.mkForce (
+    services.displayManager.defaultSession = lib.mkIf (desktopEnvironment != null) (lib.mkForce (
       if desktopEnvironment == "plasma" then "plasma"
       else if desktopEnvironment == "hyprland" then "hyprland-uwsm"
       else if desktopEnvironment == "niri" then "niri-uwsm"
       else if desktopEnvironment == "lxqt" then "lxqt"
       else null
-    );
+    ));
 
     services.desktopManager.plasma6.enable = lib.mkForce (desktopEnvironment == "plasma");
 
