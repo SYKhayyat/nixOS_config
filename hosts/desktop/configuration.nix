@@ -3,6 +3,7 @@
 let
   mkSpecialization = import ../../lib/mk-specialization.nix;
   homeDesktopPath = ../../home/desktop.nix;
+  homeNiriPath = ../../home/niri.nix;
   homeStudyPath = ../../home/study.nix;
 in
 {
@@ -42,21 +43,22 @@ in
     };
 
     niri = mkSpecialization {
-      inherit lib pkgs myConfig homeDesktopPath;
+      inherit lib pkgs myConfig;
       desktopEnvironment = "niri";
       extraModules = [
-        ../../modules/system/desktop.nix
         ../../modules/system/niri.nix
       ];
+      homeDesktopPath = homeNiriPath;
     };
 
     hyprland = mkSpecialization {
-      inherit lib pkgs myConfig homeDesktopPath;
+      inherit lib pkgs myConfig;
       desktopEnvironment = "hyprland";
       extraModules = [
         ../../modules/system/desktop.nix
         ../../modules/system/hyprland.nix
       ];
+      homeDesktopPath = homeDesktopPath;
     };
 
     study = mkSpecialization {

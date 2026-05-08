@@ -18,15 +18,7 @@
     ripgrep
     fd
     fzf
-    ytfzf
-    yt-dlp
-    mpv
     foot
-    yazi
-    ranger
-    zathura
-    kdePackages.kate
-    wl-clipboard
     wlogout
     udiskie
     networkmanagerapplet

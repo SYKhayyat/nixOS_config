@@ -6,7 +6,6 @@ let
 in {
   home.packages = with pkgs; [ hyprlock hypridle ];
 
-  # Hyprlock: The Screen Locker
   xdg.configFile."hypr/hyprlock.conf".text = ''
     background {
         monitor =
@@ -45,35 +44,43 @@ in {
     }
   '';
 
-  # Hypridle: The Idle Manager (Req 8.1)
-  services.hypridle = {
-    enable = true;
-    settings = {
-      general = {
-        lock_cmd = "pidof hyprlock || hyprlock";
-        before_sleep_cmd = "loginctl lock-session";
-        after_sleep_cmd = "hyprctl dispatch dpms on || niri msg action power-on-monitors";
-      };
+  xdg.configFile."hypr/hypridle.conf".text = ''
+    general {
+        lock_cmd = pidof hyprlock || hyprlock
+        before_sleep_cmd = loginctl lock-session
+        after_sleep_cmd = hyprctl dispatch dpms on
+    }
 
-      listener = [
-        {
-          # 300s: Reduce brightness to 10%
-          timeout = 300;
-          on-timeout = "brightnessctl set 10%";
-          on-resume = "brightnessctl set 100%";
-        }
-        {
-          # 420s: Lock screen
-          timeout = 420;
-          on-timeout = "loginctl lock-session";
-        }
-        {
-          # 600s: Turn off monitors
-          timeout = 600;
-          on-timeout = "hyprctl dispatch dpms off || niri msg action power-off-monitors";
-          on-resume = "hyprctl dispatch dpms on || niri msg action power-on-monitors";
-        }
-      ];
+    listener {
+        timeout = 300
+        on-timeout = brightnessctl set 10%
+        on-resume = brightnessctl set 100%
+    }
+
+    listener {
+        timeout = 420
+        on-timeout = loginctl lock-session
+    }
+
+    listener {
+        timeout = 600
+        on-timeout = hyprctl dispatch dpms off
+        on-resume = hyprctl dispatch dpms on
+    }
+  '';
+
+  systemd.user.services.hypridle = {
+    Unit = {
+      Description = "Hyprland idle daemon";
+      After = [ "graphical-session-pre.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.hypridle}/bin/hypridle";
+      Restart = "on-failure";
+    };
+    Install = {
+      WantedBy = [ "hyprland-session.target" ];
     };
   };
 }

@@ -2,31 +2,39 @@
 
 let
   bg = "#1a1b26";
-  blue = "#7aa2f7";
+  blue = "0xff7aa2f7";
+  gray = "0xff414868";
   wallpaper = toString ./../../../wallpaper.jpg;
 in {
-  imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ];
+  imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ../scripts.nix ];
+
+  home.packages = with pkgs; [
+    awww
+    mako
+    waybar
+    fuzzel
+  ];
 
   xdg.configFile."hypr/hyprland.conf".text = ''
-    monitor = eDP-1, 1366x768@60, 0x0, 1
+    monitor = , 1366x768@60, 0x0, 1
 
+    exec-once = uwsm finalize
+    exec-once = ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     exec-once = waybar
     exec-once = mako
-    exec-once = awww-daemon
+    exec-once = bash -c "awww-daemon && sleep 1 && awww img ${wallpaper}"
     exec-once = nm-applet --indicator
     exec-once = udiskie --tray
     exec-once = ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1
-    exec-once = wl-paste --watch cliphist store
-    exec-once = awww img ${wallpaper}
-    exec-once = uwsm finalize
+    exec-once = bash -c "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store"
 
     input {
         kb_layout = us,il
-        kb_options = grp:win_space_toggle,caps:escape
+        kb_options = grp:alt_shift_toggle,caps:escape
         repeat_delay = 250
         repeat_rate = 40
         touchpad {
-            natural_scroll = false // Traditional
+            natural_scroll = false
             tap-to-click = true
         }
     }
@@ -36,21 +44,23 @@ in {
         gaps_out = 8
         border_size = 2
         col.active_border = ${blue}
-        col.inactive_border = 0x414868
-        layout = master // Default
+        col.inactive_border = ${gray}
+        layout = master
     }
 
-    # FIX: Modern nested decoration syntax for 25.11
+    master {
+        mfact = 0.55
+    }
+
     decoration {
         rounding = 10
-        active_opacity = 1.0
-        inactive_opacity = 0.8
+        active_opacity = .80
+        inactive_opacity = 0.70
 
         blur {
             enabled = true
             size = 5
             passes = 2
-            new_optimizations = true
         }
     }
 
@@ -58,52 +68,41 @@ in {
         enabled = true
         bezier = myBezier, 0.05, 0.9, 0.1, 1.05
         animation = windows, 1, 5, myBezier
-        animation = windowsOut, 1, 5, default, popup 80%   # ← popin → popup
+        animation = windowsOut, 1, 5, default
         animation = border, 1, 10, default
         animation = fade, 1, 5, default
         animation = workspaces, 1, 5, default
     }
 
-    # Swallow Feature (Space saving on small screen)
     misc {
-        enable_swallow = true
-        swallow_regex = ^(foot)$
+        enable_swallow = false
+disable_watchdog_warning = true
     }
-
-    windowrulev2 = float, class:(pavucontrol)
-    windowrulev2 = float, class:(nm-connection-editor)
-    windowrulev2 = float, class:(scratchpad)
-    windowrulev2 = float, title:(emacs-scratch)
-    windowrulev2 = size 1100 700, class:(scratchpad)
-    windowrulev2 = center, class:(scratchpad)
 
     $mainMod = SUPER
 
     bind = $mainMod, Return, exec, foot
     bind = $mainMod, D, exec, fuzzel
+    bind = $mainMod, P, exec, power-search
     bind = $mainMod, N, exec, nm-connection-editor
-    bind = $mainMod, V, exec, bash -c "cliphist list | fuzzel -d | cliphist decode | wl-copy"
+    bind = $mainMod, V, exec, bash -c "${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel -d | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"
     bind = $mainMod SHIFT, C, killactive
     bind = $mainMod SHIFT, Q, exec, wlogout
 
-    bind = $mainMod, Space, exec, power-search
     bind = $mainMod, T, exec, teleport
     bind = $mainMod ALT, S, exec, spotlight
     bind = $mainMod, grave, exec, toggle-scratchpad-terminal
     bind = $mainMod SHIFT, grave, exec, toggle-scratchpad-emacs
 
-    # Navigation
     bind = $mainMod, H, movefocus, l
     bind = $mainMod, L, movefocus, r
-    bind = $mainMod, K, movefocus, u
-    bind = $mainMod, J, movefocus, d
+    bind = $mainMod, K, cyclenext
+    bind = $mainMod, J, cyclenext, prev
 
-    # Layout Toggle: Master <-> Dwindle
     bind = $mainMod SHIFT, R, exec, hyprctl keyword general:layout $(hyprctl getoption general:layout | grep -q master && echo dwindle || echo master)
     bind = $mainMod, F, fullscreen, 0
     bind = $mainMod SHIFT, Space, togglefloating
 
-    # Workspaces
     bind = $mainMod, 1, workspace, 1
     bind = $mainMod, 2, workspace, 2
     bind = $mainMod, 3, workspace, 3
@@ -113,7 +112,6 @@ in {
     bind = $mainMod SHIFT, 2, movetoworkspace, 2
     bind = $mainMod SHIFT, 3, movetoworkspace, 3
 
-    # Hardware (volctl)
     bind = , XF86AudioRaiseVolume, exec, volctl up
     bind = , XF86AudioLowerVolume, exec, volctl down
     bind = , XF86AudioMute, exec, volctl mute

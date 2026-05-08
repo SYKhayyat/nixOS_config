@@ -12,44 +12,9 @@ let
   '';
 
   powerSearch = pkgs.writeShellScriptBin "power-search" ''
-    ${compositorDetect}
-    if [ "$COMPOSITOR" = "plasma" ]; then
-      dbus-send --session --dest=org.kde.krunner --type=method_call /App org.kde.krunner.App.display
-      exit 0
-    fi
-
-    # Choose search engine: plocate (fast, indexed) or fd (filesystem)
-    ENGINE=$(echo -e "⚡ plocate (indexed)\n🔍 fd (filesystem)" | ${pkgs.fuzzel}/bin/fuzzel -d -p "Search engine: ")
-    case "$ENGINE" in
-      *plocate*)
-        if command -v plocate >/dev/null; then
-          FILE=$(plocate -i "" | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
-        else
-          ${pkgs.libnotify}/bin/notify-send "plocate not found; falling back to fd"
-          FILE=$(fd . $HOME/Documents $HOME/Downloads --max-depth 4 --exclude .cache --exclude .git | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
-        fi
-        ;;
-      *fd*)
-        FILE=$(fd . $HOME/Documents $HOME/Downloads --max-depth 4 --exclude .cache --exclude .git | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰍉 Search: ")
-        ;;
-      *)
-        exit 0
-        ;;
-    esac
-    [ -z "$FILE" ] && exit 0
-
-    ACTION=$(echo -e "🚀 Open\n📁 Open Folder (Yazi)\n💻 Open Terminal Here" | ${pkgs.fuzzel}/bin/fuzzel -d -p "Action: ")
-    case "$ACTION" in
-        "🚀 Open") xdg-open "$FILE" ;;
-        "📁 Open Folder (Yazi)")
-            DIR=$(dirname "$FILE")
-            ${pkgs.foot}/bin/foot -e ${pkgs.yazi}/bin/yazi "$DIR" ;;
-        "💻 Open Terminal Here")
-            DIR=$(dirname "$FILE")
-            ${pkgs.foot}/bin/foot -D "$DIR" ;;
-    esac
+    exec ${pkgs.fsearch}/bin/fsearch
   '';
-
+  
   spotlight = pkgs.writeShellScriptBin "spotlight" ''
     ${compositorDetect}
     STATE_FILE="/tmp/spotlight-state"
