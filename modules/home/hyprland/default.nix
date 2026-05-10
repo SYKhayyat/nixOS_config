@@ -19,6 +19,7 @@ in {
     monitor = , 1366x768@60, 0x0, 1
 
     exec-once = uwsm finalize
+    exec-once = ${pkgs.hypridle}/bin/hypridle
     exec-once = ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     exec-once = waybar
     exec-once = mako

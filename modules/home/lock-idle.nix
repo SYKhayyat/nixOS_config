@@ -69,18 +69,5 @@ in {
     }
   '';
 
-  systemd.user.services.hypridle = {
-    Unit = {
-      Description = "Hyprland idle daemon";
-      After = [ "graphical-session-pre.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      ExecStart = "${pkgs.hypridle}/bin/hypridle";
-      Restart = "on-failure";
-    };
-    Install = {
-      WantedBy = [ "hyprland-session.target" ];
-    };
-  };
+  # No systemd service here; hypridle is started via exec-once in Hyprland.
 }

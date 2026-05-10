@@ -31,10 +31,8 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll true // Traditional
-        }
-        mouse {
-            natural-scroll false
+            natural-scroll
+        // Force fresh build v2
         }
     }
 
@@ -88,17 +86,10 @@ in {
         default-column-width { proportion 0.8; }
     }
 
-    gestures {
-        swipe-left { focus-column-left; }
-        swipe-right { focus-column-right; }
-        swipe-up { focus-workspace-up; }
-        swipe-down { focus-workspace-down; }
-    }
 
-    spawn-at-startup "waybar"
-    spawn-at-startup "mako"
+
     spawn-at-startup "bash" "-c" "awww-daemon && sleep 1 && awww img ${./../../../wallpaper.jpg}"
-    spawn-at-startup "nm-applet"
+   spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
     spawn-at-startup "udiskie" "--tray"
     spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
     spawn-at-startup "bash" "-c" "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store"
@@ -155,3 +146,4 @@ in {
     }
   '';
 }
+# Niri config (gestures removed)
