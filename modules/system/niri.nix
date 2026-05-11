@@ -8,7 +8,8 @@
     prettyName = "Niri";
     comment = "Scrollable tiling compositor";
     binPath = "${pkgs.niri}/bin/niri";
-  };
+    extraArgs = [ "--session" ];
+};
 
   # Hardware Access & Power
   # Fix: programs.light is deprecated/removed. Using acpilight.
