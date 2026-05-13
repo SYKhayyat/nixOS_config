@@ -1,6 +1,3 @@
-# modules/system/services.nix
-# System services: Ollama, OneDrive, file indexing
-
 { config, lib, pkgs, myConfig, ... }:
 
 {
@@ -10,7 +7,6 @@
 
   services.ollama = {
     enable = true;
-    # Fix: acceleration is now handled via the package variant
     package = pkgs.ollama-cpu;
   };
 
@@ -22,7 +18,6 @@
 
   # ══════════════════════════════════════════════════════════════════
   # FILE INDEXING (plocate)
-  # Fast file search with 'locate' command
   # ══════════════════════════════════════════════════════════════════
 
   services.locate = {
@@ -46,7 +41,6 @@
 
   # ══════════════════════════════════════════════════════════════════
   # RECOLL INDEXING SERVICE
-  # Runs periodically to index your documents
   # ══════════════════════════════════════════════════════════════════
 
   systemd.services."recoll-index-${myConfig.username}" = {
@@ -55,7 +49,7 @@
     serviceConfig = {
       Type = "oneshot";
       User = myConfig.username;
-      Environment = "HOME=${myConfig.homeDir}";
+      Environment = "ASPELL_CONF=dict-dir ${pkgs.aspellWithDicts (d: [ d.en d.he ])}/lib/aspell";
       ExecStart = "${pkgs.recoll}/bin/recollindex";
       Nice = 19;
       IOSchedulingClass = "idle";

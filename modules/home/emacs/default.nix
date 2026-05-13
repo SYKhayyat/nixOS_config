@@ -15,7 +15,7 @@ let
     treesit-auto rust-mode cargo nix-mode markdown-mode typst-ts-mode yasnippet
     yasnippet-snippets editorconfig envrc helpful which-key
     gcmh hydra restart-emacs visual-fill-column
-    valign focus olivetti   # <-- added for 04-editing
+    valign focus olivetti   # ← added for 04-editing
   ]);
 
   seforimPath = myConfig.seforimPath;
@@ -29,6 +29,12 @@ in
     sqlite graphviz imagemagick tree-sitter hdate
     jdt-language-server nil rust-analyzer pyright lua-language-server
   ];
+
+  home.sessionVariables = {
+    EDITOR = "emacsclient -c -a ''";
+    VISUAL = "emacsclient -c -a ''";
+  };
+
   services.emacs = {
     enable = true;
     package = emacsWithPackages;
@@ -81,7 +87,7 @@ in
     topdirs = ${seforimPath}
     followLinks = 1
     indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf
-    indexstemminglanguages = hebrew english
+    indexstemminglanguages = he english
     unac_except_stripping = true
     snippetMaxPosWalk = 1000000
     maxTermExpand = 10000

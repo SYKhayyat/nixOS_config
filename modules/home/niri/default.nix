@@ -31,13 +31,16 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll
-        // Force fresh build v2
+            natural-scroll true
         }
     }
 
     output ".*" {
         scale 1.0
+    }
+
+    cursor {
+        xcursor-size 16
     }
 
     layout {
@@ -86,10 +89,8 @@ in {
         default-column-width { proportion 0.8; }
     }
 
-
-
     spawn-at-startup "bash" "-c" "awww-daemon && sleep 1 && awww img ${./../../../wallpaper.jpg}"
-   spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
+    spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
     spawn-at-startup "udiskie" "--tray"
     spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
     spawn-at-startup "bash" "-c" "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store"
@@ -146,4 +147,3 @@ in {
     }
   '';
 }
-# Niri config (gestures removed)
