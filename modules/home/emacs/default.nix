@@ -86,6 +86,7 @@ in
   home.file.".recoll/recoll.conf".text = ''
     topdirs = ${seforimPath}
     followLinks = 1
+        noaspell = 1
     indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf
     unac_except_stripping = true
     snippetMaxPosWalk = 1000000

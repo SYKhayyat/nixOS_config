@@ -19,7 +19,6 @@ in {
     monitor = , 1366x768@60, 0x0, 1
 
     exec-once = uwsm finalize
-    exec-once = ${pkgs.hypridle}/bin/hypridle
     exec-once = ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     exec-once = waybar
     exec-once = mako
@@ -31,7 +30,7 @@ in {
 
     input {
         kb_layout = us,il
-        kb_options = grp:alt_shift_toggle,caps:escape
+        kb_options = grp:caps_toggle,caps:escape
         repeat_delay = 250
         repeat_rate = 40
         touchpad {
@@ -55,8 +54,8 @@ in {
 
     decoration {
         rounding = 10
-        active_opacity = .80
-        inactive_opacity = 0.70
+        active_opacity = 1.0
+        inactive_opacity = 0.85
 
         blur {
             enabled = true
@@ -77,8 +76,15 @@ in {
 
     misc {
         enable_swallow = false
-disable_watchdog_warning = true
     }
+
+    windowrule = opacity 1.0 override, class:^(waybar)$
+    windowrule = float, class:^(pavucontrol)$
+    windowrule = float, class:^(nm-connection-editor)$
+    windowrule = float, class:^(scratchpad)$
+    windowrule = float, title:^(emacs-scratch)$
+    windowrule = size 1100 600, class:^(scratchpad)$
+    windowrule = center, class:^(scratchpad)$
 
     $mainMod = SUPER
 

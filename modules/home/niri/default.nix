@@ -23,7 +23,7 @@ in {
         keyboard {
             xkb {
                 layout "us,il"
-                options "grp:alt_shift_toggle,caps:escape"
+                options "grp:caps_toggle,caps:escape"
             }
             repeat-delay 250
             repeat-rate 40
