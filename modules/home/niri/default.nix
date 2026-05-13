@@ -31,7 +31,7 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll true
+            natural-scroll
         }
     }
 

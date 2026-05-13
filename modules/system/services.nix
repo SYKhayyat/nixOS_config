@@ -49,7 +49,6 @@
     serviceConfig = {
       Type = "oneshot";
       User = myConfig.username;
-      Environment = "ASPELL_CONF=dict-dir ${pkgs.aspellWithDicts (d: [ d.en d.he ])}/lib/aspell";
       ExecStart = "${pkgs.recoll}/bin/recollindex";
       Nice = 19;
       IOSchedulingClass = "idle";

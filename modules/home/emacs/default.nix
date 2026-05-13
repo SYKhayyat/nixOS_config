@@ -15,7 +15,7 @@ let
     treesit-auto rust-mode cargo nix-mode markdown-mode typst-ts-mode yasnippet
     yasnippet-snippets editorconfig envrc helpful which-key
     gcmh hydra restart-emacs visual-fill-column
-    valign focus olivetti   # ← added for 04-editing
+    valign focus olivetti
   ]);
 
   seforimPath = myConfig.seforimPath;
@@ -58,7 +58,7 @@ in
 
   home.file.".config/emacs/init.el".text = ''
     ;; init.el --- Modular Loader
-    (require 'server)   ;; <-- fix: define server-running-p before use
+    (require 'server)
     (defvar my/modules-dir (expand-file-name "modules" user-emacs-directory))
     (add-to-list 'load-path my/modules-dir)
     (defun my/tangle-modules ()
@@ -73,12 +73,12 @@ in
     (condition-case err (my/tangle-modules) (error (message "Tangling failed: %s" err)))
     (dolist (module '("00-core" "01-ui" "02-hebrew" "03-completion" "04-editing" "05-navigation"
                       "06-org" "07-org-roam" "08-latex" "09-typst" "10-context" "11-pdf"
-                      "12-programming" "13-magit" "14-seforim" "15-rich-footnotes" "16-hydras"
+                      "12-programming" "13-magit" "14a-seforim-core" "14b-seforim-candidates"
+                      "14c-seforim-search" "14d-seforim-extras" "15-rich-footnotes" "16-hydras"
                       "17-utils" "18-academic" "19-hebrew-extra" "20-projectile" "21-local-ai"
                       "22-dirvish" "23-vterm-pro" "24-scholar-search" "25-nix-system"))
       (condition-case err (require (intern module)) (error (message "Failed: %s: %s" module err))))
 
-    ;; Daemon check: server is already started by 'services.emacs', but we still need to ensure server-running-p is defined.
     (unless (server-running-p)
       (server-start))
   '';
@@ -87,7 +87,6 @@ in
     topdirs = ${seforimPath}
     followLinks = 1
     indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf
-    indexstemminglanguages = he english
     unac_except_stripping = true
     snippetMaxPosWalk = 1000000
     maxTermExpand = 10000
