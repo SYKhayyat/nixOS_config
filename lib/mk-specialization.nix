@@ -42,7 +42,7 @@
         unstable = if unstable != null then unstable else pkgs;
       };
       users.${myConfig.username} = {
-        imports = lib.mkForce [ homeDesktopPath ];   # ← this line forces ONLY the specialization config
+        imports = [ homeDesktopPath ];
       };
     };
   };

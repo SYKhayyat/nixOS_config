@@ -12,6 +12,7 @@
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
+    programs.firefox.enable = false;
 
   systemd.user.sessionVariables = {
     WAYLAND_DISPLAY = "wayland-1";
@@ -27,7 +28,7 @@
   services.udiskie.enable = true;
   systemd.user.services.udiskie.Install.WantedBy = [ "wayland-session@niri.target" ];
 
-  home.packages = with pkgs; [
+   home.packages = lib.mkForce (with pkgs; [
     git
     ripgrep
     fd
@@ -51,8 +52,7 @@
     slurp
     swappy
     libnotify
-  ];
-
+  ]);
   programs.ssh.enable = true;
   programs.ssh.enableDefaultConfig = false;
 
