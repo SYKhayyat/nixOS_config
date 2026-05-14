@@ -12,7 +12,7 @@
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
-    programs.firefox.enable = false;
+    programs.firefox.enable = lib.mkForce false;
 
   systemd.user.sessionVariables = {
     WAYLAND_DISPLAY = "wayland-1";
