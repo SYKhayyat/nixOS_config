@@ -14,114 +14,168 @@ This setup is "Riced" to be keyboard-centric, blazing fast, and fully integrated
     The Environment Switch
     Your system uses a NixOS Specialisation. To move between KDE and Niri, you must trigger the system switch and then change the session at the login screen.
 
-** To Switch to Niri (from KDE)
+#+TITLE: Niri Configuration Guide
+#+PROPERTY: header-args:text :tangle no
 
-    Open a terminal.
+* Welcome to Niri!
 
-    Type: to-niri (This triggers the specialisation switch).
+  Niri is a scrollable‑tiling Wayland compositor.  This guide explains your
+  personal configuration so you can use it efficiently from day one.
 
-    Log out of KDE Plasma.
+* Input
 
-    At the SDDM login screen, select "niri" from the session list (usually a dropdown in the corner).
+  | Setting          | Value                        | Meaning                                          |
+  |------------------+------------------------------+--------------------------------------------------|
+  | Keyboard layout  | =us,il=                      | US English and Hebrew; default is US             |
+  | Layout toggle    | =Caps Lock=                  | Tap Caps Lock to switch between English ↔ Hebrew |
+  | Caps Lock        | Also acts as =Escape=        | Hold Caps Lock for Ctrl, tap for Escape           |
+  | Touchpad scroll  | Natural (fingers down → page down) |                                |
+  | Tap‑to‑click     | On                           |                                                  |
+  | Disable‑while‑typing | On                       |                                                  |
 
-    Log in.
+* Look & Feel
 
-** To Switch to Plasma (from Niri)
+  | Setting             | Value        |
+  |---------------------+--------------|
+  | Gaps                | 8 px         |
+  | Border              | 2 px         |
+  | Active border colour | #7aa2f7 (blue) |
+  | Inactive border colour | #414868 (gray) |
+  | Focus ring          | 2 px         |
+  | Opacity (inactive)  | 0.85         |
+  | Rounding            | (none set)   |
+  | Animation slowdown  | 1.1×         |
 
-    Open a terminal (Mod+Return).
+* Cursor
 
-    Type: to-plasma.
+  The mouse cursor is set to a small size (12) via the environment variable
+  =XCURSOR_SIZE=12= in your Home Manager session variables.
 
-    Log out (Mod+Shift+Q).
+* Layout Behaviour
 
-    At the SDDM login screen, select "Plasma (Wayland)".
+  | Setting                         | Value    | Meaning                                                       |
+  |---------------------------------+----------+---------------------------------------------------------------|
+  | Default column width            | 50%      | New windows open as a half‑width column.                      |
+  | Preset widths                   | 33%, 50%, 66% | Cycle with =Super+R=.                                 |
+  | Single‑window centering         | Yes      | When only one window is open, it is centred on screen.        |
+  | Multi‑window centering          | No       | When multiple columns exist, they fill the screen left‑to‑right. |
+  | Never clip focused window       | Yes      | The focused window is always fully visible.                   |
 
-    Log in.
+  These settings ensure you never see a partially cut‑off window.
 
-    Core Mental Model: The Infinite Ribbon
+* Window Rules
 
-    Windows exist on a horizontal strip.
+  | Application                | Behaviour                           |
+  |----------------------------+-------------------------------------|
+  | nm‑connection‑editor        | Opens as a floating dialog.         |
+  | pavucontrol                | Opens floating (volume control).    |
+  | Scratchpad (terminal)      | Floating, 80% width.               |
 
-    You don't "minimize" windows; you just scroll past them.
+* Workspaces
 
-    New windows open to the right of your current focus.
+  Niri uses *vertical* workspaces.  Navigation:
+  - =Super+K= / =Super+J= : move focus up/down between workspaces
+  - =Super+Shift+K= / =Super+Shift+J= : move the focused window to the workspace above/below
 
-    Keyboard Shortcuts (The "Vim-Emacs" Way)
-    The =Mod= key is usually the Super/Windows key.
+  You cannot move columns left/right to horizontal workspaces – that action
+  does not exist in this Niri version.
+
+* Key Bindings – Quick Reference
+
+  The overlay (=Super+Slash=) shows all bindings.  Here they are grouped.
+
+** Launching & Closing
+
+  | Key               | Action                              |
+  |-------------------+-------------------------------------|
+  | Super+Return      | Open terminal (foot)                |
+  | Super+D           | App launcher (fuzzel)               |
+  | Super+N           | Network settings (nm‑editor)        |
+  | Super+Shift+C     | Close focused window                |
+  | Super+Shift+Q     | Logout (wlogout)                    |
+  | Super+Shift+Alt+Q | Quit Niri immediately (emergency)   |
+
+** Searching & Clipboard
+
+  | Key               | Action                              |
+  |-------------------+-------------------------------------|
+  | Super+Space       | Power‑search (FSearch)              |
+  | Super+T           | Teleport (switch to window by name) |
+  | Super+Alt+S       | Spotlight (toggle floating + centre) |
+  | Super+`           | Toggle scratchpad terminal          |
+  | Super+Shift+`     | Toggle scratchpad Emacs frame       |
+  | Super+V           | Clipboard history (cliphist/fuzzel) |
 
 ** Navigation (HJKL)
-| Action | Keybinding |
-|--------------------------|-------------------------|
-| Scroll Ribbon Left/Right | Mod + H / L |
-| Focus Window Up/Down | Mod + K / J |
-| Move Window Left/Right | Mod + Shift + H / L |
-| Move Window Up/Down | Mod + Shift + K / J |
-| Maximize Column | Mod + F |
-| Fullscreen Window | Mod + Shift + F |
-| Cycle Column Widths | Mod + R |
 
-** Launching Applications
-| Target App | Keybinding | Description |
-|--------------------|-----------------------|------------------------------------|
-| Terminal (Foot) | Mod + Return | The fastest Wayland terminal |
-| App Launcher | Mod + D | Fuzzel: Start typing to search |
-| File Manager (CLI) | Mod + E | Opens Yazi in Foot |
-| File Manager (GUI) | Mod + Shift + E | Opens Dolphin |
-| Clipboard History | Mod + V | Searchable list of copied items |
+  | Key                     | Action                            |
+  |-------------------------+-----------------------------------|
+  | Super+H / Super+L       | Focus column left / right         |
+  | Super+K / Super+J       | Focus workspace up / down         |
+  | Super+Shift+H / L       | Move column left / right          |
+  | Super+Shift+K / J       | Move window to workspace up / down |
 
-** System Control
-| Action | Keybinding | Description |
-|--------------------|-----------------------|------------------------------------|
-| Close Window | Mod + Shift + C | Kills the active window |
-| Power Menu | Mod + Shift + Q | Logout, Reboot, Shutdown (wlogout) |
-| Lock Screen | Mod + L | Blurs screen and locks (swaylock) |
-| Take Screenshot | Print Screen | Select an area to copy to clipboard|
+** Tiling & Floating
 
-    Hardware & Media Keys
-    Your laptop's physical keys are fully mapped:
+  | Key                     | Action                            |
+  |-------------------------+-----------------------------------|
+  | Super+Shift+Space       | Toggle window floating ↔ tiled    |
+  | Super+Comma             | Consume window into column        |
+  | Super+Period            | Expel window from column          |
+  | Super+U                 | Consume or expel window left      |
+  | Super+Y                 | Consume or expel window right     |
+  | Super+C                 | Centre the focused column         |
+  | Super+B                 | Cycle focus between floating windows (focus‑floating) |
 
-    Brightness: The dedicated Sun/Brightness keys change intensity in 5% increments.
+** Column & Window Sizing
 
-    Volume: The speaker keys control audio. Clicking the volume icon in the bar opens =pavucontrol= for fine-tuning.
+  | Key                     | Action                            |
+  |-------------------------+-----------------------------------|
+  | Super+R                 | Cycle preset column width (33/50/66%) |
+  | Super+F                 | Maximise column (full width)      |
+  | Super+Shift+F           | Fullscreen window                 |
+  | Super+Ctrl+F            | Expand column to available width  |
+  | Super+Equal / Minus     | Increase / decrease column width  |
 
-    Media: Play/Pause, Next, and Previous keys work for Spotify, YouTube (via browser), and VLC via =playerctl=.
+** Monitor & Window Focus
 
-    Hebrew Support & Typing
+  | Key                     | Action                            |
+  |-------------------------+-----------------------------------|
+  | Super+Ctrl+K / J        | Focus top / bottom window in column |
+  | Super+Ctrl+H / L        | Focus monitor left / right        |
 
-    Layout Toggle: Press Alt + Shift to toggle between US English and Hebrew (il).
+** Hardware Keys
 
-    Status Bar: The Waybar at the top uses Noto Sans Hebrew and Culmus fonts, ensuring the clock and window titles render perfectly in Hebrew.
+  | Key                     | Action                            |
+  |-------------------------+-----------------------------------|
+  | Volume up/down/mute     | Change volume                     |
+  | Brightness up/down      | Change screen brightness          |
+  | Print                   | Screenshot (edit with swappy)     |
 
-    The "Rice" Features
-    ** Clipboard History (Mod + V)
-    Every time you copy text, it is saved. Pressing Mod + V opens a small searchable menu. Type to find an old snippet, press Enter, and it is ready to be pasted (Ctrl + V or Shift + Insert).
+* Autostart Applications
 
-** Auto-Mounting USBs
-When you plug in a USB drive, a notification will appear. The drive will be automatically available in Yazi (Mod+E) and Dolphin (Mod+Shift+E).
+  The following programs start automatically:
+  - Waybar (with 2‑second delay for reliability)
+  - awww (wallpaper daemon) → sets your wallpaper
+  - nm‑applet (network tray icon, delayed 2s)
+  - udiskie (disk automount tray icon)
+  - Polkit‑gnome authentication agent
+  - Clipboard history watcher (cliphist)
 
-** Dark Mode Integration
-Your system is forced into Adwaita-Dark. This applies to:
+* FAQ
 
-    All GTK4/GNOME apps.
+  - *How do I switch to Hebrew?* :: Press Caps Lock. Tap again for English.
+  - *How do I type uppercase letters?* :: Use Shift, as usual.
+  - *Why is there no “overview”?* :: Niri’s overview (=Super+Tab=) was removed
+    from this config because it is experimental in your version.
+  - *I opened Firefox and it’s fullscreen!* :: Press =Super+Shift+F= to
+    un‑fullscreen it. Close Firefox normally; next time it will open tiled.
+  - *Super+Space does nothing!* :: Your power‑search script launches FSearch;
+    make sure FSearch is installed (=fsearch=).
 
-    All Qt6/KDE apps.
+* Customisation
 
-    The Waybar and App Launcher.
-
-    Troubleshooting
-    ** Screen is black or Niri froze
-
-    Press Ctrl + Alt + F2 to drop to a text console.
-
-    Log in with your username and password.
-
-    Run sudo systemctl restart sddm to reset the graphics.
-
-** Niri won't start after an update
-Run the validator to check for syntax errors:
-#+BEGIN_SRC bash
-niri validate --config ~/.config/niri/config.kdl
-#+END_SRC
-
-** Permission Denied for Brightness
-Ensure your user is in the =video= group. Check by typing groups in a terminal. If =video= is missing, ensure you have run the latest system rebuild (nrs).
+  Your Niri config lives in
+  =~/nixos-config/modules/home/niri/default.nix=.  After editing, rebuild
+  with =nrs= (or =sudo nixos-rebuild switch --flake ~/nixos-config#desktop=)
+  and log back into Niri.
