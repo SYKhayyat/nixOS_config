@@ -143,7 +143,7 @@ in {
     bind = $mainMod CTRL, J, resizeactive, 0 20
 
     # Emacs-style splitting controls (Dwindle layout)
-    bind = $mainMod, V, togglesplit, v
+    bind = $mainMod, T, togglesplit, v
     bind = $mainMod SHIFT, V, swapwindow, v
     bind = $mainMod SHIFT, H, swapwindow, h
 
