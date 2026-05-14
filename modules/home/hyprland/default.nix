@@ -118,6 +118,35 @@ in {
     bind = , XF86MonBrightnessUp, exec, volctl br-up
     bind = , XF86MonBrightnessDown, exec, volctl br-down
 
+    # Master layout manipulation
+    bind = $mainMod, M, layoutmsg, swapwithmaster master
+    bind = $mainMod SHIFT, J, layoutmsg, swapnext
+    bind = $mainMod SHIFT, K, layoutmsg, swapprev
+
+    # Silent workspace moves (extend to 4 and 5)
+    bind = $mainMod SHIFT, 4, movetoworkspacesilent, 4
+    bind = $mainMod SHIFT, 5, movetoworkspacesilent, 5
+
+    # Pseudo‑tile toggle
+    bind = $mainMod, G, pseudo
+
+    # Focus among floating windows
+    bind = $mainMod, B, cyclenext, floating
+
+    # Center a floating window
+    bind = $mainMod, C, centerwindow
+
+    # Resize windows
+    bind = $mainMod CTRL, H, resizeactive, -20 0
+    bind = $mainMod CTRL, L, resizeactive, 20 0
+    bind = $mainMod CTRL, K, resizeactive, 0 -20
+    bind = $mainMod CTRL, J, resizeactive, 0 20
+
+    # Emacs-style splitting controls (Dwindle layout)
+    bind = $mainMod, V, togglesplit, v
+    bind = $mainMod SHIFT, V, swapwindow, v
+    bind = $mainMod SHIFT, H, swapwindow, h
+
     bind = , Print, exec, screenshot-edit
   '';
 }
