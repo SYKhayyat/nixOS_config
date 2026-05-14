@@ -42,9 +42,10 @@ in {
         xcursor-size 12
     }
 
-    layout {
-        gaps 8 // Optimized for 768p
-        center-focused-column "always"
+        layout {
+        gaps 8
+        center-focused-column "never"
+        always-center-single-column true
         preset-column-widths {
             proportion 0.333
             proportion 0.5
