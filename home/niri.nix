@@ -18,14 +18,13 @@
     XDG_CURRENT_DESKTOP = "niri";
   };
 
-  # Services bound to Niri session target (UWSM)
   services.mako.enable = true;
   systemd.user.services.mako.Install.WantedBy = [ "wayland-session@niri.target" ];
 
   services.udiskie.enable = true;
   systemd.user.services.udiskie.Install.WantedBy = [ "wayland-session@niri.target" ];
 
-  # Packages
+  # ─── Fixed sudo password prompt on Wayland ───
   home.packages = with pkgs; [
     git
     ripgrep
@@ -42,7 +41,13 @@
     slurp
     swappy
     libnotify
+    kdePackages.ksshaskpass          # provides graphical sudo prompt
   ];
+
+  home.sessionVariables = {
+    SSH_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
+    SUDO_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
+  };
 
   programs.ssh.enable = true;
   programs.ssh.enableDefaultConfig = false;
