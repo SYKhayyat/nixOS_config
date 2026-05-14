@@ -31,7 +31,6 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll false
         }
     }
 
@@ -123,7 +122,7 @@ in {
         Mod+Shift+K { move-window-to-workspace-up; }
         Mod+Shift+J { move-window-to-workspace-down; }
 
-        // New binds
+        // New binds (validated)
         Mod+B { focus-floating; }
         Mod+U { consume-or-expel-window-left; }
         Mod+Y { consume-or-expel-window-right; }
@@ -131,9 +130,6 @@ in {
         Mod+Ctrl+J { focus-window-bottom; }
         Mod+Ctrl+H { focus-monitor-left; }
         Mod+Ctrl+L { focus-monitor-right; }
-        Mod+Shift+Ctrl+H { move-column-to-workspace-left; }
-        Mod+Shift+Ctrl+L { move-column-to-workspace-right; }
-        Mod+Tab { toggle-overview; }
         Mod+Ctrl+F { expand-column-to-available-width; }
 
         // Tiling & Floating Logic (The Hybrid)

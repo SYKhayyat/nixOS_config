@@ -44,7 +44,10 @@
     kdePackages.ksshaskpass          # provides graphical sudo prompt
   ];
 
-  home.sessionVariables = {
+   home.sessionVariables = {
+    WAYLAND_DISPLAY = "wayland-1";
+    XDG_CURRENT_DESKTOP = "niri";
+    XCURSOR_SIZE = "12";
     SSH_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
     SUDO_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
   };
