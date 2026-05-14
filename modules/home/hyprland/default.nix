@@ -76,15 +76,8 @@ in {
 
     misc {
         enable_swallow = false
+        disable_watchdog_warning = true
     }
-
-    windowrule = opacity 1.0 override, class:^(waybar)$
-    windowrule = float, class:^(pavucontrol)$
-    windowrule = float, class:^(nm-connection-editor)$
-    windowrule = float, class:^(scratchpad)$
-    windowrule = float, title:^(emacs-scratch)$
-    windowrule = size 1100 600, class:^(scratchpad)$
-    windowrule = center, class:^(scratchpad)$
 
     $mainMod = SUPER
 

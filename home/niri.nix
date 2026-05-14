@@ -13,16 +13,12 @@
 
   programs.home-manager.enable = true;
 
-  # Session variables for Wayland
   systemd.user.sessionVariables = {
     WAYLAND_DISPLAY = "wayland-1";
     XDG_CURRENT_DESKTOP = "niri";
   };
 
   # Services bound to Niri session target (UWSM)
-  programs.waybar.enable = true;
-  systemd.user.services.waybar.Install.WantedBy = [ "wayland-session@niri.target" ];
-
   services.mako.enable = true;
   systemd.user.services.mako.Install.WantedBy = [ "wayland-session@niri.target" ];
 

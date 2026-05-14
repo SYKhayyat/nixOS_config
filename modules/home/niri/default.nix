@@ -31,7 +31,7 @@ in {
         touchpad {
             tap
             dwt
-            natural-scroll
+            natural-scroll false
         }
     }
 
@@ -40,12 +40,12 @@ in {
     }
 
     cursor {
-        xcursor-size 16
+        xcursor-size 12
     }
 
     layout {
         gaps 8 // Optimized for 768p
-        center-focused-column "never"
+        center-focused-column "always"
         preset-column-widths {
             proportion 0.333
             proportion 0.5
@@ -89,6 +89,7 @@ in {
         default-column-width { proportion 0.8; }
     }
 
+    spawn-at-startup "bash" "-c" "sleep 2 && waybar"
     spawn-at-startup "bash" "-c" "awww-daemon && sleep 1 && awww img ${./../../../wallpaper.jpg}"
     spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
     spawn-at-startup "udiskie" "--tray"
@@ -121,6 +122,19 @@ in {
         Mod+Shift+L { move-column-right; }
         Mod+Shift+K { move-window-to-workspace-up; }
         Mod+Shift+J { move-window-to-workspace-down; }
+
+        // New binds
+        Mod+B { focus-floating; }
+        Mod+U { consume-or-expel-window-left; }
+        Mod+Y { consume-or-expel-window-right; }
+        Mod+Ctrl+K { focus-window-top; }
+        Mod+Ctrl+J { focus-window-bottom; }
+        Mod+Ctrl+H { focus-monitor-left; }
+        Mod+Ctrl+L { focus-monitor-right; }
+        Mod+Shift+Ctrl+H { move-column-to-workspace-left; }
+        Mod+Shift+Ctrl+L { move-column-to-workspace-right; }
+        Mod+Tab { toggle-overview; }
+        Mod+Ctrl+F { expand-column-to-available-width; }
 
         // Tiling & Floating Logic (The Hybrid)
         Mod+Comma  { consume-window-into-column; }
