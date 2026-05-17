@@ -33,7 +33,7 @@
   programs.firefox.enable = lib.mkForce false;
 
   # ── Minimal study packages ──────────────────────────────────
-  home.packages = lib.mkForce (with pkgs; [
+  home.packages = with pkgs; [
     git
     ripgrep
     fd
@@ -60,7 +60,7 @@
     libnotify
     kdePackages.ksshaskpass
     pandoc
-  ]);
+  ];
 
   # ── Sudo password prompt fix ────────────────────────────────
   home.sessionVariables = {
