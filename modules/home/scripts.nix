@@ -116,7 +116,7 @@ let
   toggleEmacs = pkgs.writeShellScriptBin "toggle-scratchpad-emacs" ''
     ${compositorDetect}
     NAME="emacs-scratch"
-    ${pkgs.emacs}/bin/emacsclient -a "" -e "(progn
+        ${pkgs.emacs}/bin/emacsclient -c -a "" -e "(progn
       (unless (seq-find (lambda (f) (string= (frame-parameter f 'name) \"$NAME\")) (frame-list))
         (make-frame '((name . \"$NAME\") (width . 110) (height . 30))))
       (select-frame-by-name \"$NAME\"))"

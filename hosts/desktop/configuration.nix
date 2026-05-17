@@ -61,13 +61,13 @@ in
       homeDesktopPath = homeDesktopPath;
     };
 
-    study = mkSpecialization {
-      inherit lib pkgs myConfig;
-      desktopEnvironment = "niri";
-      extraModules = [
-        ../../modules/system/niri.nix
-      ];
-      homeDesktopPath = homeStudyPath;
-    };
+       study = mkSpecialization {
+  inherit lib pkgs myConfig;
+  desktopEnvironment = "hyprland";
+  extraModules = [
+    ../../modules/system/hyprland.nix
+  ];
+  homeDesktopPath = homeStudyPath;
+};
   };
 }

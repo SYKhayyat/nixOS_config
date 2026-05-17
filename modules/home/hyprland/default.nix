@@ -79,6 +79,22 @@ in {
         disable_watchdog_warning = true
     }
 
+    # ── Floating rules ────────────────────────────────────────────
+    # Scratchpads
+    windowrule = float, class:^(scratchpad)$
+    windowrule = float, class:^(emacs-scratch)$
+    windowrule = size 1100 600, class:^(scratchpad)$
+    windowrule = size 1100 600, class:^(emacs-scratch)$
+    windowrule = center, class:^(scratchpad)$
+    windowrule = center, class:^(emacs-scratch)$
+
+    # File‑picker dialogs
+    windowrule = float, title:^(Open|Save|Select|Choose)(.*)$
+
+    # Other floating apps
+    windowrule = float, class:^(pavucontrol)$
+    windowrule = float, class:^(nm-connection-editor)$
+
     $mainMod = SUPER
 
     bind = $mainMod, Return, exec, foot
@@ -94,29 +110,23 @@ in {
     bind = $mainMod, grave, exec, toggle-scratchpad-terminal
     bind = $mainMod SHIFT, grave, exec, toggle-scratchpad-emacs
 
-    bind = $mainMod, H, movefocus, l
-    bind = $mainMod, L, movefocus, r
-    bind = $mainMod, K, cyclenext
-    bind = $mainMod, J, cyclenext, prev
+    # ── New keybinds ────────────────────────────────────────────
+    # Scratchpads (saner keys)
+    bind = $mainMod SHIFT, Return, exec, toggle-scratchpad-terminal
+    bind = $mainMod CTRL, Return, exec, toggle-scratchpad-emacs
 
-    bind = $mainMod SHIFT, R, exec, hyprctl keyword general:layout $(hyprctl getoption general:layout | grep -q master && echo dwindle || echo master)
-    bind = $mainMod, F, fullscreen, 0
-    bind = $mainMod SHIFT, Space, togglefloating
+    # Hide / restore window (special workspace)
+    bind = $mainMod, S, togglespecialworkspace
+    bind = $mainMod SHIFT, S, movetoworkspace, special
 
-    bind = $mainMod, 1, workspace, 1
-    bind = $mainMod, 2, workspace, 2
-    bind = $mainMod, 3, workspace, 3
-    bind = $mainMod, 4, workspace, 4
-    bind = $mainMod, 5, workspace, 5
-    bind = $mainMod SHIFT, 1, movetoworkspace, 1
-    bind = $mainMod SHIFT, 2, movetoworkspace, 2
-    bind = $mainMod SHIFT, 3, movetoworkspace, 3
+    # Tab groups
+    bind = $mainMod, W, togglegroup
+    bind = $mainMod, Tab, changegroupactive, f
+    bind = $mainMod SHIFT, Tab, changegroupactive, b
 
-    bind = , XF86AudioRaiseVolume, exec, volctl up
-    bind = , XF86AudioLowerVolume, exec, volctl down
-    bind = , XF86AudioMute, exec, volctl mute
-    bind = , XF86MonBrightnessUp, exec, volctl br-up
-    bind = , XF86MonBrightnessDown, exec, volctl br-down
+    # Launch apps
+    bind = $mainMod, E, exec, dolphin
+    bind = $mainMod SHIFT, E, exec, emacs
 
     # Master layout manipulation
     bind = $mainMod, M, layoutmsg, swapwithmaster master
@@ -143,9 +153,34 @@ in {
     bind = $mainMod CTRL, J, resizeactive, 0 20
 
     # Emacs-style splitting controls (Dwindle layout)
-    bind = $mainMod, T, togglesplit, v
+    bind = $mainMod, V, togglesplit, v
     bind = $mainMod SHIFT, V, swapwindow, v
     bind = $mainMod SHIFT, H, swapwindow, h
+
+    # ── Navigation (HJKL) ──────────────────────────────────────
+    bind = $mainMod, H, movefocus, l
+    bind = $mainMod, L, movefocus, r
+    bind = $mainMod, K, cyclenext
+    bind = $mainMod, J, cyclenext, prev
+
+    bind = $mainMod SHIFT, R, exec, hyprctl keyword general:layout $(hyprctl getoption general:layout | grep -q master && echo dwindle || echo master)
+    bind = $mainMod, F, fullscreen, 0
+    bind = $mainMod SHIFT, Space, togglefloating
+
+    bind = $mainMod, 1, workspace, 1
+    bind = $mainMod, 2, workspace, 2
+    bind = $mainMod, 3, workspace, 3
+    bind = $mainMod, 4, workspace, 4
+    bind = $mainMod, 5, workspace, 5
+    bind = $mainMod SHIFT, 1, movetoworkspace, 1
+    bind = $mainMod SHIFT, 2, movetoworkspace, 2
+    bind = $mainMod SHIFT, 3, movetoworkspace, 3
+
+    bind = , XF86AudioRaiseVolume, exec, volctl up
+    bind = , XF86AudioLowerVolume, exec, volctl down
+    bind = , XF86AudioMute, exec, volctl mute
+    bind = , XF86MonBrightnessUp, exec, volctl br-up
+    bind = , XF86MonBrightnessDown, exec, volctl br-down
 
     bind = , Print, exec, screenshot-edit
   '';

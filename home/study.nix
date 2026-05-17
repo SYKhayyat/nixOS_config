@@ -3,7 +3,7 @@
 {
   imports = [
     ../modules/home/emacs
-    ../modules/home/niri
+    ../modules/home/hyprland
     ../modules/home/scripts.nix
   ];
 
@@ -12,23 +12,28 @@
   home.stateVersion = "25.11";
 
   programs.home-manager.enable = true;
-    programs.firefox.enable = lib.mkForce false;
 
+  # ── Session variables ───────────────────────────────────────
   systemd.user.sessionVariables = {
     WAYLAND_DISPLAY = "wayland-1";
-    XDG_CURRENT_DESKTOP = "niri";
+    XDG_CURRENT_DESKTOP = "hyprland";
   };
 
-  programs.waybar.enable = true;
-  systemd.user.services.waybar.Install.WantedBy = [ "wayland-session@niri.target" ];
+  # ── Services (Waybar, mako, udiskie) ───────────────────────
+  services.waybar.enable = true;
+  systemd.user.services.waybar.Install.WantedBy = [ "hyprland-session.target" ];
 
   services.mako.enable = true;
-  systemd.user.services.mako.Install.WantedBy = [ "wayland-session@niri.target" ];
+  systemd.user.services.mako.Install.WantedBy = [ "hyprland-session.target" ];
 
   services.udiskie.enable = true;
-  systemd.user.services.udiskie.Install.WantedBy = [ "wayland-session@niri.target" ];
+  systemd.user.services.udiskie.Install.WantedBy = [ "hyprland-session.target" ];
 
-   home.packages = lib.mkForce (with pkgs; [
+  # ── Force browsers OFF (overrides base desktop config) ──────
+  programs.firefox.enable = lib.mkForce false;
+
+  # ── Minimal study packages ──────────────────────────────────
+  home.packages = lib.mkForce (with pkgs; [
     git
     ripgrep
     fd
@@ -38,9 +43,10 @@
     mpv
     foot
     yazi
-    ranger
-    zathura
     kdePackages.kate
+    kdePackages.okular
+    kdePackages.dolphin
+    libreoffice-qt-fresh
     wl-clipboard
     wlogout
     udiskie
@@ -52,7 +58,16 @@
     slurp
     swappy
     libnotify
+    kdePackages.ksshaskpass
+    pandoc
   ]);
+
+  # ── Sudo password prompt fix ────────────────────────────────
+  home.sessionVariables = {
+    SSH_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
+    SUDO_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
+  };
+
   programs.ssh.enable = true;
   programs.ssh.enableDefaultConfig = false;
 

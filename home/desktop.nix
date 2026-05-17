@@ -78,7 +78,8 @@
     pinta photoflare pixeluvo digikam rawtherapee darktable
     sly rapidraw graphicsmagick_q16
     vlc audacity lmms scribus persepolis onedriver
-    tor-browser qutebrowser firefox  nushell
+    tor-browser qutebrowser firefox  nushell kdePackages.kate
+    kdePackages.okular yazi
   ];
 
   home.sessionVariables = {
