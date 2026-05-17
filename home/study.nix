@@ -20,7 +20,7 @@
   };
 
   # ── Services (Waybar, mako, udiskie) ───────────────────────
-  services.waybar.enable = true;
+  programs.waybar.enable = true;
   systemd.user.services.waybar.Install.WantedBy = [ "hyprland-session.target" ];
 
   services.mako.enable = true;
