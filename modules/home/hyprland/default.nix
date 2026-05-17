@@ -79,21 +79,21 @@ in {
         disable_watchdog_warning = true
     }
 
-    # ── Floating rules ────────────────────────────────────────────
+       # ── Floating rules ────────────────────────────────────────────
     # Scratchpads
-    windowrule = float, class:^(scratchpad)$
-    windowrule = float, class:^(emacs-scratch)$
-    windowrule = size 1100 600, class:^(scratchpad)$
-    windowrule = size 1100 600, class:^(emacs-scratch)$
-    windowrule = center, class:^(scratchpad)$
-    windowrule = center, class:^(emacs-scratch)$
+    windowrule = match:class ^(scratchpad)$, float on
+    windowrule = match:class ^(emacs-scratch)$, float on
+    windowrule = match:class ^(scratchpad)$, size 1100 600
+    windowrule = match:class ^(emacs-scratch)$, size 1100 600
+    windowrule = match:class ^(scratchpad)$, center on
+    windowrule = match:class ^(emacs-scratch)$, center on
 
     # File‑picker dialogs
-    windowrule = float, title:^(Open|Save|Select|Choose)(.*)$
+    windowrule = match:title ^(Open|Save|Select|Choose), float on
 
     # Other floating apps
-    windowrule = float, class:^(pavucontrol)$
-    windowrule = float, class:^(nm-connection-editor)$
+    windowrule = match:class ^(pavucontrol)$, float on
+    windowrule = match:class ^(nm-connection-editor)$, float on
 
     $mainMod = SUPER
 
