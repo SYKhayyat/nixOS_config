@@ -25,7 +25,7 @@ in {
     exec-once = ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     exec-once = waybar
     exec-once = mako
-    exec-once = bash -c "awww-daemon && sleep 1 && awww img ${wallpaper}"
+    exec-once = bash -c "awww-daemon && until awww ping 2>/dev/null; do sleep 0.5; done && awww img /home/shaul/nixos-config/wallpaper.jpg"
     exec-once = nm-applet --indicator
     exec-once = udiskie --tray
     exec-once = ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1
@@ -154,14 +154,17 @@ in {
     bind = $mainMod, C, centerwindow
 
     # Resize windows
-    bind = $mainMod CTRL, H, resizeactive, -20 0
-    bind = $mainMod CTRL, L, resizeactive, 20 0
-    bind = $mainMod CTRL, K, resizeactive, 0 -20
-    bind = $mainMod CTRL, J, resizeactive, 0 20
+        bind = $mainMod ALT, H, resizeactive, -20 0
+    bind = $mainMod ALT, L, resizeactive, 20 0
+    bind = $mainMod ALT, K, resizeactive, 0 -20
+    bind = $mainMod ALT, J, resizeactive, 0 20
 
     # Emacs-style splitting controls (Dwindle layout)
-    bind = $mainMod CTRL, V, layoutmsg, preselect v
-    bind = $mainMod CTRL, B, layoutmsg, preselect h
+    # Dwindle preselect directions (Emacs-style splitting)
+    bind = $mainMod CTRL, L, layoutmsg, preselect l
+    bind = $mainMod CTRL, R, layoutmsg, preselect r
+    bind = $mainMod CTRL, U, layoutmsg, preselect u
+    bind = $mainMod CTRL, D, layoutmsg, preselect d
 
     # ── Navigation (HJKL) ──────────────────────────────────────
     bind = $mainMod, H, movefocus, l
