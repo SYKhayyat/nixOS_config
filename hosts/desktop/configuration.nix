@@ -61,13 +61,14 @@ in
       homeDesktopPath = homeDesktopPath;
     };
 
-       study = mkSpecialization {
-  inherit lib pkgs myConfig;
-  desktopEnvironment = "hyprland";
-  extraModules = [
-    ../../modules/system/hyprland.nix
-  ];
-  homeDesktopPath = homeStudyPath;
-};
+        study = mkSpecialization {
+      inherit lib pkgs myConfig;
+      desktopEnvironment = "hyprland";
+      extraModules = [
+        ../../modules/system/hyprland.nix
+        ../../modules/system/study-offline.nix
+      ];
+      homeDesktopPath = homeStudyPath;
+    };
   };
 }

@@ -13,6 +13,9 @@ in {
     mako
     waybar
     fuzzel
+    kdePackages.dolphin
+    kdePackages.okular
+    kdePackages.kate
   ];
 
   xdg.configFile."hypr/hyprland.conf".text = ''
@@ -153,9 +156,8 @@ in {
     bind = $mainMod CTRL, J, resizeactive, 0 20
 
     # Emacs-style splitting controls (Dwindle layout)
-    bind = $mainMod, V, togglesplit, v
-    bind = $mainMod SHIFT, V, swapwindow, v
-    bind = $mainMod SHIFT, H, swapwindow, h
+    bind = $mainMod CTRL, V, layoutmsg, preselect v
+    bind = $mainMod CTRL, B, layoutmsg, preselect h
 
     # ── Navigation (HJKL) ──────────────────────────────────────
     bind = $mainMod, H, movefocus, l

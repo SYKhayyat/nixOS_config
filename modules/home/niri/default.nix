@@ -15,6 +15,9 @@ in {
     waybar
     fuzzel
     xwayland-satellite
+    kdePackages.dolphin
+    kdePackages.kate
+    kdePackages.okular
   ];
 
   # Master Niri KDL Configuration
