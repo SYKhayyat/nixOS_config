@@ -4,7 +4,7 @@ let
   bg = "#1a1b26";
   blue = "0xff7aa2f7";
   gray = "0xff414868";
-  wallpaper = toString ./../../../wallpaper.jpg;
+  wallpaper = "/home/shaul/nixos-config/wallpaper.jpg";
 in {
   imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ../scripts.nix ];
 
@@ -55,10 +55,14 @@ in {
         mfact = 0.55
     }
 
+    dwindle {
+        preserve_split = true
+        permanent_direction_override = true
+    }
     decoration {
         rounding = 10
-        active_opacity = 1.0
-        inactive_opacity = 0.85
+        active_opacity = .80
+        inactive_opacity = 0.65
 
         blur {
             enabled = true
