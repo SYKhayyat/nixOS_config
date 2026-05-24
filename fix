@@ -1,1 +1,3 @@
-sudo nix-collect-garbage -d && sudo /run/current-system/bin/switch-to-configuration boot
+1. Yazi has a an error parsing the TOML config.
+2. Dolphin cannot open anything in Hyprland.
+3. Make a guide for Hyprland.

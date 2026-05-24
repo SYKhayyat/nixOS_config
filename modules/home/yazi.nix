@@ -2,38 +2,52 @@
 { pkgs, config, lib, ... }:
 
 {
-  # Disable the built-in Yazi module (we'll write configs manually)
-  programs.yazi.enable = false;
+  # Yazi is now configured via Lua, not TOML
+  xdg.configFile."yazi/yazi.lua".text = ''
+    -- Manager options
+    Manager.show_hidden = true
+    Manager.sort_by = "mtime"
+    Manager.sort_reverse = true
 
-  # Write yazi.toml with the new [mgr] section
-  home.file.".config/yazi/yazi.toml".text = ''
-    [mgr]
-    show_hidden = true
-    sort_by = "mtime"
-    sort_reverse = true
+    -- Open rules (file associations)
+    Opener:rule("*.pdf", { use = { "default", "gui_open" } })
+    Opener:rule("*.docx", { use = { "doc", "gui_open" } })
+    Opener:rule({ mime = "video/*" }, { use = { "play", "gui_open" } })
+    Opener:rule({ mime = "text/*" }, { use = { "edit", "gui_open" } })
+    Opener:rule({ mime = "image/*" }, { use = { "default", "gui_open" } })
 
-    [open]
-    rules = [
-      { name = "*.pdf",   use = [ "default" "gui_open" ] }
-      { name = "*.docx",  use = [ "doc" "gui_open" ] }
-      { mime = "video/*", use = [ "play" "gui_open" ] }
-      { mime = "text/*",  use = [ "edit" "gui_open" ] }
-      { mime = "image/*", use = [ "default" "gui_open" ] }
-    ]
-
-    [opener]
-    edit = [ { run = "emacs \"$@\"", block = true, desc = "Edit in Emacs" } ]
-    play = [ { run = "vlc \"$@\"", orphan = true, desc = "Open in VLC" } ]
-    gui_open = [ { run = "dolphin \"$(dirname \"$1\")\"", orphan = true, desc = "Reveal in Dolphin" } ]
-    doc = [ { run = "libreoffice \"$@\"", orphan = true, desc = "Open in LibreOffice" } ]
-    default = [ { run = "xdg-open \"$@\"", desc = "System Default" } ]
+    -- Openers
+    Opener:add("edit", {
+      run = "emacs \"$@\"",
+      block = true,
+      desc = "Edit in Emacs",
+    })
+    Opener:add("play", {
+      run = "vlc \"$@\"",
+      orphan = true,
+      desc = "Open in VLC",
+    })
+    Opener:add("gui_open", {
+      run = "dolphin \"$(dirname \"$1\")\"",
+      orphan = true,
+      desc = "Reveal in Dolphin",
+    })
+    Opener:add("doc", {
+      run = "libreoffice \"$@\"",
+      orphan = true,
+      desc = "Open in LibreOffice",
+    })
+    Opener:add("default", {
+      run = "xdg-open \"$@\"",
+      desc = "System Default",
+    })
   '';
 
-  # Write keymap.toml using the new [[keymap]] format
-  home.file.".config/yazi/keymap.toml".text = ''
-    [[keymap]]
-    on = [ "O" ]
-    run = "open --interactive"
-    desc = "Open With..."
+  xdg.configFile."yazi/keymap.lua".text = ''
+    Keymap:add({
+      on = { "O" },
+      run = "open --interactive",
+      desc = "Open With...",
+    })
   '';
 }
