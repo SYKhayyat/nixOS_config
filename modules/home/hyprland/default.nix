@@ -17,6 +17,7 @@ in {
     kdePackages.dolphin
     kdePackages.okular
     kdePackages.kate
+    kdePackages.kde
   ];
 
   xdg.configFile."hypr/hyprland.conf".text = ''
@@ -35,7 +36,7 @@ in {
 
     input {
         kb_layout = us,il
-        kb_options = grp:caps_toggle,caps:escape
+       kb_options = grp:ctrl_shift_toggle,caps:escape
         repeat_delay = 250
         repeat_rate = 40
         touchpad {

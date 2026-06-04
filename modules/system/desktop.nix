@@ -8,7 +8,7 @@
   services.xserver.enable = true;
   services.xserver.xkb = {
     layout = "us,il";
-    options = "grp:caps_toggle,caps:escape";
+    options = "grp: grp:ctrl_shift_toggle,caps:escape";
   };
 
   # ══════════════════════════════════════════════════════════════════

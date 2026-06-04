@@ -18,7 +18,7 @@
 
     -- Openers
     Opener:add("edit", {
-      run = "emacs \"$@\"",
+      run =     run = "emacsclient -c -a \"\" \"$@\""
       block = true,
       desc = "Edit in Emacs",
     })
