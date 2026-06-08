@@ -11,13 +11,12 @@ in {
   home.packages = with pkgs; [
     awww
     mako
-    kdePackages.kded
     waybar
+    pcmanfm-qt
+    thunar
     fuzzel
-    kdePackages.dolphin
     kdePackages.okular
     kdePackages.kate
-    kdePackages.kde
   ];
 
   xdg.configFile."hypr/hyprland.conf".text = ''
@@ -27,7 +26,7 @@ in {
     exec-once = ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     exec-once = waybar
     exec-once = mako
-    exec-once = kded5
+   
     exec-once = bash -c "awww-daemon && until awww ping 2>/dev/null; do sleep 0.5; done && awww img /home/shaul/nixos-config/wallpaper.jpg"
     exec-once = nm-applet --indicator
     exec-once = udiskie --tray
@@ -36,7 +35,7 @@ in {
 
     input {
         kb_layout = us,il
-       kb_options = grp:ctrl_shift_toggle,caps:escape
+kb_options = grp:lctrl_lalt_toggle,caps:escape
         repeat_delay = 250
         repeat_rate = 40
         touchpad {
