@@ -26,7 +26,7 @@ in
     emacsWithPackages
     recoll plocate fd ripgrep
     texlive.combined.scheme-full typst tinymist
-    typst-preview
+    emacsPackages.typst-preview
     sqlite graphviz imagemagick tree-sitter hdate
     jdt-language-server nil rust-analyzer pyright lua-language-server
   ];

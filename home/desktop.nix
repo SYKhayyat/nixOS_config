@@ -75,7 +75,7 @@
     libreoffice-qt-fresh kdePackages.calligra
     gimp-with-plugins gimpPlugins.gmic gimpPlugins.resynthesizer
     krita krita-plugin-gmic inkscape-with-extensions
-    pinta photoflare pixeluvo digikam rawtherapee darktable
+    pinta photoflare digikam rawtherapee darktable
     sly rapidraw graphicsmagick_q16
     vlc audacity lmms scribus persepolis onedriver
     tor-browser qutebrowser firefox  nushell kdePackages.kate
