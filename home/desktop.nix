@@ -72,12 +72,12 @@
   };
 
   home.packages = with pkgs; [
-    libreoffice-qt-fresh kdePackages.calligra
+    libreoffice-qt-fresh kdePackages.calligra ansel
     gimp-with-plugins gimpPlugins.gmic gimpPlugins.resynthesizer
     krita krita-plugin-gmic inkscape-with-extensions
     pinta photoflare digikam rawtherapee darktable
-    sly rapidraw graphicsmagick_q16
-    vlc audacity lmms scribus persepolis onedriver
+    sly rapidraw graphicsmagick_q16 art aaphoto graphite 
+    vlc audacity lmms scribus persepolis onedriver upscayl
     tor-browser qutebrowser firefox  nushell kdePackages.kate
     kdePackages.okular yazi
   ];
