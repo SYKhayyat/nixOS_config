@@ -72,7 +72,7 @@
   };
 
   home.packages = with pkgs; [
-    libreoffice-qt-fresh kdePackages.calligra ansel
+    libreoffice-qt-fresh kdePackages.calligra ansel texmacs sile
     gimp-with-plugins gimpPlugins.gmic gimpPlugins.resynthesizer
     krita krita-plugin-gmic inkscape-with-extensions
     pinta photoflare digikam rawtherapee darktable
