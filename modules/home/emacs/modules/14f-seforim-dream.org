@@ -1,0 +1,591 @@
+#+TITLE: 14f Seforim Dream Extras – Bookmarks, TOC, Reader, Ref-jump, Recoll, Dashboard
+#+PROPERTY: header-args:emacs-lisp :tangle 14f-seforim-dream.el
+
+* What this is
+
+The "dream" layer on top of the seforim core (14a–14e).  Everything here is
+optional polish; none of it is on the startup path (commands only), and each
+piece degrades gracefully when its data/tool is missing:
+
+- *Bookmarks* — a seforim-only, persistent bookmark set (spot + human ref),
+  kept separate from your code bookmarks.
+- *TOC sidebar* — a clickable table of contents for the current book (Org
+  outline, or the =<h1>..<h3>= headings of a raw Otzaria =.txt=).
+- *Reader mode* — prettifies a raw Otzaria =.txt= (hides HTML markup, styles
+  headings, RTL, comfortable margins) *without touching the text*, so the
+  line = segment-id contract that mefarshim linking relies on stays intact.
+- *Reference jump* (searchRefs-style) — build a =heRef → (book, line)= index
+  from Otzaria's own link files, then jump to any reference by name.
+- *Recoll* — optional integration with the =recoll= full-text index (Linux
+  mostly); indexes and searches the library, complementing rg/rga.
+- *Dashboard* — a clickable status/home screen for the library.
+
+All state lives next to the study log (=~/.cache/emacs/seforim/=).
+
+#+BEGIN_SRC emacs-lisp
+;;; 14f-seforim-dream.el --- Seforim: bookmarks, TOC, reader, ref-jump, recoll, dashboard  -*- lexical-binding: t; -*-
+
+(require '14a-seforim-core)
+(require '14b-seforim-candidates)
+(require '14c-seforim-search)     ; seforim-search-rg / -rga (dashboard actions)
+(require '14d-seforim-extras)     ; seforim--load-log, seforim-status
+(require '14e-seforim-mefarshim)
+(require 'subr-x)
+(require 'cl-lib)
+
+;; ---------------------------------------------------------------------------
+;; Shared: state directory (reuse the study-log location)
+;; ---------------------------------------------------------------------------
+
+(defun seforim--state-dir ()
+  "Directory where seforim persists state (bookmarks, indices, log)."
+  (let ((d (file-name-directory (expand-file-name seforim-study-log-path))))
+    (ignore-errors (make-directory d t))
+    d))
+
+(defun seforim--read-file-form (file)
+  "Read one Lisp form from FILE, or nil if missing/unreadable."
+  (when (file-exists-p file)
+    (condition-case nil
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (read (current-buffer)))
+      (error nil))))
+
+(defun seforim--write-file-form (file form)
+  "Write FORM to FILE (create parent dir), as a re-readable Lisp literal."
+  (ignore-errors
+    (make-directory (file-name-directory file) t)
+    (with-temp-file file
+      (let ((print-length nil) (print-level nil))
+        (insert ";; -*- coding: utf-8; -*-\n")
+        (prin1 form (current-buffer))
+        (insert "\n")))
+    t))
+#+END_SRC
+
+* Bookmarks — a seforim-only, persistent bookmark set
+
+Separate from Emacs' global bookmarks so your library marks don't drown in code
+bookmarks.  Each entry stores the file, the line, an optional human reference,
+and a timestamp; the set persists to =~/.cache/emacs/seforim/bookmarks.el=.
+
+#+BEGIN_SRC emacs-lisp
+(defvar seforim--bookmarks nil
+  "List of bookmark plists (:name :file :line :ref :time), newest first.")
+
+(defvar seforim--bookmarks-loaded nil
+  "Non-nil once the bookmark file has been read this session.")
+
+(defun seforim--bookmarks-file ()
+  "Path to the persistent seforim bookmarks file."
+  (expand-file-name "bookmarks.el" (seforim--state-dir)))
+
+(defun seforim--load-bookmarks ()
+  "Load bookmarks from disk once per session."
+  (unless seforim--bookmarks-loaded
+    (setq seforim--bookmarks (seforim--read-file-form (seforim--bookmarks-file))
+          seforim--bookmarks-loaded t))
+  seforim--bookmarks)
+
+(defun seforim--save-bookmarks ()
+  "Persist bookmarks to disk."
+  (seforim--write-file-form (seforim--bookmarks-file) seforim--bookmarks))
+
+(defun seforim--guess-ref ()
+  "Best-effort human reference for the current spot.
+Uses a mefarshim link's `heRef' if one is anchored here (Otzaria books),
+otherwise the nearest heading text, otherwise the book title + line."
+  (let* ((file  (buffer-file-name))
+         (title (and file (file-name-base file)))
+         (line  (line-number-at-pos (point) t)))
+    (or
+     ;; an Otzaria link ref anchored at this exact line
+     (let ((tg (car (ignore-errors (seforim--otzaria-targets-at-point)))))
+       (and tg (plist-get tg :ref)))
+     ;; nearest heading above point (org or html-ish)
+     (save-excursion
+       (when (re-search-backward
+              "^\\(?:\\*+ \\|.*<h[1-6]>\\)\\(.+?\\)\\(?:</h[1-6]>\\)?[ \t]*$" nil t)
+         (string-trim (replace-regexp-in-string
+                       "<[^>]*>" "" (match-string 1)))))
+     (format "%s:%d" (or title "buffer") line))))
+
+;;;###autoload
+(defun seforim-bookmark-set (name)
+  "Bookmark the current spot (file + line) under NAME in the seforim set."
+  (interactive
+   (list (read-string "Bookmark name: " (seforim--guess-ref))))
+  (unless (buffer-file-name) (user-error "This buffer is not visiting a file"))
+  (seforim--load-bookmarks)
+  (let ((entry (list :name name
+                     :file (expand-file-name (buffer-file-name))
+                     :line (line-number-at-pos (point) t)
+                     :ref  (seforim--guess-ref)
+                     :time (current-time))))
+    (setq seforim--bookmarks
+          (cons entry (cl-remove name seforim--bookmarks
+                                 :test #'string= :key (lambda (e) (plist-get e :name)))))
+    (seforim--save-bookmarks)
+    (message "Bookmarked: %s" name)))
+
+(defun seforim--bookmark-candidates ()
+  "Alist of (DISPLAY . ENTRY) for completion."
+  (mapcar (lambda (e)
+            (cons (format "%-30s  %s  [%s]"
+                          (plist-get e :name)
+                          (or (plist-get e :ref) "")
+                          (file-name-base (or (plist-get e :file) "")))
+                  e))
+          (seforim--load-bookmarks)))
+
+;;;###autoload
+(defun seforim-bookmark-jump (&optional arg)
+  "Jump to a seforim bookmark.  With prefix ARG, open in a new tab."
+  (interactive "P")
+  (let ((cands (seforim--bookmark-candidates)))
+    (if (null cands)
+        (message "No seforim bookmarks yet (set one with `seforim-bookmark-set')")
+      (let* ((sel (completing-read "Jump to bookmark: " cands nil t))
+             (e   (cdr (assoc sel cands))))
+        (when e
+          (let ((file (plist-get e :file)))
+            (if (file-readable-p file)
+                (let ((seforim--new-tab-flag (and arg t)))
+                  (seforim--open-file file (plist-get e :line)))
+              (message "Bookmark target missing: %s" file))))))))
+
+;;;###autoload
+(defun seforim-bookmark-delete ()
+  "Delete a seforim bookmark."
+  (interactive)
+  (let ((cands (seforim--bookmark-candidates)))
+    (if (null cands)
+        (message "No seforim bookmarks to delete")
+      (let* ((sel (completing-read "Delete bookmark: " cands nil t))
+             (e   (cdr (assoc sel cands))))
+        (when e
+          (setq seforim--bookmarks (delq e seforim--bookmarks))
+          (seforim--save-bookmarks)
+          (message "Deleted: %s" (plist-get e :name)))))))
+#+END_SRC
+
+* Per-book Table of Contents sidebar
+
+A clickable TOC in a left side window.  For an Org file it defers to the built
+in outline (=consult-outline= / =imenu=).  For a raw Otzaria =.txt= it scans the
+=<h1>..<h4>= heading tags — one per line — and lists them; clicking a heading
+jumps to that line in the source book.  The source buffer is never modified, so
+mefarshim line indices stay valid.
+
+#+BEGIN_SRC emacs-lisp
+(defvar-local seforim--toc-source-buffer nil
+  "The book buffer a *Seforim TOC* window navigates.")
+
+(defun seforim--toc-scan-headings ()
+  "Scan the current buffer for HTML-ish headings.
+Return a list of (LEVEL LABEL LINE), in document order."
+  (let (out)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "<h\\([1-6]\\)>\\(.*?\\)</h[1-6]>" nil t)
+        (let* ((level (string-to-number (match-string 1)))
+               (label (string-trim
+                       (replace-regexp-in-string
+                        "<[^>]*>\\|&[a-zA-Z#0-9]+;" "" (match-string 2))))
+               (line  (line-number-at-pos (match-beginning 0) t)))
+          (when (and label (not (string-empty-p label)))
+            (push (list level label line) out)))))
+    (nreverse out)))
+
+(defun seforim--toc-goto (buffer line)
+  "Show LINE of BUFFER in its window (or a window), and move point there."
+  (when (buffer-live-p buffer)
+    (let ((win (or (get-buffer-window buffer)
+                   (display-buffer buffer))))
+      (when win
+        (select-window win)
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (recenter)))))
+
+;;;###autoload
+(defun seforim-toc ()
+  "Show a clickable table of contents for the current book in a side window.
+Org buffers use the outline; raw Otzaria .txt books use their HTML headings."
+  (interactive)
+  (cond
+   ;; Org: the native outline tools are better than anything we'd hand-roll.
+   ((derived-mode-p 'org-mode)
+    (cond ((fboundp 'consult-outline) (consult-outline))
+          (t (call-interactively #'imenu))))
+   (t
+    (let ((headings (seforim--toc-scan-headings))
+          (src (current-buffer)))
+      (if (null headings)
+          (message "No headings found in this book")
+        (let ((buf (get-buffer-create "*Seforim TOC*")))
+          (with-current-buffer buf
+            (let ((inhibit-read-only t))
+              (erase-buffer)
+              (setq-local bidi-paragraph-direction 'right-to-left)
+              (setq seforim--toc-source-buffer src)
+              (insert (format "תוכן — %s\n" (buffer-name src)))
+              (insert (make-string 32 ?─) "\n\n")
+              (dolist (h headings)
+                (pcase-let ((`(,level ,label ,line) h))
+                  (insert (make-string (* 2 (1- level)) ?\s))
+                  (insert-text-button
+                   label
+                   'action (lambda (_)
+                             (seforim--toc-goto
+                              (buffer-local-value 'seforim--toc-source-buffer
+                                                  (get-buffer "*Seforim TOC*"))
+                              line))
+                   'follow-link t
+                   'help-echo (format "line %d" line))
+                  (insert "\n")))
+              (goto-char (point-min))
+              (view-mode 1)))
+          (display-buffer-in-side-window
+           buf '((side . left) (window-width . 34)))))))))
+#+END_SRC
+
+* Prettified reader mode for raw Otzaria =.txt=
+
+The Otzaria texts carry light HTML markup (=<h1>=, =<big>=, =<b>=, =<span>=…).
+This minor mode makes them pleasant to read: hides the tags, styles headings,
+turns on RTL, comfortable line spacing and margins.  Crucially it *only adds
+text properties* (invisibility/faces) — it never inserts or deletes a
+character — so =line-number-at-pos= still equals the Otzaria segment id and
+=seforim-mefarshim= keeps working.  The buffer is made read-only while the mode
+is on, for the same reason.
+
+#+BEGIN_SRC emacs-lisp
+(defface seforim-otzaria-h1
+  '((t :inherit org-level-1 :height 1.5 :weight bold))
+  "Face for <h1> headings in the Otzaria reader." :group 'seforim)
+(defface seforim-otzaria-h2
+  '((t :inherit org-level-2 :height 1.3 :weight bold))
+  "Face for <h2> headings in the Otzaria reader." :group 'seforim)
+(defface seforim-otzaria-h3
+  '((t :inherit org-level-3 :height 1.15 :weight bold))
+  "Face for <h3>+ headings in the Otzaria reader." :group 'seforim)
+(defface seforim-otzaria-bold
+  '((t :weight bold))
+  "Face for <b>/<big> emphasised text in the Otzaria reader." :group 'seforim)
+
+(defcustom seforim-otzaria-auto-reader t
+  "If non-nil, enable `seforim-otzaria-reader-mode' when opening an Otzaria book."
+  :type 'boolean :group 'seforim)
+
+(defvar-local seforim--reader-saved-readonly nil
+  "Buffer-read-only state to restore when the reader mode is turned off.")
+
+(defun seforim--reader-region-face (beg end face)
+  "Add FACE (append) over BEG..END without disturbing existing text."
+  (font-lock-append-text-property beg end 'face face))
+
+(defun seforim--reader-fontify ()
+  "Add reader text properties over the whole buffer (non-destructive)."
+  (with-silent-modifications
+    (add-to-invisibility-spec 'seforim-reader)
+    (save-excursion
+      ;; 1. Face the inner text of headings and bold spans FIRST (before we
+      ;;    hide the tags), matching within a single line.
+      (dolist (rule '(("<h1>\\([^<]*\\)</h1>" . seforim-otzaria-h1)
+                      ("<h2>\\([^<]*\\)</h2>" . seforim-otzaria-h2)
+                      ("<h[3-6]>\\([^<]*\\)</h[3-6]>" . seforim-otzaria-h3)
+                      ("<\\(?:b\\|big\\|strong\\)>\\([^<]*\\)</\\(?:b\\|big\\|strong\\)>"
+                       . seforim-otzaria-bold)))
+        (goto-char (point-min))
+        (while (re-search-forward (car rule) nil t)
+          (seforim--reader-region-face (match-beginning 1) (match-end 1) (cdr rule))))
+      ;; 2. Hide every remaining tag and HTML entity.
+      (goto-char (point-min))
+      (while (re-search-forward "<[^>]*>\\|&[a-zA-Z#0-9]+;" nil t)
+        (put-text-property (match-beginning 0) (match-end 0)
+                           'invisible 'seforim-reader)))))
+
+(defun seforim--reader-unfontify ()
+  "Remove reader text properties from the buffer."
+  (with-silent-modifications
+    (remove-from-invisibility-spec 'seforim-reader)
+    (remove-text-properties (point-min) (point-max) '(invisible nil))
+    ;; Drop only the faces we added.
+    (remove-text-properties (point-min) (point-max) '(face nil))))
+
+;;;###autoload
+(define-minor-mode seforim-otzaria-reader-mode
+  "Prettify a raw Otzaria .txt for reading (non-destructive; read-only).
+Hides HTML markup, styles headings, RTL, comfortable spacing.  Toggling off
+restores the plain text and writability."
+  :lighter " ספר"
+  (if seforim-otzaria-reader-mode
+      (progn
+        (setq seforim--reader-saved-readonly buffer-read-only)
+        (setq-local bidi-paragraph-direction 'right-to-left)
+        (setq-local line-spacing 0.25)
+        (visual-line-mode 1)
+        (when (fboundp 'olivetti-mode) (olivetti-mode 1))
+        (seforim--reader-fontify)
+        (setq buffer-read-only t))
+    (seforim--reader-unfontify)
+    (kill-local-variable 'line-spacing)
+    (kill-local-variable 'bidi-paragraph-direction)
+    (when (and (fboundp 'olivetti-mode) (bound-and-true-p olivetti-mode))
+      (olivetti-mode -1))
+    (visual-line-mode -1)
+    (setq buffer-read-only seforim--reader-saved-readonly)))
+
+(defun seforim--otzaria-file-p (&optional file)
+  "Non-nil if FILE (default: current buffer) is under the Otzaria texts tree."
+  (let ((f (expand-file-name (or file (buffer-file-name) "")))
+        (tex (ignore-errors (seforim--otzaria-texts-dir))))
+    (and tex (not (string-empty-p f))
+         (string-prefix-p (expand-file-name tex) f
+                          (memq system-type '(windows-nt ms-dos))))))
+
+(defun seforim--otzaria-maybe-reader ()
+  "Auto-enable the reader when visiting an Otzaria .txt book."
+  (when (and seforim-otzaria-auto-reader
+             (buffer-file-name)
+             (string-suffix-p ".txt" (buffer-file-name))
+             (seforim--otzaria-file-p))
+    (seforim-otzaria-reader-mode 1)))
+(add-hook 'find-file-hook #'seforim--otzaria-maybe-reader)
+#+END_SRC
+
+* Reference jump (searchRefs-style)
+
+Otzaria's link files already contain human references (=heRef_2=) paired with an
+exact =(book, line)= target.  We aggregate every such reference into one index
+=heRef → (file . line)=, cache it to disk, and let you jump to any reference by
+name — e.g. type "מכות י" and land on that spot.  Building walks thousands of
+JSON files, so it is *opt-in* and cached; rebuild after replacing the corpus.
+
+#+BEGIN_SRC emacs-lisp
+(defvar seforim--ref-index nil
+  "Alist (HEREF . (ABS-FILE . LINE)) built from Otzaria link files.")
+
+(defvar seforim--ref-index-loaded nil
+  "Non-nil once the ref index has been loaded/built this session.")
+
+(defun seforim--ref-index-file ()
+  "Path to the cached reference index."
+  (expand-file-name "ref-index.el" (seforim--state-dir)))
+
+;;;###autoload
+(defun seforim-build-ref-index ()
+  "Scan every Otzaria links file and build the heRef -> (file . line) index.
+Caches the result to disk.  This can take a while on a full corpus."
+  (interactive)
+  (seforim--otzaria-assert-ready)
+  (let* ((dir (seforim--otzaria-links-dir))
+         (files (and dir (directory-files dir t "_links\\.json\\'")))
+         (total (length files))
+         (n 0)
+         (table (make-hash-table :test 'equal)))
+    (when (zerop total) (user-error "No links files found in %s" dir))
+    (dolist (lf files)
+      (cl-incf n)
+      (when (or (= n 1) (zerop (% n 50)) (= n total))
+        (message "Seforim ref-index: %d/%d books…" n total))
+      (dolist (lk (ignore-errors (seforim--otzaria-parse-json-file lf)))
+        (let ((ref (alist-get 'heRef_2 lk))
+              (p2  (alist-get 'path_2 lk))
+              (l2  (seforim--otzaria-int (alist-get 'line_index_2 lk))))
+          (when (and ref p2 l2)
+            (setq ref (string-trim ref))
+            (unless (or (string-empty-p ref) (gethash ref table))
+              (let ((tfile (seforim--otzaria-resolve-path p2)))
+                (when tfile (puthash ref (cons tfile l2) table))))))))
+    (setq seforim--ref-index nil)
+    (maphash (lambda (k v) (push (cons k v) seforim--ref-index)) table)
+    (setq seforim--ref-index (nreverse seforim--ref-index)
+          seforim--ref-index-loaded t)
+    (seforim--write-file-form (seforim--ref-index-file) seforim--ref-index)
+    (message "Seforim ref-index: %d references from %d books (cached)"
+             (length seforim--ref-index) total)))
+
+(defun seforim--ensure-ref-index ()
+  "Load the ref index from cache, offering to build it if absent."
+  (unless seforim--ref-index-loaded
+    (setq seforim--ref-index (seforim--read-file-form (seforim--ref-index-file))
+          seforim--ref-index-loaded t))
+  (unless seforim--ref-index
+    (if (yes-or-no-p "No reference index yet.  Build it now (may take a while)? ")
+        (seforim-build-ref-index)
+      (user-error "No reference index.  Run `seforim-build-ref-index' first")))
+  seforim--ref-index)
+
+;;;###autoload
+(defun seforim-goto-ref (&optional arg)
+  "Jump to a reference by name, using the Otzaria-derived ref index.
+With prefix ARG, open in a new tab.  Build the index first with
+`seforim-build-ref-index' if you have not already."
+  (interactive "P")
+  (seforim--otzaria-assert-ready)
+  (let* ((index (seforim--ensure-ref-index))
+         (sel   (completing-read "Reference: " index nil t))
+         (cell  (cdr (assoc sel index))))
+    (when cell
+      (let ((file (car cell)) (line (cdr cell)))
+        (if (file-readable-p file)
+            (let ((seforim--new-tab-flag (and arg t)))
+              (seforim--open-file file line))
+          (message "Reference target missing: %s" file))))))
+#+END_SRC
+
+* Optional Recoll full-text index
+
+[[https://www.lesbonscomptes.com/recoll/][Recoll]] is a fast indexed full-text
+search engine (mostly Linux/macOS).  It complements =rg=/=rga=: instead of
+scanning on every query it maintains an index, which is far quicker over a large
+library and understands PDFs/EPUBs/DOCX natively.  Everything here no-ops with a
+clear message when =recoll= is not installed, so it is safe on Windows too.
+
+The index is scoped to a private config dir (=~/.cache/emacs/seforim/recoll=)
+whose =recoll.conf= points =topdirs= at your library — so it never touches a
+system-wide recoll setup.
+
+#+BEGIN_SRC emacs-lisp
+(defun seforim--recoll-confdir ()
+  "Private recoll config dir, with `recoll.conf' pointing at the library."
+  (let* ((dir (expand-file-name "recoll/" (seforim--state-dir)))
+         (conf (expand-file-name "recoll.conf" dir)))
+    (make-directory dir t)
+    (unless (file-exists-p conf)
+      (with-temp-file conf
+        (insert (format "topdirs = \"%s\"\n" (directory-file-name (seforim--base-dir)))
+                "followLinks = 1\n"
+                "indexallfilenames = 1\n")))
+    dir))
+
+;;;###autoload
+(defun seforim-recoll-index ()
+  "(Re)build the recoll index over the seforim library (async)."
+  (interactive)
+  (unless (executable-find "recollindex")
+    (user-error "recollindex not found; install recoll to use indexed search"))
+  (let* ((confdir (seforim--recoll-confdir))
+         (buf (get-buffer-create "*seforim-recoll-index*")))
+    (make-process
+     :name "seforim-recollindex"
+     :buffer buf
+     :command (list "recollindex" "-c" confdir)
+     :sentinel (lambda (_p ev)
+                 (when (string-match-p "finished" ev)
+                   (message "Seforim recoll index updated"))))
+    (message "Indexing library with recoll… (see %s)" (buffer-name buf))))
+
+;;;###autoload
+(defun seforim-recoll-search (query)
+  "Search the seforim library via the recoll index, open a chosen hit.
+Falls back to a helpful message if recoll is not installed or not yet indexed."
+  (interactive "sRecoll query: ")
+  (let ((bin (or (executable-find "recollq") (executable-find "recoll"))))
+    (unless bin
+      (user-error "recoll not found; use `seforim-search-rg' or install recoll"))
+    (let* ((confdir (seforim--recoll-confdir))
+           ;; recollq prints one URL/path per line with -b (brief).
+           (cmd (if (string-suffix-p "recollq" bin)
+                    (list bin "-c" confdir "-b" query)
+                  (list bin "-c" confdir "-t" "-b" "-q" query)))
+           (out (with-output-to-string
+                  (with-current-buffer standard-output
+                    (apply #'call-process (car cmd) nil t nil (cdr cmd)))))
+           (files (delq nil
+                        (mapcar (lambda (l)
+                                  (let ((s (string-trim l)))
+                                    (cond ((string-prefix-p "file://" s)
+                                           (url-unhex-string (substring s 7)))
+                                          ((file-name-absolute-p s) s))))
+                                (split-string out "\n" t)))))
+      (if (null files)
+          (message "No recoll hits (is the index built?  Run `seforim-recoll-index')")
+        (let ((sel (completing-read "Recoll hit: "
+                                    (mapcar #'seforim--format-path files) nil t)))
+          (when sel
+            (let ((full (seq-find (lambda (f) (string= (seforim--format-path f) sel))
+                                  files)))
+              (when full (seforim--open-file full nil)))))))))
+#+END_SRC
+
+* Dashboard — a clickable home screen for the library
+
+One buffer that shows library status, quick-action buttons, and the recently
+studied list (each a button that reopens the sefer).  Bound in the hydra to =H=.
+
+#+BEGIN_SRC emacs-lisp
+(defun seforim--dash-button (label fn &optional help)
+  "Insert a LABEL button running FN."
+  (insert-text-button label 'action (lambda (_) (funcall fn))
+                      'follow-link t 'help-echo (or help label)))
+
+;;;###autoload
+(defun seforim-dashboard ()
+  "Open the seforim dashboard: status, quick actions, recently studied."
+  (interactive)
+  (seforim--load-log)
+  (let* ((base (seforim--base-dir))
+         (subdirs (ignore-errors (seforim--list-subdirs)))
+         (odir (and (boundp 'seforim-otzaria-directory) seforim-otzaria-directory))
+         (buf (get-buffer-create "*Seforim Dashboard*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize "  ספרים — Seforim Library\n" 'face 'bold))
+        (insert (make-string 60 ?═) "\n\n")
+        ;; Status block
+        (insert (format "  Library:  %s%s\n" base
+                        (if (file-directory-p base) "" "   (MISSING)")))
+        (insert (format "  Subdirs:  %d\n" (length subdirs)))
+        (when odir
+          (insert (format "  Otzaria:  %s%s\n" odir
+                          (if (ignore-errors (seforim--otzaria-root)) "" "   (unset/invalid)"))))
+        (insert (format "  Studied:  %d entries\n\n" (length seforim--log-list)))
+        ;; Quick actions
+        (insert (propertize "  Actions\n" 'face 'bold))
+        (insert "  ")
+        (seforim--dash-button "[Search]" #'seforim-search-rg "full-text search")
+        (insert "  ")
+        (seforim--dash-button "[Deep search]" #'seforim-search-rga "search incl. PDFs")
+        (insert "  ")
+        (seforim--dash-button "[Browse]" (lambda () (dired (seforim--base-dir))) "open library in Dired")
+        (insert "\n  ")
+        (seforim--dash-button "[Reference jump]" #'seforim-goto-ref "jump to a heRef")
+        (insert "  ")
+        (seforim--dash-button "[Bookmarks]" #'seforim-bookmark-jump "jump to a bookmark")
+        (insert "  ")
+        (seforim--dash-button "[Status]" #'seforim-status "detailed status")
+        (insert "\n\n")
+        ;; Recently studied
+        (insert (propertize "  Recently studied\n" 'face 'bold))
+        (if (null seforim--log-list)
+            (insert "  (nothing yet)\n")
+          (dolist (x (cl-subseq seforim--log-list 0 (min 20 (length seforim--log-list))))
+            (let ((name (car x)) (time (cdr x)))
+              (insert "  ")
+              (seforim--dash-button
+               name
+               (lambda ()
+                 (let ((file (car (directory-files-recursively
+                                   (seforim--base-dir)
+                                   (concat "\\`" (regexp-quote name) "\\'")))))
+                   (if file (seforim--open-file file nil)
+                     (message "Not found in library: %s" name))))
+               "reopen this sefer")
+              (insert (format "   %s\n"
+                              (format-time-string "%Y-%m-%d %H:%M" time))))))
+        (goto-char (point-min))
+        (view-mode 1)))
+    (pop-to-buffer buf)))
+#+END_SRC
+
+* Provide
+#+BEGIN_SRC emacs-lisp
+(provide '14f-seforim-dream)
+;;; 14f-seforim-dream.el ends here
+#+END_SRC

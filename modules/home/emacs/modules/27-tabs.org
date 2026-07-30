@@ -1,0 +1,136 @@
+#+TITLE: 27 · Tabs (buffer strip + hydra)
+#+PROPERTY: header-args:emacs-lisp :tangle 27-tabs.el :mkdirp yes :comments no
+
+Two tab systems already live in this config: =tab-bar-mode= (workspaces, in
+=05-navigation=) and =tab-line-mode= for the terminal (=26-terminal=). This
+module adds the missing third piece — a browser-style *buffer-tab strip* via
+=centaur-tabs= — and a single discoverable =hydra= (=C-c T=) that ties all of
+it together with the buffer-killing commands you already have.
+
+What each thing is, so the keys make sense:
+- *Workspace* (tab-bar) = a whole window layout. One per project.
+- *Buffer tab* (centaur strip) = one open buffer; a switcher, not a closer.
+- *Kill a buffer* = actually close the file (=C-x k=, or the hydra).
+
+Nothing here duplicates =05-navigation=; it only surfaces and extends it.
+
+* Centaur-tabs — the buffer-tab strip
+Browser-style tabs across the top of each editing window, grouped by project,
+using the =nerd-icons= this config already installs. Styled to sit under
+=doom-modeline= / =doom-one=.
+#+begin_src emacs-lisp
+;;; 27-tabs.el --- Buffer-tab strip + unifying tabs hydra -*- lexical-binding: t; -*-
+
+(use-package centaur-tabs
+  :demand t
+  :after (nerd-icons projectile)
+  :init
+  (setq centaur-tabs-set-icons t
+        centaur-tabs-icon-type 'nerd-icons        ; reuse this config's icons
+        centaur-tabs-style "bar"
+        centaur-tabs-height 30
+        centaur-tabs-set-bar 'left                ; accent bar on the active tab
+        centaur-tabs-set-modified-marker t
+        centaur-tabs-modified-marker "●"
+        centaur-tabs-close-button "×"
+        centaur-tabs-cycle-scope 'tabs            ; cycle within the group only
+        centaur-tabs-show-new-tab-button nil
+        centaur-tabs-show-count nil
+        centaur-tabs-gray-out-icons 'buffer)
+  :config
+  ;; Match the header-line colours to the theme's mode-line for a clean look.
+  (centaur-tabs-headline-match)
+  ;; Group tabs by project (falls back to a sensible mode grouping elsewhere).
+  (centaur-tabs-group-by-projectile-project)
+  (centaur-tabs-mode 1)
+  :bind (("C-c <" . centaur-tabs-backward)         ; prev buffer tab
+         ("C-c >" . centaur-tabs-forward)))        ; next buffer tab
+#+end_src
+
+* Real files only — hide the strip in special buffers
+Turn the strip *off* in Dired/Dirvish, Magit, the terminal (which has its own
+=tab-line= tabs), Ibuffer, and help buffers — so tabs only show where you edit
+files.  =centaur-tabs-local-mode= hides the strip in the current buffer.
+#+begin_src emacs-lisp
+(dolist (hook '(dired-mode-hook
+                dirvish-mode-hook
+                dirvish-directory-view-mode-hook
+                magit-mode-hook
+                magit-status-mode-hook
+                shell-mode-hook            ; terminal keeps its own tab-line
+                ibuffer-mode-hook
+                help-mode-hook
+                helpful-mode-hook
+                Info-mode-hook
+                org-agenda-mode-hook
+                calendar-mode-hook))
+  (add-hook hook #'centaur-tabs-local-mode))
+#+end_src
+
+* Open a projectile project in its own workspace tab
+The "one tab per project" workflow: make a fresh workspace tab, switch into a
+project, and name the tab after it.  Aborting the picker cleans up the tab.
+#+begin_src emacs-lisp
+(defun my/projectile-project-in-new-tab ()
+  "Open a projectile project in a brand-new workspace tab named after it."
+  (interactive)
+  (let ((tab-bar-new-tab-choice t))     ; new tab keeps the current buffer
+    (tab-bar-new-tab))
+  (condition-case _
+      (progn
+        (call-interactively #'projectile-switch-project)
+        (let ((name (projectile-project-name)))
+          (when (and name (not (string-empty-p name)))
+            (tab-bar-rename-tab name))))
+    (quit (tab-bar-close-tab))))         ; picker aborted -> drop the empty tab
+#+end_src
+
+* The tabs hydra — one menu for everything (=C-c T=)
+Sticky (pink) so you can step through tabs with =h/l= repeatedly; commands that
+open a UI exit the hydra.  Every kill/manage command here already existed in
+=05-navigation=; the hydra just makes them discoverable.
+#+begin_src emacs-lisp
+(with-eval-after-load 'hydra
+  (defhydra hydra-tabs (:color pink :hint nil)
+    "
+^Workspaces (tab-bar)^   ^Buffer tabs (strip)^   ^Kill / manage^
+^^^^^^^^---------------------------------------------------------------------
+_n_: new workspace       _l_: next tab           _d_: kill this buffer
+_x_: close workspace     _h_: prev tab           _o_: kill other buffers
+_]_: next  _[_: prev      _g_: switch group        _b_: ibuffer (mass kill)
+_r_: rename workspace     _G_: group by mode/proj  _K_: kill buffer + window
+_s_: project → new tab
+_1_.._9_: jump to workspace N
+"
+    ;; Workspaces (tab-bar, built-in)
+    ("n" tab-bar-new-tab)
+    ("x" tab-bar-close-tab)
+    ("]" tab-bar-switch-to-next-tab)
+    ("[" tab-bar-switch-to-prev-tab)
+    ("r" tab-bar-rename-tab :color blue)
+    ("s" my/projectile-project-in-new-tab :color blue)
+    ("1" (tab-bar-select-tab 1)) ("2" (tab-bar-select-tab 2))
+    ("3" (tab-bar-select-tab 3)) ("4" (tab-bar-select-tab 4))
+    ("5" (tab-bar-select-tab 5)) ("6" (tab-bar-select-tab 6))
+    ("7" (tab-bar-select-tab 7)) ("8" (tab-bar-select-tab 8))
+    ("9" (tab-bar-select-tab 9))
+    ;; Buffer tabs (centaur strip)
+    ("l" centaur-tabs-forward)
+    ("h" centaur-tabs-backward)
+    ("g" centaur-tabs-switch-group :color blue)
+    ("G" centaur-tabs-toggle-groups)
+    ;; Kill / manage (from 05-navigation)
+    ("d" my/kill-current-buffer)
+    ("o" my/kill-other-buffers)
+    ("K" kill-buffer-and-window :color blue)
+    ("b" ibuffer :color blue)
+    ("q" nil "quit" :color blue))
+
+  (global-set-key (kbd "C-c T") #'hydra-tabs/body))
+#+end_src
+
+* Provide
+#+begin_src emacs-lisp
+(provide '27-tabs)
+;;; 27-tabs.el ends here
+#+end_src

@@ -10,11 +10,13 @@ in
   imports = [
     ./hardware-configuration.nix
     ../../modules/system/core.nix
+    ../../modules/system/hardware.nix
     ../../modules/system/cli-tools.nix
     ../../modules/system/development.nix
     ../../modules/system/file-sync.nix
     ../../modules/system/services.nix
     ../../modules/system/desktop.nix
+    ../../modules/system/secrets.nix
   ];
 
   services.displayManager.defaultSession = "plasma";

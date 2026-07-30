@@ -38,6 +38,14 @@
   services.printing.enable = true;
 
   # ══════════════════════════════════════════════════════════════════
+  # FLATPAK (apps outside nixpkgs; portals configured per-session)
+  # Add the remote once: flatpak remote-add --if-not-exists flathub \
+  #   https://dl.flathub.org/repo/flathub.flatpakrepo
+  # ══════════════════════════════════════════════════════════════════
+
+  services.flatpak.enable = true;
+
+  # ══════════════════════════════════════════════════════════════════
   # FONTS
   # ══════════════════════════════════════════════════════════════════
 

@@ -1,15 +1,14 @@
 { pkgs, config, lib, ... }:
 
 let
-  bg = "#1a1b26";
-  blue = "0xff7aa2f7";
-  gray = "0xff414868";
-  wallpaper = "/home/shaul/nixos-config/wallpaper.jpg";
+  palette = import ../palette.nix;
+  inherit (palette.hypr) blue gray;
+  wallpaper = ../../../wallpaper.jpg;
 in {
   imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ../scripts.nix ];
 
   home.packages = with pkgs; [
-    awww
+    swww
     mako
     waybar
     pcmanfm-qt
@@ -27,7 +26,7 @@ in {
     exec-once = waybar
     exec-once = mako
    
-    exec-once = bash -c "awww-daemon && until awww ping 2>/dev/null; do sleep 0.5; done && awww img /home/shaul/nixos-config/wallpaper.jpg"
+    exec-once = bash -c "${pkgs.swww}/bin/swww-daemon & until ${pkgs.swww}/bin/swww query 2>/dev/null; do sleep 0.5; done && ${pkgs.swww}/bin/swww img ${wallpaper}"
     exec-once = nm-applet --indicator
     exec-once = udiskie --tray
     exec-once = ${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1
@@ -90,19 +89,19 @@ kb_options = grp:lctrl_lalt_toggle,caps:escape
 
        # ── Floating rules ────────────────────────────────────────────
     # Scratchpads
-    windowrule = match:class ^(scratchpad)$, float on
-    windowrule = match:class ^(emacs-scratch)$, float on
-    windowrule = match:class ^(scratchpad)$, size 1100 600
-    windowrule = match:class ^(emacs-scratch)$, size 1100 600
-    windowrule = match:class ^(scratchpad)$, center on
-    windowrule = match:class ^(emacs-scratch)$, center on
+    windowrule = float, class:^(scratchpad)$
+    windowrule = float, class:^(emacs-scratch)$
+    windowrule = size 1100 600, class:^(scratchpad)$
+    windowrule = size 1100 600, class:^(emacs-scratch)$
+    windowrule = center, class:^(scratchpad)$
+    windowrule = center, class:^(emacs-scratch)$
 
     # File‑picker dialogs
-    windowrule = match:title ^(Open|Save|Select|Choose), float on
+    windowrule = float, title:^(Open|Save|Select|Choose).*$
 
     # Other floating apps
-    windowrule = match:class ^(pavucontrol)$, float on
-    windowrule = match:class ^(nm-connection-editor)$, float on
+    windowrule = float, class:^(pavucontrol)$
+    windowrule = float, class:^(nm-connection-editor)$
 
     $mainMod = SUPER
 
@@ -161,12 +160,9 @@ kb_options = grp:lctrl_lalt_toggle,caps:escape
     bind = $mainMod ALT, K, resizeactive, 0 -20
     bind = $mainMod ALT, J, resizeactive, 0 20
 
-    # Emacs-style splitting controls (Dwindle layout)
-    # Dwindle preselect directions (Emacs-style splitting)
-    bind = $mainMod CTRL, L, layoutmsg, preselect l
-    bind = $mainMod CTRL, R, layoutmsg, preselect r
-    bind = $mainMod CTRL, U, layoutmsg, preselect u
-    bind = $mainMod CTRL, D, layoutmsg, preselect d
+    # Dwindle split control (only meaningful under the dwindle layout;
+    # toggle master<->dwindle with $mainMod SHIFT, R below)
+    bind = $mainMod CTRL, Backslash, layoutmsg, togglesplit
 
     # ── Navigation (HJKL) ──────────────────────────────────────
     bind = $mainMod, H, movefocus, l

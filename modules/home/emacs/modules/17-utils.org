@@ -1,0 +1,86 @@
+#+TITLE: Utilities
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Miscellaneous Utilities
+
+#+begin_src emacs-lisp
+;;; 17-utils.el --- Utility functions -*- lexical-binding: t; -*-
+
+;; Config management
+(defun my/open-config ()
+  "Open the main config.org file."
+  (interactive)
+  (find-file (expand-file-name "config.org" user-emacs-directory)))
+
+(defun my/reload-config ()
+  "Reload the Emacs configuration."
+  (interactive)
+  (load-file (expand-file-name "init.el" user-emacs-directory))
+  (message "Config reloaded"))
+
+(defun my/open-modules ()
+  "Open the literate modules directory (`my/modules-dir') in dired."
+  (interactive)
+  (if (boundp 'my/modules-dir)
+      (dired my/modules-dir)
+    (user-error "my/modules-dir is not defined")))
+
+(global-set-key (kbd "C-c e i") #'my/open-config)
+(global-set-key (kbd "C-c e r") #'my/reload-config)
+(global-set-key (kbd "C-c e m") #'my/open-modules)
+
+;; Auto-tangle a module's .org back to .el on save (modules only).
+(defun my/auto-tangle-module ()
+  "Re-tangle the current buffer if it is a literate module .org file.
+Only fires for files under `my/modules-dir' so unrelated .org saves
+(notes, seforim, roam) are never tangled."
+  (when (and (boundp 'my/modules-dir)
+             buffer-file-name
+             (string-suffix-p ".org" buffer-file-name)
+             (string-prefix-p (expand-file-name my/modules-dir)
+                              (expand-file-name buffer-file-name)))
+    (let ((org-confirm-babel-evaluate nil))
+      (org-babel-tangle)
+      (message "Tangled %s" (file-name-nondirectory buffer-file-name)))))
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (add-hook 'after-save-hook #'my/auto-tangle-module nil t)))
+
+(use-package restart-emacs
+  :bind ("C-c e R" . restart-emacs))
+
+;; Window splitting
+(defun my/split-and-follow-h ()
+  "Split window horizontally and move to new window."
+  (interactive)
+  (split-window-below)
+  (balance-windows)
+  (other-window 1))
+
+(defun my/split-and-follow-v ()
+  "Split window vertically and move to new window."
+  (interactive)
+  (split-window-right)
+  (balance-windows)
+  (other-window 1))
+
+(global-set-key (kbd "C-x 2") #'my/split-and-follow-h)
+(global-set-key (kbd "C-x 3") #'my/split-and-follow-v)
+
+;; Server
+(use-package server
+  :ensure nil
+  :config
+  (unless (server-running-p)
+    (server-start)))
+
+;; Startup message
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (message "Emacs ready in %.2f seconds"
+                     (float-time (time-subtract after-init-time before-init-time)))))
+
+(provide '17-utils)
+;;; 17-utils.el ends here
+#+end_src

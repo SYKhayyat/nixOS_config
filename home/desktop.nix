@@ -78,7 +78,7 @@
     pinta photoflare digikam rawtherapee darktable
     sly rapidraw graphicsmagick_q16 art aaphoto graphite 
     vlc audacity lmms scribus persepolis onedriver upscayl
-    tor-browser qutebrowser firefox  nushell kdePackages.kate
+    tor-browser qutebrowser nushell kdePackages.kate
     kdePackages.okular yazi
   ];
 

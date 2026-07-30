@@ -1,0 +1,54 @@
+#+TITLE: Modern File Management
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Dirvish Configuration
+
+#+begin_src emacs-lisp
+;;; 22-dirvish.el --- Modern Dired replacement with Scholar paths -*- lexical-binding: t; -*-
+
+(use-package dirvish
+  :demand t
+  :init
+  (require 'dirvish)
+  ;; Replace standard dired with dirvish
+  (dirvish-override-dired-mode)
+  :custom
+  ;; Scholar-specific quick access paths
+  (dirvish-quick-access-entries
+   '(("h" "~/"                          "Home")
+     ("d" "~/Downloads"                 "Downloads")
+     ("s" "~/Documents/seforim"         "Seforim")
+     ("n" "~/Documents/roam"            "Notes")
+     ("o" "~/Documents/org"             "Org")))
+  :config
+  ;; Visual features
+  (setq dirvish-attributes
+        '(nerd-icons file-time file-size collapse git-msg))
+  
+  ;; Mode line setup
+  (setq dirvish-mode-line-format
+        '(:left (sort symlink) :right (omit yank index)))
+
+  ;; IDE-style file-tree sidebar (<f8>): a clean, following project tree.
+  ;; `require' the sub-feature so the `dirvish-side' command and its follow
+  ;; mode are defined even when package autoloads were not generated (e.g. a
+  ;; bare load-path setup) — this is what makes <f8> reliable everywhere.
+  (require 'dirvish-side nil t)
+  (setq dirvish-side-width 32)
+  ;; `dirvish-side-follow-mode' is a global minor mode, so it must be *called*,
+  ;; not `setq'd, to actually track the current file in the sidebar.
+  (when (fboundp 'dirvish-side-follow-mode) (dirvish-side-follow-mode 1))
+
+  :bind
+  (("C-x d" . dirvish)
+   ("<f8>"  . dirvish-side)     ; IDE-style file-tree sidebar toggle
+   :map dirvish-mode-map
+   ("a"   . dirvish-quick-access)
+   ("f"   . dirvish-fd)
+   ("TAB" . dirvish-subtree-toggle)
+   ("M-t" . dirvish-layout-toggle)
+   ("h"   . dired-up-directory)
+   ("l"   . dired-find-file)))
+
+(provide '22-dirvish)
+#+end_src

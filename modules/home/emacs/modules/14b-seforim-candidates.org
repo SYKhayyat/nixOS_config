@@ -1,0 +1,87 @@
+#+TITLE: 14b Seforim Candidates – File opening & study-log state
+#+PROPERTY: header-args:emacs-lisp :tangle 14b-seforim-candidates.el
+
+Minimal, reliable helpers for opening a sefer (normal / new tab / external
+app) and recording it in the study log.  The old custom async engine and
+parsers that leaned on private Consult internals have been removed — the search
+commands in 14c now drive stock =consult-fd= / =consult-ripgrep= directly.
+
+#+BEGIN_SRC emacs-lisp
+;;; 14b-seforim-candidates.el --- Seforim: file opening + study-log state  -*- lexical-binding: t; -*-
+
+(require '14a-seforim-core)
+(require 'cl-lib)
+(require 'subr-x)
+
+;; ---------------------------------------------------------------------------
+;; State
+;; ---------------------------------------------------------------------------
+
+(defvar seforim--new-tab-flag nil
+  "When non-nil, `seforim--open-file' opens in a new tab.")
+
+(defvar seforim--log-list nil
+  "In-memory study log: list of (FILENAME . TIME), most-recent first.")
+
+;; ---------------------------------------------------------------------------
+;; File Opening
+;; ---------------------------------------------------------------------------
+
+(defun seforim--open-external (file)
+  "Open FILE in the system's default application (cross-platform).
+On Windows `start' is a cmd.exe builtin, not an executable, so
+`start-process' can't run it — use `w32-shell-execute' there instead."
+  (pcase system-type
+    ('windows-nt (w32-shell-execute "open" (expand-file-name file)))
+    ('darwin     (start-process "seforim-open" nil "open" file))
+    (_           (if (executable-find "xdg-open")
+                     (start-process "seforim-open" nil "xdg-open" file)
+                   (user-error "xdg-open not found")))))
+
+(defun seforim--open-file (file line &optional external)
+  "Open FILE, optionally at LINE.
+If EXTERNAL is non-nil, hand off to the system default application.
+If `current-prefix-arg' is set or `seforim--new-tab-flag' is bound,
+open in a new tab.  Visits under the library are recorded in the log."
+  (if external
+      (seforim--open-external file)
+    (let ((new-tab (or current-prefix-arg seforim--new-tab-flag)))
+      (when new-tab (tab-bar-new-tab))
+      (find-file file)
+      (when new-tab (tab-bar-rename-tab (file-name-base file)))
+      ;; Jump to LINE in ALL non-external cases, including new tabs — the old
+      ;; code skipped the jump whenever a new tab was opened, silently losing
+      ;; the target line for `seforim-mefarshim' and friends.
+      (when (and line (> line 0)
+                 (not (derived-mode-p 'pdf-view-mode)))
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (recenter))))
+  (seforim--log-visit file))
+
+(defun seforim--log-visit (file)
+  "Record a visit to FILE in the study log, if under the library."
+  ;; Compare case-insensitively on Windows/DOS so a drive-letter or separator
+  ;; case mismatch never silently disables the log.
+  (when (string-prefix-p (expand-file-name (seforim--base-dir))
+                         (expand-file-name file)
+                         (memq system-type '(windows-nt ms-dos)))
+    (let* ((name  (file-name-nondirectory file))
+           (entry (cons name (current-time))))
+      (setq seforim--log-list
+            (cons entry (cl-delete name seforim--log-list
+                                   :test #'string= :key #'car)))
+      (setq seforim--log-list
+            (cl-subseq seforim--log-list 0 (min 500 (length seforim--log-list))))
+      (ignore-errors
+        (make-directory (file-name-directory seforim-study-log-path) t)
+        (with-temp-file seforim-study-log-path
+          (insert (prin1-to-string seforim--log-list)))))))
+
+;; ---------------------------------------------------------------------------
+;; Provide
+;; ---------------------------------------------------------------------------
+
+(provide '14b-seforim-candidates)
+;;; 14b-seforim-candidates.el ends here
+#+END_SRC

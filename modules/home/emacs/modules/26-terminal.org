@@ -1,0 +1,118 @@
+#+TITLE: 26 · Terminal (multi-shell, tabbed)
+#+PROPERTY: header-args:emacs-lisp :tangle 26-terminal.el :mkdirp yes :comments no
+
+vterm can't build on native Windows, so we use Emacs' built-in =shell= (comint):
+it is *asynchronous* (never freezes Emacs like eshell can), Windows-native, and
+running a shell *inside* Emacs also fixes the console paste weirdness.
+
+*Default shell is PowerShell.* Other installed shells (Bash from Git for
+Windows, Nushell) can be picked per tab. Multiple sessions show as
+browser-style *tabs* along the top via =tab-line-mode=.
+
+Bindings: =C-`= toggle bottom panel · =C-c t n= new PowerShell tab ·
+=C-c t N= new tab (pick shell) · in a terminal =C-PgDn=/=C-PgUp= switch tabs.
+
+Bonus: Claude Code is a CLI — just run =claude= in a tab.
+
+* Available shells
+The default is whatever is first in this list (PowerShell). Only installed
+shells are offered.
+#+begin_src emacs-lisp
+;;; 26-terminal.el --- Multi-shell tabbed terminal -*- lexical-binding: t; -*-
+
+(defvar my/terminal-height 0.32
+  "Fraction of the frame used by the bottom terminal panel.")
+
+(defun my/terminal--shells ()
+  "Return an alist of (LABEL . PROGRAM) for installed shells, PowerShell first."
+  (let ((bash (or (executable-find "bash")
+                  (seq-find #'file-exists-p
+                            '("C:/Program Files/Git/bin/bash.exe"
+                              "C:/Program Files/Git/usr/bin/bash.exe")))))
+    (delq nil
+          (list
+           (let ((ps (or (executable-find "pwsh") (executable-find "powershell"))))
+             (when ps (cons "PowerShell" ps)))
+           (let ((nu (executable-find "nu")))
+             (when nu (cons "Nushell" nu)))
+           (when bash (cons "Bash" bash))))))
+#+end_src
+
+* Open a terminal (= a new tab)
+#+begin_src emacs-lisp
+(defun my/open-terminal (program &optional label)
+  "Open PROGRAM in a new =shell= buffer labelled LABEL."
+  (let ((explicit-shell-file-name program)
+        (shell-file-name program))
+    (shell (generate-new-buffer-name (format "*term:%s*" (or label "sh"))))))
+
+(defun my/new-terminal (&optional pick)
+  "Open a new terminal tab.  Default shell is PowerShell.
+With prefix arg PICK, prompt for which shell to use."
+  (interactive "P")
+  (let* ((shells (my/terminal--shells))
+         (choice (if (and pick (cdr shells))
+                     (assoc (completing-read "Shell: " (mapcar #'car shells) nil t)
+                            shells)
+                   (car shells))))
+    (unless choice (user-error "No shell found"))
+    (my/open-terminal (cdr choice) (car choice))))
+
+(defun my/new-terminal-choose ()
+  "Open a new terminal tab, choosing the shell."
+  (interactive)
+  (my/new-terminal t))
+#+end_src
+
+* Tabs — show every terminal buffer as a tab
+#+begin_src emacs-lisp
+(defun my/terminal-tabs-setup ()
+  "Turn on tab-line listing all shell buffers as tabs."
+  (setq-local tab-line-tabs-function
+              (lambda ()
+                (seq-filter
+                 (lambda (b) (with-current-buffer b (derived-mode-p 'shell-mode)))
+                 (buffer-list))))
+  (tab-line-mode 1))
+
+(add-hook 'shell-mode-hook #'my/terminal-tabs-setup)
+
+(with-eval-after-load 'shell
+  (define-key shell-mode-map (kbd "C-<next>")  #'tab-line-switch-to-next-tab)
+  (define-key shell-mode-map (kbd "C-<prior>") #'tab-line-switch-to-prev-tab))
+#+end_src
+
+* Toggle a bottom terminal panel
+#+begin_src emacs-lisp
+(defun my/terminal--buffer ()
+  "Return an existing shell-mode buffer, or nil."
+  (seq-find (lambda (b) (with-current-buffer b (derived-mode-p 'shell-mode)))
+            (buffer-list)))
+
+(defun my/toggle-terminal ()
+  "Toggle a bottom terminal panel; create the first (PowerShell) if needed."
+  (interactive)
+  (let* ((buf (my/terminal--buffer))
+         (win (and buf (get-buffer-window buf))))
+    (cond
+     (win (delete-window win))
+     (buf (select-window
+           (display-buffer-in-side-window
+            buf `((side . bottom) (window-height . ,my/terminal-height)))))
+     (t (let ((display-buffer-alist
+               `(("\\*term:"
+                  (display-buffer-in-side-window)
+                  (side . bottom) (window-height . ,my/terminal-height)))))
+          (my/new-terminal))))))
+
+(global-set-key (kbd "C-`")     #'my/toggle-terminal)
+(global-set-key (kbd "C-c t t") #'my/toggle-terminal)
+(global-set-key (kbd "C-c t n") #'my/new-terminal)
+(global-set-key (kbd "C-c t N") #'my/new-terminal-choose)
+#+end_src
+
+* Provide
+#+begin_src emacs-lisp
+(provide '26-terminal)
+;;; 26-terminal.el ends here
+#+end_src

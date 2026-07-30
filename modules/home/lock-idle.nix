@@ -1,8 +1,7 @@
 { pkgs, lib, config, ... }:
 
 let
-  bg = "#1a1b26";
-  blue = "#7aa2f7";
+  inherit (import ./palette.nix) bg blue;
 in {
   home.packages = with pkgs; [ hyprlock hypridle ];
 

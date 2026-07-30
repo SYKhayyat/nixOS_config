@@ -1,11 +1,7 @@
 { pkgs, config, lib, ... }:
 
 let
-  bg = "#1a1b26";
-  fg = "#c0caf5";
-  blue = "#7aa2f7";
-  magenta = "#bb9af7";
-  gray = "#414868";
+  inherit (import ./palette.nix) bg fg blue gray;
 in {
   programs.waybar = {
     enable = true;

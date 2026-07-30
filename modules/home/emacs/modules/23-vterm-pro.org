@@ -1,0 +1,33 @@
+* 23-vterm-pro.org
+#+TITLE: Terminal Integration
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Terminal Support
+
+#+begin_src emacs-lisp
+;;; 23-vterm-pro.el --- Professional Terminal toggles (Vterm & Eat) -*- lexical-binding: t; -*-
+
+(use-package vterm
+  :commands vterm
+  :config (setq vterm-max-scrollback 10000))
+
+;; Lightweight, Sixel-capable Terminal
+(use-package eat
+  :commands eat
+  :config (setq eat-kill-buffer-on-exit t))
+
+(defun my/toggle-terminal ()
+  "Toggle a persistent 'eat' terminal popup at the bottom."
+  (interactive)
+  (let ((buffer (get-buffer-create "*eat-popup*")))
+    (if (get-buffer-window buffer)
+        (delete-window (get-buffer-window buffer))
+      (let ((win (display-buffer-in-side-window buffer '((side . bottom) (window-height . 0.35)))))
+        (select-window win)
+        (with-current-buffer buffer (unless (derived-mode-p 'eat-mode) (eat-mode)))))))
+
+(global-set-key (kbd "C-`") #'my/toggle-terminal)
+(global-set-key (kbd "C-c t t") #'my/toggle-terminal)
+
+(provide '23-vterm-pro)
+#+end_src

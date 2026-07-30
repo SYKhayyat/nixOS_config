@@ -1,0 +1,116 @@
+#+TITLE: Unified Hydras  (Synchronized & ASCII-Safe)
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+#+begin_src emacs-lisp
+;;; 16-hydras.el --- Unified Hydra menus -*- lexical-binding: t; -*-
+
+;; Forward declarations for variables/functions from other config files
+(defvar seforim-directory)
+
+(use-package hydra
+  :demand t
+  :config
+(defhydra hydra-seforim (:color blue :hint nil)
+  "
++------------------------------------------------------------------------+
+| S E F O R I M                                                          |
++------------------------------------------------------------------------+
+| FIND FILES                          SEARCH TEXT (niqqud-insensitive)   |
+|  f: plocate (system-wide)            s: rg   (.org library)            |
+|  F: fd (exact, library)              S: rga  (deep, incl. PDFs)        |
+|  z: fd fuzzy (library)                                                 |
++------------------------------------------------------------------------+
+| MEFARSHIM (Otzaria corpus)          READING & NAVIGATION              |
+|  o: OPEN Otzaria twin of this book   w: reading room toggle           |
+|  m: mefaresh here   M: side-pane    e: open EPUB file                 |
+|  T: follow-pane toggle   R: reader   d: jump to daf (PDF/Org)         |
+|  x: search Otzaria   X: browse      i: consult outline   t: TOC       |
++------------------------------------------------------------------------+
+| EXTRAS   H: dashboard   r: jump to reference   g: recoll search        |
+|          k: bookmark here   j: jump to bookmark                        |
++------------------------------------------------------------------------+
+| LIBRARY:  l: study log   b: browse library   ?: status                |
++------------------------------------------------------------------------+
+"
+  ;; Find files
+  ("f" seforim-find-plocate)
+  ("F" seforim-find-fd)
+  ("z" seforim-find-fuzzy)
+
+  ;; Search text (both bind the niqqud-insensitive compiler)
+  ("s" seforim-search-rg)
+  ("S" seforim-search-rga)
+
+  ;; Mefarshim (Otzaria) -- requires 14e and seforim-otzaria-directory set
+  ("o" seforim-open-in-otzaria)   ; hybrid entry: jump into the Otzaria twin
+  ("m" seforim-mefarshim)
+  ("M" seforim-mefarshim-show)
+  ("T" seforim-mefarshim-follow-mode)
+  ("x" seforim-otzaria-search)
+  ("X" seforim-otzaria-browse)
+
+  ;; Reading & navigation
+  ("w" my/toggle-reading-room)
+  ("R" seforim-otzaria-reader-mode)   ; prettified reader for raw Otzaria .txt
+  ("e" (lambda () (interactive)
+         (find-file (read-file-name "Open EPUB: " (seforim--base-dir) nil t nil
+                                    (lambda (f) (or (file-directory-p f) (string-suffix-p ".epub" f t)))))))
+  ("d" seforim-goto-daf)
+  ("i" consult-outline)
+  ("t" seforim-toc)                   ; per-book table-of-contents sidebar
+  ("b" (lambda () (interactive) (dired (seforim--base-dir))))
+
+  ;; Dream extras (14f)
+  ("H" seforim-dashboard)             ; clickable library home screen
+  ("r" seforim-goto-ref)              ; searchRefs-style reference jump
+  ("g" seforim-recoll-search)         ; indexed full-text search (if recoll)
+  ("k" seforim-bookmark-set)          ; bookmark this spot
+  ("j" seforim-bookmark-jump)         ; jump to a bookmark
+
+  ;; Library management
+  ("l" seforim-show-log)
+  ("?" seforim-status)
+
+  ("q" nil))
+  (global-set-key (kbd "C-c S") #'hydra-seforim/body)
+
+  (defhydra hydra-direction (:color blue :hint nil)
+    "
+Direction: r: RTL  l: LTR  t: toggle  B: bidi reorder
+Writing:   w: focused mode  W: set width
+Spell:     h: Hebrew  e: English  a: both
+"
+    ("r" my/set-rtl)
+    ("l" my/set-ltr)
+    ("t" my/toggle-direction)
+    ("B" my/toggle-bidi-reordering)
+    ("h" my/spell-hebrew)
+    ("e" my/spell-english)
+    ("a" my/spell-both)
+    ("w" my/toggle-reading-room)     ; was my/toggle-focused-writing (undefined)
+    ("W" olivetti-set-width)         ; was my/set-focused-width (undefined)
+    ("q" nil))
+
+  (global-set-key (kbd "C-c D") #'hydra-direction/body)
+
+  ;; ... rest of hydras unchanged ...
+  (defhydra hydra-roam (:color blue :hint nil)
+    "
+Roam: f: find node  i: insert link  c: capture
+      d: daily  g: graph  u: UI toggle
+"
+    ("f" org-roam-node-find)
+    ("i" org-roam-node-insert)
+    ("c" org-roam-capture)
+    ("d" org-roam-dailies-goto-today)
+    ("g" org-roam-graph)
+    ("u" org-roam-ui-mode)
+    ("q" nil))
+
+  (global-set-key (kbd "C-c C-n") #'hydra-roam/body)   ;; <-- changed to C-c C-n (avoid conflict)
+
+  ;; ... etc. (other hydras unchanged)
+  )
+
+(provide '16-hydras)
+#+end_src

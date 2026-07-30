@@ -1,0 +1,29 @@
+#+TITLE: Version Control
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Magit and Git Tools
+
+#+begin_src emacs-lisp
+;;; 13-magit.el --- Magit and git integration -*- lexical-binding: t; -*-
+
+(use-package magit
+  :bind (("C-x g" . magit-status)
+         ("C-x M-g" . magit-dispatch)
+         ("C-c v g" . magit-file-dispatch))
+  :config
+  ;; Performance: skip the extra status-buffer refresh, refine diff hunks.
+  (setq magit-refresh-status-buffer nil)
+  (setq magit-diff-refine-hunk t))
+
+(use-package git-gutter
+  :diminish
+  :hook (prog-mode . git-gutter-mode)
+  :config
+  (setq git-gutter:update-interval 0.5))
+
+(use-package git-timemachine
+  :bind ("C-c v t" . git-timemachine))
+
+(provide '13-magit)
+;;; 13-magit.el ends here
+#+end_src

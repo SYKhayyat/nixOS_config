@@ -72,7 +72,9 @@ dotDir = lib.mkForce "${config.home.homeDirectory}/.config/zsh";
   };
 
   home.shellAliases = {
-    nrs = "sudo nixos-rebuild switch --flake ~/nixos-config#desktop";
+    nrs = "sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname}";
+    nrt = "sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname}";
+    nfu = "nix flake update --flake ${myConfig.flakePath}";
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";
@@ -87,7 +89,7 @@ dotDir = lib.mkForce "${config.home.homeDirectory}/.config/zsh";
     settings = {
       user = {
         name = myConfig.fullName;
-        email = "shaul@example.com";
+        email = myConfig.email;
       };
       init.defaultBranch = "main";
       pull.rebase = true;

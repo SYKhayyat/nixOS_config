@@ -16,6 +16,12 @@ let
     yasnippet-snippets editorconfig envrc helpful which-key
     gcmh hydra restart-emacs visual-fill-column
     valign focus olivetti
+    centaur-tabs
+    # typst-preview is an *Emacs* package, so it belongs on the Emacs
+    # load-path — not in `home.packages`, where it was previously listed and
+    # therefore could never be `require`d.  It talks to `tinymist preview`
+    # over a websocket, hence the explicit websocket dependency.
+    typst-preview websocket
   ]);
 
   seforimPath = myConfig.seforimPath;
@@ -24,9 +30,12 @@ in
 {
   home.packages = with pkgs; [
     emacsWithPackages
-    recoll plocate fd ripgrep
+    recoll plocate fd ripgrep ripgrep-all
     texlive.combined.scheme-full typst tinymist
-    emacsPackages.typst-preview
+    # pandoc backs `ox-pandoc` (Org export) *and* the Markdown live preview in
+    # module 28 — it is the converter that turns Markdown into the HTML that
+    # Emacs then renders with shr.
+    pandoc
     sqlite graphviz imagemagick tree-sitter hdate
     jdt-language-server nil rust-analyzer pyright lua-language-server
   ];
@@ -41,48 +50,37 @@ in
     package = emacsWithPackages;
     client = {
       enable = true;
-      arguments = [ "-c" "-a ''" ];
+      # Each list element is a distinct argv token; "-a ''" as one token would
+      # be passed to emacsclient literally and mis-parsed. Split them.
+      arguments = [ "-c" "-a" "" ];
     };
   };
 
-  home.file.".config/emacs/early-init.el".text = ''
-    ;;; early-init.el - Performance
-    (setq package-enable-at-startup nil load-prefer-newer t)
-    (setq native-comp-eln-load-path (list (expand-file-name "~/.cache/emacs/eln-cache/")))
-    (setq gc-cons-threshold most-positive-fixnum gc-cons-percentage 0.6)
-    (setq native-comp-async-report-warnings-errors 'silent native-comp-jit-compilation t)
-    (setq warning-suppress-types '((comp) (bytecomp)))
-    (defvar my--file-name-handler-alist file-name-handler-alist)
-    (setq file-name-handler-alist nil)
-    (add-hook 'emacs-startup-hook (lambda () (setq file-name-handler-alist my--file-name-handler-alist)))
-  '';
+  # ── The loader: ONE copy, shared by every machine ───────────────────────
+  # These used to be Nix strings duplicating the portable repo's init.el /
+  # early-init.el.  Two copies of the same loader is exactly how the Nix and
+  # portable configs drifted apart, so they are now the *same files* — real
+  # elisp you can edit, byte-compile and lint, consumed verbatim here and
+  # copied as-is to a non-Nix box by tools/deploy.sh.
+  home.file.".config/emacs/early-init.el".source = ./early-init.el;
 
-  home.file.".config/emacs/init.el".text = ''
-    ;; init.el --- Modular Loader
-    (require 'server)
-    (defvar my/modules-dir (expand-file-name "modules" user-emacs-directory))
-    (add-to-list 'load-path my/modules-dir)
-    (defun my/tangle-modules ()
-      (when (file-directory-p my/modules-dir)
-        (require 'ob-tangle)
-        (dolist (org-file (directory-files my/modules-dir t "\\.org$"))
-          (let* ((base (file-name-base org-file))
-                 (el-file (expand-file-name (concat base ".el") my/modules-dir)))
-            (when (or (not (file-exists-p el-file)) (file-newer-than-file-p org-file el-file))
-              (message "Tangling %s..." base)
-              (org-babel-tangle-file org-file))))))
-    (condition-case err (my/tangle-modules) (error (message "Tangling failed: %s" err)))
-    (dolist (module '("00-core" "01-ui" "02-hebrew" "03-completion" "04-editing" "05-navigation"
-                      "06-org" "07-org-roam" "08-latex" "09-typst" "10-context" "11-pdf"
-                      "12-programming" "13-magit" "14a-seforim-core" "14b-seforim-candidates"
-                      "14c-seforim-search" "14d-seforim-extras" "15-rich-footnotes" "16-hydras"
-                      "17-utils" "18-academic" "19-hebrew-extra" "20-projectile" "21-local-ai"
-                      "22-dirvish" "23-vterm-pro" "24-scholar-search" "25-nix-system"))
-      (condition-case err (require (intern module)) (error (message "Failed: %s: %s" module err))))
+  # init.el — the same self-assembling glob loader used on every machine.  It
+  # loads every NN-*.el in filename order rather than a hand-maintained list,
+  # so new modules are picked up automatically and can never be silently
+  # dropped.  Package sourcing is auto-detected in 00-core: on Nix the packages
+  # are already on the load-path (nothing is downloaded); on a bare box the
+  # identical file self-installs from MELPA.
+  home.file.".config/emacs/init.el".source = ./init.el;
 
-    (unless (server-running-p)
-      (server-start))
-  '';
+  # ── Literate Emacs modules, version-controlled ──────────────────────────
+  # The org sources live in the repo (modules/home/emacs/modules/*.org) and are
+  # staged read-only here. The activation below copies them into a *writable*
+  # ~/.config/emacs/modules so init.el can tangle .el files next to them. This
+  # is what makes a fresh install reproduce your Emacs instead of booting broken.
+  home.file.".config/emacs/modules-src" = {
+    source = ./modules;
+    recursive = true;
+  };
 
   home.file.".recoll/recoll.conf".text = ''
     topdirs = ${seforimPath}
@@ -96,6 +94,19 @@ in
 
   home.activation.createOrgSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${homeDir}/.config/emacs/modules"
+
+    # Sync repo-managed org modules into the writable modules dir (only when
+    # newer), so runtime tangling can write .el alongside them.
+    if [ -d "${homeDir}/.config/emacs/modules-src" ]; then
+      for org in "${homeDir}/.config/emacs/modules-src"/*.org; do
+        [ -e "$org" ] || continue
+        dest="${homeDir}/.config/emacs/modules/$(basename "$org")"
+        if [ ! -f "$dest" ] || [ "$org" -nt "$dest" ]; then
+          $DRY_RUN_CMD install -m 0644 "$org" "$dest"
+        fi
+      done
+    fi
+
     mkdir -p "${homeDir}/.cache/emacs/undo-tree-history"
     mkdir -p "${homeDir}/.cache/emacs/seforim"
     mkdir -p "${homeDir}/Documents/org"

@@ -1,0 +1,29 @@
+* 25-nix-system.org
+#+TITLE: NixOS System Management
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* NixOS and Home Manager Tools
+
+#+begin_src emacs-lisp
+;;; 25-nix-system.el --- Manage NixOS from Emacs -*- lexical-binding: t; -*-
+
+(defun my/nixos-rebuild ()
+  "Rebuild the NixOS system."
+  (interactive)
+  (compile "sudo nixos-rebuild switch"))
+
+(defun my/home-manager-switch ()
+  "Switch Home Manager configuration."
+  (interactive)
+  (compile "home-manager switch"))
+
+(defun my/nix-garbage-collect ()
+  "Clean up the Nix store."
+  (interactive)
+  (compile "nix-collect-garbage -d"))
+
+;; Note: Keybindings are handled by Hydra C-c E in 16-hydras.el
+;; to avoid "non-prefix key" errors.
+
+(provide '25-nix-system)
+#+end_src

@@ -93,7 +93,11 @@ in
     wants = [ "network-online.target" "nss-lookup.target" ];
     wantedBy = [ "multi-user.target" ];
 
-    # Retry if network isn't ready
+    # Rate-limit restarts: these are Unit-level directives, NOT serviceConfig.
+    # (Previously placed under serviceConfig, where systemd ignores them.)
+    startLimitIntervalSec = 300;
+    startLimitBurst = 3;
+
     serviceConfig = {
       Type = "oneshot";
       User = username;
@@ -106,10 +110,9 @@ in
         "PATH=${lib.makeBinPath [ pkgs.rclone pkgs.git pkgs.coreutils ]}"
       ];
 
-      # Retry up to 3 times with 30 second delay
+      # Retry with a 30s backoff (bounded by the startLimit* above)
       Restart = "on-failure";
       RestartSec = "30";
-      StartLimitBurst = 3;
 
       ExecStart = let
         syncScript = pkgs.writeShellScript "file-sync" ''

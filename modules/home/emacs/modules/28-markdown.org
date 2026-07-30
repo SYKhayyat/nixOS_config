@@ -1,0 +1,281 @@
+#+TITLE: 28 · Markdown (+ live side-by-side preview)
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+Markdown editing, plus a preview that renders *inside Emacs*: source on the
+left, formatted output in a right-hand window that re-renders as you type.
+
+* Why this design
+
+Three common ways to preview Markdown in Emacs; this module uses the third.
+
+1. =grip= — GitHub-accurate, but needs Python + =pip install grip= and calls
+   GitHub's rate-limited API. Rejected: external service, per-machine setup.
+2. =impatient-mode= — live, but the preview is a *browser tab*, not an Emacs
+   window. Rejected: not side-by-side inside Emacs.
+3. *This* — convert to HTML, parse it with Emacs' built-in =libxml=, render it
+   with =shr= (the engine behind =eww=) into an ordinary buffer. The preview is
+   a real Emacs buffer: it scrolls, it uses your theme, and it behaves
+   identically on NixOS, Debian and Windows.
+
+** The one external dependency
+
+Emacs cannot turn Markdown into HTML by itself, so step one shells out. The
+first converter found on =PATH= wins, so any of these will do:
+
+| Converter       | Install                                                  |
+|-----------------+----------------------------------------------------------|
+| =pandoc= (best) | NixOS: already in =home.packages= · Debian/Fedora/Arch: =pandoc= · =brew install pandoc= |
+| =cmark-gfm=     | distro package / =cargo install cmark-gfm=               |
+| =cmark=         | distro package                                           |
+| =markdown_py=   | =pip install markdown=                                   |
+| =multimarkdown= | distro package                                           |
+
+With *none* installed, toggling the preview tells you exactly what to install
+and changes nothing else — editing Markdown still works, and startup is never
+affected.
+
+* Markdown mode
+
+=gfm-mode= (GitHub-Flavoured Markdown) is used for =README.md= and friends,
+which is what you actually write.
+
+#+begin_src emacs-lisp
+;;; 28-markdown.el --- Markdown + live side-by-side preview -*- lexical-binding: t; -*-
+
+(use-package markdown-mode
+  :mode (("\\.md\\'"           . markdown-mode)
+         ("\\.markdown\\'"     . markdown-mode)
+         ("\\.mdown\\'"        . markdown-mode)
+         ("README\\.md\\'"     . gfm-mode)
+         ("CHANGELOG\\.md\\'"  . gfm-mode))
+  :hook ((markdown-mode . visual-line-mode)
+         (markdown-mode . my/markdown-maybe-rtl))
+  :config
+  (setq markdown-fontify-code-blocks-natively t   ; highlight fenced code
+        markdown-enable-math t                    ; treat $...$ as math
+        markdown-asymmetric-header t              ; "## Heading", not "## Heading ##"
+        markdown-hide-urls nil
+        markdown-list-indent-width 2
+        ;; Used by markdown-mode's own export commands; the live preview below
+        ;; does its own detection and does not rely on this.
+        markdown-command "pandoc"))
+
+;; 02-hebrew provides `my/setup-rtl-mode'.  Modules must not assume their
+;; neighbours loaded -- on a machine where 02-hebrew was skipped this hook has
+;; to stay harmless rather than erroring on every Markdown buffer.
+(defun my/markdown-maybe-rtl ()
+  "Apply the config's RTL setup when 02-hebrew provided it."
+  (when (fboundp 'my/setup-rtl-mode)
+    (ignore-errors (my/setup-rtl-mode))))
+#+end_src
+
+* Converter detection
+
+Resolved once per session and cached. Each entry is =(PROGRAM ARGS…)=; Markdown
+goes in on stdin, HTML comes out on stdout.
+
+#+begin_src emacs-lisp
+(defvar my/markdown-preview-converters
+  '(("pandoc"       "--from=gfm" "--to=html5" "--standalone" "--quiet")
+    ("cmark-gfm"    "--to" "html" "-e" "table" "-e" "strikethrough" "-e" "autolink")
+    ("cmark"        "--to" "html")
+    ("markdown_py")
+    ("multimarkdown")
+    ("markdown"))
+  "Candidate Markdown->HTML commands, best first.
+Each entry is (PROGRAM ARGS...).  Markdown is written to the program's
+stdin and HTML is expected on stdout.  The first PROGRAM found on
+`exec-path' is used.")
+
+(defvar my/markdown-preview-command nil
+  "Cached (PROGRAM ARGS...) chosen from `my/markdown-preview-converters'.
+Set to nil and re-toggle the preview to re-detect after installing one.")
+
+(defun my/markdown-preview--command ()
+  "Return the converter to use, or nil when none is installed."
+  (or my/markdown-preview-command
+      (setq my/markdown-preview-command
+            (seq-find (lambda (c) (executable-find (car c)))
+                      my/markdown-preview-converters))))
+
+(defun my/markdown-preview--install-hint ()
+  "Per-platform instruction for installing a Markdown converter."
+  (pcase system-type
+    ('windows-nt "scoop install pandoc   (or: pip install markdown)")
+    ('darwin     "brew install pandoc")
+    (_           "NixOS: pandoc is in home.packages, run `just switch' \
+| Debian/Fedora/Arch: install pandoc")))
+#+end_src
+
+* Conversion + rendering
+
+=libxml-parse-html-region= is built in when Emacs was linked against libxml2 —
+true for the Nix =emacs30-pgtk= build and the official Windows builds. If it is
+missing we show the raw HTML rather than failing.
+
+#+begin_src emacs-lisp
+(defconst my/markdown-preview-buffer "*Markdown Preview*"
+  "Name of the buffer holding the rendered preview.")
+
+(defcustom my/markdown-preview-width 0.5
+  "Fraction of the frame width used by the preview side window."
+  :type 'number :group 'markdown)
+
+(defcustom my/markdown-preview-idle 0.8
+  "Seconds of idle time before the preview re-renders."
+  :type 'number :group 'markdown)
+
+(defvar my/markdown-preview--timer nil
+  "The single global idle timer driving live refresh.")
+
+(defvar-local my/markdown-preview--tick nil
+  "`buffer-chars-modified-tick' at the last render, to skip no-op refreshes.")
+
+(defun my/markdown-preview--html ()
+  "Convert the current buffer to an HTML string with the detected converter."
+  (let ((cmd (my/markdown-preview--command)))
+    (unless cmd
+      (user-error "No Markdown converter found -- install one: %s"
+                  (my/markdown-preview--install-hint)))
+    (let ((src (buffer-string))
+          ;; Run in the file's own directory so relative image and link paths
+          ;; resolve the way they will for a reader.
+          (default-directory (or (and buffer-file-name
+                                      (file-name-directory buffer-file-name))
+                                 default-directory)))
+      (with-temp-buffer
+        (insert src)
+        (apply #'call-process-region (point-min) (point-max)
+               (car cmd) t t nil (cdr cmd))
+        (buffer-string)))))
+
+(define-derived-mode my/markdown-preview-view-mode special-mode "MD-Preview"
+  "Major mode for the rendered Markdown preview buffer."
+  (setq-local truncate-lines nil)
+  (visual-line-mode 1))
+
+(defun my/markdown-preview--render (html)
+  "Render HTML into the preview buffer and return that buffer.
+The window's scroll position is preserved: re-rendering on every keystroke
+must not yank the preview back to the top."
+  (let* ((buf   (get-buffer-create my/markdown-preview-buffer))
+         (win   (get-buffer-window buf))
+         (start (and (window-live-p win) (window-start win)))
+         (pt    (and (window-live-p win) (window-point win))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (if (fboundp 'libxml-parse-html-region)
+            (let ((dom (with-temp-buffer
+                         (insert html)
+                         (libxml-parse-html-region (point-min) (point-max)))))
+              (require 'shr)
+              (let ((shr-width nil)          ; wrap to the window, not to 80
+                    (shr-use-fonts t))
+                (shr-insert-document dom)))
+          ;; Emacs built without libxml2 -- show the HTML rather than nothing.
+          (insert html)))
+      (unless (derived-mode-p 'my/markdown-preview-view-mode)
+        (my/markdown-preview-view-mode))
+      (goto-char (point-min)))
+    (when (window-live-p win)
+      (set-window-start win (min start (point-max)))
+      (set-window-point win (min pt (point-max))))
+    buf))
+
+(defun my/markdown-preview--display (buf)
+  "Show BUF in a right-hand side window without stealing focus."
+  (display-buffer
+   buf
+   `(display-buffer-in-side-window
+     (side          . right)
+     (slot          . 0)
+     (window-width  . ,my/markdown-preview-width)
+     (preserve-size . (t . nil)))))
+#+end_src
+
+* The minor mode
+
+#+begin_src emacs-lisp
+(defun my/markdown-preview-refresh ()
+  "Re-render the current Markdown buffer into the preview window."
+  (interactive)
+  (when (derived-mode-p 'markdown-mode)
+    (let ((html (my/markdown-preview--html))
+          (buf  (get-buffer-create my/markdown-preview-buffer)))
+      ;; Display BEFORE rendering.  `shr' fills to the width of the window
+      ;; showing the buffer; with no window yet it falls back to the selected
+      ;; window -- the *source* pane -- and lays the preview out at roughly
+      ;; twice its real measure, so the first toggle came out mis-wrapped.
+      (my/markdown-preview--display buf)
+      (my/markdown-preview--render html))
+    (setq my/markdown-preview--tick (buffer-chars-modified-tick))))
+
+(defun my/markdown-preview--maybe-refresh ()
+  "Idle-timer callback: re-render only when this buffer actually changed."
+  (when (and (bound-and-true-p my/markdown-preview-mode)
+             (derived-mode-p 'markdown-mode)
+             (get-buffer-window my/markdown-preview-buffer)
+             (not (eq (buffer-chars-modified-tick) my/markdown-preview--tick)))
+    ;; A converter hiccup must never spam errors from a timer.
+    (condition-case err
+        (my/markdown-preview-refresh)
+      (error (message "Markdown preview: %s" (error-message-string err))))))
+
+(define-minor-mode my/markdown-preview-mode
+  "Live side-by-side HTML preview of this Markdown buffer.
+Source stays on the left; a right-hand side window shows the rendered
+output, refreshed on save and after `my/markdown-preview-idle' seconds of
+idle time."
+  :lighter " MD>"
+  (if my/markdown-preview-mode
+      (progn
+        (unless my/markdown-preview--timer
+          (setq my/markdown-preview--timer
+                (run-with-idle-timer my/markdown-preview-idle t
+                                     #'my/markdown-preview--maybe-refresh)))
+        (add-hook 'after-save-hook #'my/markdown-preview-refresh nil t)
+        ;; With no converter installed, fail loudly AND leave the mode off,
+        ;; rather than sitting enabled with a preview that never appears.
+        (condition-case err
+            (my/markdown-preview-refresh)
+          (error (setq my/markdown-preview-mode nil)
+                 (remove-hook 'after-save-hook #'my/markdown-preview-refresh t)
+                 (signal (car err) (cdr err)))))
+    (remove-hook 'after-save-hook #'my/markdown-preview-refresh t)
+    (let ((win (get-buffer-window my/markdown-preview-buffer)))
+      (when (window-live-p win) (delete-window win)))
+    (let ((buf (get-buffer my/markdown-preview-buffer)))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+#+end_src
+
+* Keys
+
+| Key       | Does                                          |
+|-----------+-----------------------------------------------|
+| =C-c m p= | Toggle the side-by-side preview               |
+| =C-c m r= | Force a re-render now                         |
+| =C-c m e= | Export to a =.html= file beside the source    |
+
+#+begin_src emacs-lisp
+(defun my/markdown-export-html ()
+  "Write the current buffer's rendered HTML next to the source file."
+  (interactive)
+  (unless buffer-file-name (user-error "Buffer is not visiting a file"))
+  (let ((out  (concat (file-name-sans-extension buffer-file-name) ".html"))
+        (html (my/markdown-preview--html)))
+    (with-temp-file out (insert html))
+    (message "Wrote %s" out)))
+
+(with-eval-after-load 'markdown-mode
+  (define-key markdown-mode-map (kbd "C-c m p") #'my/markdown-preview-mode)
+  (define-key markdown-mode-map (kbd "C-c m r") #'my/markdown-preview-refresh)
+  (define-key markdown-mode-map (kbd "C-c m e") #'my/markdown-export-html))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide '28-markdown)
+;;; 28-markdown.el ends here
+#+end_src

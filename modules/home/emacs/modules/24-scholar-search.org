@@ -1,0 +1,44 @@
+#+TITLE: Universal Scholar Search
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Engine Mode for Scholars
+
+#+begin_src emacs-lisp
+;;; 24-scholar-search.el --- Search the web from Emacs -*- lexical-binding: t; -*-
+
+(use-package engine-mode
+  :demand t
+  :config
+  (engine-mode t)
+  
+  ;; Sefaria Search
+  (defengine sefaria
+    "https://www.sefaria.org/search?q=%s"
+    :keybinding "s")
+
+  ;; Otzar HaChochma
+  (defengine otzar
+    "https://www.otzar.org/wotzar/store/otzar.aspx?find=%s"
+    :keybinding "o")
+
+  ;; Google Scholar
+  (defengine scholar
+    "https://scholar.google.com/scholar?q=%s"
+    :keybinding "S")
+
+  ;; Nix Packages (For your system)
+  (defengine nixpkgs
+    "https://search.nixos.org/packages?query=%s"
+    :keybinding "p")
+
+  ;; DuckDuckGo
+  (defengine ddg
+    "https://duckduckgo.com/?q=%s"
+    :keybinding "d"))
+
+;; Keybinding prefix: C-c / followed by the key above (e.g., C-c / s for Sefaria)
+(setq engine-mode-keymap-prefix (kbd "C-c /"))
+
+(provide '24-scholar-search)
+;;; 24-scholar-search.el ends here
+#+end_src

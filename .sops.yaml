@@ -1,0 +1,13 @@
+# sops-nix creation rules. Replace the age public key below with your own
+# (see secrets/README.md for how to generate it), then:
+#
+#   sops secrets/secrets.yaml
+#
+# will encrypt to these recipients automatically.
+keys:
+  - &host_desktop age1REPLACE_WITH_YOUR_HOST_AGE_PUBLIC_KEY
+creation_rules:
+  - path_regex: secrets/.*\.yaml$
+    key_groups:
+      - age:
+          - *host_desktop

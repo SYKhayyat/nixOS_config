@@ -1,0 +1,227 @@
+#+TITLE: Core Settings
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Core Configuration
+
+#+begin_src emacs-lisp
+;;; 00-core.el --- Core settings and package configuration -*- lexical-binding: t; -*-
+
+(require 'package)
+(setq package-archives
+      '(("melpa" . "https://melpa.org/packages/")
+        ("gnu" . "https://elpa.gnu.org/packages/")
+        ("nongnu" . "https://elpa.nongnu.org/nongnu/")))
+
+;; ---------------------------------------------------------------------------
+;; Portable vs. Nix package sourcing  (makes this config work on any machine)
+;; ---------------------------------------------------------------------------
+;; Two ways packages can reach Emacs:
+;;   * NIX MODE  - packages are already on the load-path (installed by Nix,
+;;                 Guix, or your distro).  We use them as-is; nothing is
+;;                 downloaded.  This is your current NixOS setup.
+;;   * PORTABLE  - a fresh machine with none of them.  We fall back to
+;;                 package.el and let use-package auto-install from MELPA, so
+;;                 the SAME config bootstraps itself anywhere.
+;;
+;; The mode is auto-detected: if the core third-party packages are missing from
+;; the load-path, we assume a fresh machine and turn on self-install.  Override
+;; explicitly by setting env var EMACS_PORTABLE=1, or by setting
+;; `my/portable-packages' before this file loads.
+;;
+;; NOTE: a handful of packages need system libraries that package.el cannot
+;; provide on its own even in portable mode -- they compile a module or need an
+;; external binary.  Install those from your OS package manager and, where
+;; noted, run the package's own installer once:
+;;   pdf-tools -> needs poppler; run M-x pdf-tools-install
+;;   vterm     -> needs cmake + libvterm + a C compiler (builds on first use)
+;;   jinx      -> needs enchant + a C compiler
+;;   org-roam  -> needs sqlite (emacsql)
+;;   treesit/typst-ts-mode -> needs tree-sitter grammars (M-x treesit-auto)
+;; External programs the config shells out to (install via OS/Nix):
+;;   rg (ripgrep), rga (ripgrep-all), fd, plocate, pandoc, hdate, detex,
+;;   typst, latexmk + lualatex (TeX), and LSP servers nil / tinymist.
+(defvar my/portable-packages
+  (let ((override (or (getenv "EMACS_PACKAGES") (getenv "EMACS_PORTABLE"))))
+    (cond
+     ;; Explicit override wins, and honours it BOTH ways so a load-test can
+     ;; force Nix mode (nil) to avoid downloads.
+     ((and override (member (downcase (string-trim override))
+                            '("1" "true" "yes" "on")))
+      t)
+     ((and override (member (downcase (string-trim override))
+                            '("0" "false" "no" "off")))
+      nil)
+     ;; Unset/empty => auto-detect: missing core packages => portable.
+     (t (not (and (locate-library "vertico")
+                  (locate-library "consult")
+                  (locate-library "orderless"))))))
+  "Non-nil => install packages from MELPA (portable mode).
+Nil => packages are expected to be on the load-path already (e.g. Nix).
+Force with env var EMACS_PACKAGES (or EMACS_PORTABLE): \"1\"/\"true\"/\"yes\"/\"on\"
+=> portable t; \"0\"/\"false\"/\"no\"/\"off\" => nil; unset => auto-detect.")
+
+;; ---------------------------------------------------------------------------
+;; Portable mode: keep the package index FRESH
+;; ---------------------------------------------------------------------------
+;; The obvious `(unless package-archive-contents (package-refresh-contents))'
+;; is a trap.  It refreshes only when the index is *entirely absent*, so once
+;; you have a STALE index it is non-nil forever and never refreshes again.
+;; MELPA rebuilds packages daily and deletes the superseded tarball, so a
+;; week-old index asks for files that no longer exist and every install dies
+;; with "https://melpa.org/packages/foo-<date>.tar: Not found".  A stale
+;; GNU ELPA index does the same for `compat', which takes vertico, magit and
+;; org-modern down with it.
+;;
+;; So: refresh when the index is missing OR older than a week, and — because
+;; an index can go stale mid-session — retry any failed install once after a
+;; forced refresh.
+(defvar my/package-max-index-age (* 7 24 60 60)
+  "Refresh the package archives when the cached index is older than this
+many seconds.")
+
+(defun my/package--index-age ()
+  "Age in seconds of the freshest cached `archive-contents', or nil if none."
+  (let* ((dir (expand-file-name "archives" package-user-dir))
+         (files (and (file-directory-p dir)
+                     (directory-files-recursively dir "\\`archive-contents\\'"))))
+    (when files
+      (float-time
+       (time-subtract (current-time)
+                      (seq-max (mapcar (lambda (f)
+                                         (float-time
+                                          (file-attribute-modification-time
+                                           (file-attributes f))))
+                                       files)))))))
+
+(defun my/package-refresh-if-stale (&optional force)
+  "Refresh the package archives when the cached index is absent or old."
+  (let ((age (my/package--index-age)))
+    (when (or force
+              (null package-archive-contents)
+              (null age)
+              (> age my/package-max-index-age))
+      (message "Package index %s — refreshing..."
+               (if age (format "is %d day(s) old" (/ age 86400)) "missing"))
+      (ignore-errors (package-refresh-contents)))))
+
+(defun my/package-install-retry (orig pkg &rest args)
+  "Install PKG, refreshing the archives once and retrying on failure.
+This rescues the case where the index went stale *during* a session."
+  (condition-case err
+      (apply orig pkg args)
+    (error
+     (message "Installing %s failed (%s); refreshing index and retrying..."
+              pkg (error-message-string err))
+     (ignore-errors (package-refresh-contents))
+     (apply orig pkg args))))
+
+(when my/portable-packages
+  (package-initialize)
+  (advice-add 'package-install :around #'my/package-install-retry)
+  (my/package-refresh-if-stale))
+
+(defun my/package-refresh ()
+  "Force a package index refresh now.
+Run this if installs start failing with \"Not found\" on a dated tarball."
+  (interactive)
+  (my/package-refresh-if-stale t)
+  (message "Package index refreshed."))
+
+;; use-package must exist before the rest of the config can use it.  It is
+;; built in on Emacs 29+, but bootstrap it if somehow missing.
+(unless (require 'use-package nil t)
+  (when my/portable-packages
+    (unless package-archive-contents (package-refresh-contents))
+    (package-install 'use-package)
+    (require 'use-package)))
+
+;; In portable mode every `use-package' auto-installs; in Nix mode it does not.
+(setq use-package-always-ensure my/portable-packages
+      use-package-always-defer t
+      use-package-expand-minimally t)
+
+;; ---------------------------------------------------------------------------
+;; Capability detection  (what makes this config survive on ANY distro)
+;; ---------------------------------------------------------------------------
+;; Package *sourcing* is solved above, but that is only half the portability
+;; problem.  Several packages are useless — or fail loudly — without something
+;; Emacs cannot install: a C toolchain, a system library, or an external
+;; binary.  jinx needs enchant, pdf-tools needs poppler, vterm needs cmake +
+;; libvterm, envrc needs direnv, the Typst LSP needs tinymist.
+;;
+;; Gating those per-OS is the wrong axis: a Fedora box without `direnv' and a
+;; Windows box without it are the same case.  So we gate on the *capability*,
+;; not the operating system.
+;;
+;; Just as important, gate at the PACKAGE level, not the module level.  jinx
+;; lives inside 03-completion; if a missing enchant took the whole module down
+;; you would silently lose vertico, consult and corfu with it.
+(defvar my/missing-capabilities nil
+  "Alist of (PACKAGE . MISSING-PROGRAMS) skipped on this machine.
+Inspect with `M-x my/report-capabilities'.")
+
+(defun my/package-usable-p (name &rest programs)
+  "Non-nil when package NAME can actually work on this machine.
+NAME is the library name as a string.  PROGRAMS are external commands the
+package needs at build or run time.
+
+The check differs by sourcing mode, because the failure modes differ:
+  * Nix/distro mode — the package was either built for us or it was not, so
+    presence on the `load-path' is the whole answer.  Nix already guaranteed
+    the native dependencies of anything it shipped.
+  * Portable mode — package.el will happily install the elisp but cannot
+    supply a C compiler or a system library, so we additionally require
+    PROGRAMS to be present.
+
+Records anything skipped in `my/missing-capabilities' so it is reported
+rather than silently missing."
+  (let* ((missing (seq-remove #'executable-find programs))
+         (ok (if my/portable-packages
+                 (null missing)
+               (and (locate-library name) t))))
+    (unless ok
+      (setq my/missing-capabilities
+            (cons (cons name (or missing (list "not on load-path")))
+                  (assoc-delete-all name my/missing-capabilities))))
+    ok))
+
+(defun my/report-capabilities ()
+  "Show which optional packages were skipped here, and why."
+  (interactive)
+  (if (null my/missing-capabilities)
+      (message "All optional capabilities available.")
+    (message "Skipped: %s"
+             (mapconcat (lambda (c) (format "%s (needs %s)"
+                                            (car c) (string-join (cdr c) ", ")))
+                        (reverse my/missing-capabilities) " · "))))
+
+;; Diminish for cleaner mode-line
+(use-package diminish
+  :demand t)
+
+;; Garbage Collection Magic Hack
+(use-package gcmh
+  :demand t
+  :config
+  (setq gcmh-idle-delay 5
+        gcmh-high-cons-threshold (* 64 1024 1024)
+        gcmh-low-cons-threshold (* 16 1024 1024))
+  (gcmh-mode 1))
+
+;; Process performance
+(setq read-process-output-max (* 1024 1024)
+      process-adaptive-read-buffering nil
+      auto-window-vscroll nil
+      fast-but-imprecise-scrolling t
+      jit-lock-defer-time 0)
+
+;; Bidi performance (critical for Hebrew)
+(setq-default bidi-paragraph-direction 'left-to-right)
+(setq bidi-inhibit-bpa t)
+
+;; So-long mode for large files
+(global-so-long-mode 1)
+
+(provide '00-core)
+;;; 00-core.el ends here
+#+end_src

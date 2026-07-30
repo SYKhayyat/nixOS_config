@@ -1,16 +1,12 @@
 { pkgs, config, lib, ... }:
 
 let
-  bg = "#1a1b26";
-  fg = "#c0caf5";
-  blue = "#7aa2f7";
-  magenta = "#bb9af7";
-  gray = "#414868";
+  inherit (import ../palette.nix) blue gray;
 in {
   imports = [ ../yazi.nix ../waybar.nix ../lock-niri.nix ../scripts.nix ];
 
   home.packages = with pkgs; [
-    awww
+    swww
     mako
     waybar
     fuzzel
@@ -26,7 +22,7 @@ in {
         keyboard {
             xkb {
                 layout "us,il"
-                 kb_options = grp:lctrl_lalt_toggle,caps:escape
+                options "grp:lctrl_lalt_toggle,caps:escape"
             }
             repeat-delay 250
             repeat-rate 40
@@ -93,7 +89,8 @@ in {
     }
 
     spawn-at-startup "bash" "-c" "sleep 2 && waybar"
-    spawn-at-startup "bash" "-c" "awww-daemon && sleep 1 && awww img ${./../../../wallpaper.jpg}"
+    spawn-at-startup "mako"
+    spawn-at-startup "bash" "-c" "${pkgs.swww}/bin/swww-daemon & sleep 1 && ${pkgs.swww}/bin/swww img ${./../../../wallpaper.jpg}"
     spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
     spawn-at-startup "udiskie" "--tray"
     spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"

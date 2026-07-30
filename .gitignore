@@ -1,0 +1,19 @@
+# Nix build artifacts
+result
+result-*
+.direnv/
+.pre-commit-config.yaml
+
+# Editor / OS cruft
+*~
+\#*\#
+.DS_Store
+
+# One-off dumps (regenerated with `just bundle`)
+combined.txt
+
+# Secrets that must never be committed in plaintext
+# (sops-managed *.enc.yaml / *.sops.yaml ARE safe to commit)
+secrets/*.plain
+tokens.conf
+rclone.conf

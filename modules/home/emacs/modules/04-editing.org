@@ -1,0 +1,103 @@
+* 04-editing.org
+#+TITLE: Editing Enhancements
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Editing and Reading Tools
+
+#+begin_src emacs-lisp
+;;; 04-editing.el --- Advanced editing features -*- lexical-binding: t; -*-
+
+;; Undo tree
+(use-package undo-tree
+  :diminish
+  :demand t
+  :config
+  (setq undo-tree-auto-save-history t)
+  (setq undo-tree-history-directory-alist
+        `(("." . ,(expand-file-name "undo-tree-history/" user-emacs-directory))))
+  (setq undo-limit (* 80 1024 1024))
+  (setq undo-strong-limit (* 120 1024 1024))
+  (setq undo-outer-limit (* 300 1024 1024))
+  (global-undo-tree-mode 1)
+  :bind (("C-x u" . undo-tree-visualize)
+         ("C-/" . undo-tree-undo)
+         ("C-?" . undo-tree-redo)))
+
+(use-package goto-last-change
+  :bind ("C-c ;" . goto-last-change))
+
+(use-package beginend
+  :diminish beginend-global-mode
+  :demand t
+  :config
+  (beginend-global-mode 1))
+
+(use-package anzu
+  :diminish
+  :demand t
+  :config
+  (global-anzu-mode 1)
+  :bind (([remap query-replace] . anzu-query-replace)
+         ([remap query-replace-regexp] . anzu-query-replace-regexp)
+         ("M-s %" . anzu-query-replace-at-cursor)))
+
+(use-package multiple-cursors
+  :bind (("C->" . mc/mark-next-like-this)
+         ("C-<" . mc/mark-previous-like-this)
+         ("C-c C-<" . mc/mark-all-like-this)
+         ("C-S-c C-S-c" . mc/edit-lines)))
+
+(use-package expand-region
+  :bind ("C-=" . er/expand-region))
+
+(use-package move-text
+  :bind (("M-<up>" . move-text-up)
+         ("M-<down>" . move-text-down)))
+
+(global-set-key (kbd "C-c C-d") #'duplicate-dwim)
+
+(use-package crux
+  :bind (("C-a" . crux-move-beginning-of-line)
+         ("C-k" . crux-smart-kill-line)
+         ("C-S-<return>" . crux-smart-open-line-above)
+         ("S-<return>" . crux-smart-open-line)))
+
+(use-package visual-regexp
+  :bind (("C-c q" . vr/query-replace)
+         ("C-c M" . vr/mc-mark)))
+
+(add-hook 'prog-mode-hook #'electric-pair-local-mode)
+
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
+
+;; Writable Grep (Edit search results directly)
+(use-package wgrep
+  :config (setq wgrep-auto-save-buffer t))
+
+;; Hebrew Table alignment fix
+(use-package valign
+  :hook (org-mode . valign-mode))
+
+;; Distraction-free Writing Desk
+(use-package olivetti
+  :config
+  (setq-default olivetti-body-width 100))
+
+;; Focused reading (dim other paragraphs)
+(use-package focus
+  :bind ("C-c C-f" . focus-mode))
+
+(defun my/toggle-reading-room ()
+  "Toggle ultimate scholar mode: focus on the text."
+  (interactive)
+  (require 'olivetti)
+  (olivetti-mode 'toggle)
+  (visual-line-mode (if olivetti-mode 1 -1))
+  (display-line-numbers-mode (if olivetti-mode -1 1))
+  (message "Reading Room: %s" (if olivetti-mode "ON" "OFF")))
+
+(global-set-key (kbd "C-c w") #'my/toggle-reading-room)
+
+(provide '04-editing)
+#+end_src
