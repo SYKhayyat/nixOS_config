@@ -350,19 +350,25 @@ let
   ];
 
   # ── Keyboard input, stated once ──────────────────────────────────────────
-  # Both compositors set this and both cheat-sheets described it wrongly: they
-  # said Caps Lock switches to Hebrew. Caps Lock is Escape. The Hebrew toggle
-  # is both Shift keys — hold either, tap the other.
+  # Both cheat-sheets used to say Caps Lock switches to Hebrew. It never did in
+  # any config this repo has shipped. The Hebrew toggle is both Shift keys —
+  # hold either, tap the other — and Caps Lock is now simply Caps Lock.
   #
-  # `layout` and `options` come from myConfig because this module is not the
-  # only consumer: modules/system/desktop.nix hands the same two strings to
-  # `services.xserver.xkb` for XWayland, SDDM and the X-only apps, and a
-  # home-manager module and a NixOS module cannot read each other. They were
-  # written out separately in both files until the toggle moved — i.e. this
-  # file, which exists because the keymap had five hand-written copies, was
-  # quietly carrying a sixth.
+  # The layout and options come from myConfig because this module is not the
+  # only consumer, and it turned out not to be the only *two*:
   #
-  # The repeat rates stay here: nothing outside a compositor config reads them.
+  #   modules/system/desktop.nix  → services.xserver.xkb  (the X server)
+  #   ../../home/shaul.nix        → programs.plasma.input.keyboard  (KWin)
+  #   this file                   → niri's KDL, hyprland.conf, the guide
+  #
+  # A home-manager module and a NixOS module cannot read each other, so the
+  # statement lives in myConfig. Before that it was written out separately in
+  # this file and in desktop.nix — i.e. the module that exists *because* the
+  # keymap had five hand-written copies was quietly carrying a sixth — and
+  # Plasma, the default session, had no statement at all.
+  #
+  # The repeat rates stay here: they are the same three consumers, and this is
+  # the module all three already read.
   keyboard = myConfig.keyboard // {
     repeatDelay = 250;
     repeatRate = 40;
@@ -415,6 +421,9 @@ let
   # rather than a neighbour's sentence: a guide that says "grp:foo_toggle" is
   # merely unhelpful, and a guide that confidently says "Ctrl+Alt" while the
   # config says both Shifts is the failure mode with a body count.
+  # A dictionary, not a list of what is set — `caps:escape` is not currently in
+  # `myConfig.keyboard.options` and its gloss stays anyway, so turning it back
+  # on is one string in one list rather than one string in two places.
   xkbOptionLabels = {
     "grp:shifts_toggle" = "Hebrew/English - hold either Shift, tap the other";
     "caps:escape" = "Caps Lock acts as Escape";
@@ -422,7 +431,7 @@ let
   xkbRows = map (o: [
     o
     (xkbOptionLabels.${o} or "see xkeyboard-config(7)")
-  ]) (lib.splitString "," keyboard.options);
+  ]) keyboard.options;
 
   # `intro` is a list of lines rather than a blob so the generated org indents
   # the same way every time regardless of how the caller wrote it.

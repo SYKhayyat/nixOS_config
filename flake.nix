@@ -70,6 +70,7 @@
   outputs = { self, nixpkgs, home-manager, stylix, plasma-manager, sops-nix, ... }@inputs:
     let
       system = "x86_64-linux";
+      inherit (nixpkgs) lib;
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
@@ -114,10 +115,26 @@
         # and friends) *replace* their key's symbols, which spends a modifier
         # to save a keystroke.
         #
-        # `caps:escape` is unrelated and long-standing: Caps Lock is Escape.
-        keyboard = {
-          layout = "us,il";
-          options = "grp:shifts_toggle,caps:escape";
+        # `caps:escape` used to be here as well and is deliberately gone: Caps
+        # Lock is Caps Lock and Escape is Escape. It had never been reliable,
+        # but not for the reason it looked like — see the Plasma note below.
+        # Restoring it is one string in the list.
+        #
+        # Four consumers, two spellings. xkb's own config format, niri's KDL
+        # and hyprland.conf take comma-joined strings; plasma-manager's
+        # `input.keyboard` takes lists. Both are rendered here, for the
+        # palette.nix reason: a consumer that has to reformat a value is a
+        # consumer that can reformat it wrong, and this repo has already paid
+        # for that once with `rgb(#7aa2f7)`.
+        keyboard = rec {
+          layouts = [
+            "us"
+            "il"
+          ];
+          options = [ "grp:shifts_toggle" ];
+
+          layout = lib.concatStringsSep "," layouts;
+          optionString = lib.concatStringsSep "," options;
         };
 
         # From the emacs-config input. Threaded through `myConfig` rather than

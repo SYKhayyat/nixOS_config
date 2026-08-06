@@ -34,6 +34,68 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (n) — Plasma had never been told about the keyboard at all
+
+Follow-up to (m), and the more serious half of it. The question was "does the
+Caps Lock remap even work in KDE — I had races there." It does not, and neither
+does anything else, and it was never a race.
+
+**Three facts, in order.**
+
+1. KWin does not read `services.xserver.xkb`. NixOS does not export
+   `XKB_DEFAULT_*` from it either — the NixOS wiki documents doing that by hand
+   *precisely because* the console and some Wayland compositors ignore the
+   option. So the statement (m) put in `desktop.nix` reaches the X server and
+   stops there.
+2. KWin reads `kxkbrc`.
+3. `programs.plasma.overrideConfig = true` in `home/shaul.nix` means
+   plasma-manager owns `kxkbrc` outright and resets it on every activation —
+   and **no keyboard was declared**.
+
+So Plasma, the *default* session, has been falling back to bare `us` with no
+options. Set it in System Settings and it survives exactly until the next
+`just switch`. That is the "race": not a timing bug, a value with an owner who
+had no opinion, being restored to the default by something that runs later.
+
+This is the palette finding one more time and in its purest form. niri and
+Hyprland were configured, X was configured, and the one surface that was neither
+declared *nor* left alone — because `overrideConfig` actively resets it — was
+the session you are in most of the time.
+
+`programs.plasma.input.keyboard` writes `LayoutList` and `Options` with
+`ResetOldOptions = true`, so it is now the whole statement for KWin, and it
+comes off the same `myConfig.keyboard` as the other three. Repeat delay and rate
+went with it: Plasma had been on its own defaults for those too.
+
+### `caps:escape` is gone
+
+Your call, and it is worth recording that it was not the fix. Caps Lock had not
+been unreliable, it had been *unstated in Plasma*, which is a different problem
+and the one above. Caps Lock is Caps Lock and Escape is Escape now; restoring
+the remap is one string in `myConfig.keyboard.options`, and it will behave the
+same in all three sessions when you do — which was not previously true of it.
+
+### `myConfig.keyboard` renders both spellings
+
+xkb's own config format, niri's KDL and `hyprland.conf` take comma-joined
+strings; plasma-manager's `input.keyboard` takes lists. Both are built in
+`flake.nix`, so no consumer reformats a keyboard value — the same rule
+`palette.nix` follows, and for the same reason: this repo has already paid once
+for a consumer that reformatted a value slightly wrong, and the receipt was
+`rgb(#7aa2f7)`.
+
+**Still not claimed by anything, stated rather than guessed at:** the SDDM
+greeter. It runs as its own user with its own `kxkbrc`, nothing here writes it,
+and I have not verified which layout it ends up with. It matters only if your
+password contains Hebrew.
+
+**On the machine:** `just switch`, then log out and back in. In a Plasma
+session, tap Left Shift then Right Shift and type — Hebrew. Then open System
+Settings → Keyboard and confirm it reads `us, il` and shows the shortcut,
+because that file is now generated and no longer yours to edit.
+
+---
+
 ## 2026-08-06 (m) — the Hebrew toggle was sitting on the VT switch, and the keymap had a sixth copy
 
 Not from the Lamdan report — you asked for it — but it landed straight on top of

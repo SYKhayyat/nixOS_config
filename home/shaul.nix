@@ -29,6 +29,7 @@
 
 let
   inherit (config.shaulos.palette) font cursor;
+  inherit (config.shaulos.keys) keyboard;
 
   # Plasma stores a font as `family,size,-1,5,weight,italic,underline,strikeout,
   # fixed,0`. Building the string means the family and the size come from
@@ -85,6 +86,33 @@ in
   programs.plasma = {
     enable = true;
     overrideConfig = true;
+
+    # ── The keyboard, which Plasma had never been told about ────────────────
+    #
+    # This is the one that had been quietly broken the whole time, and it is
+    # worth spelling out because the symptom looked like flakiness rather than
+    # like a missing statement.
+    #
+    # KWin does not read `services.xserver.xkb`. NixOS does not export
+    # `XKB_DEFAULT_*` from it either — doing that by hand is a documented
+    # workaround precisely because the console and some Wayland compositors
+    # ignore the option. KWin reads `kxkbrc`, and `overrideConfig = true` three
+    # lines up means plasma-manager owns `kxkbrc` outright: it is reset on every
+    # activation, and nothing here declared a keyboard.
+    #
+    # So Plasma — the *default* session — fell back to bare `us` with no
+    # options. Set it in System Settings and it survived exactly until the next
+    # `just switch`, which is what "it works sometimes" actually was.
+    #
+    # plasma-manager writes `LayoutList` and `Options` and sets
+    # `ResetOldOptions = true`, so this is now the whole statement for KWin.
+    # `layouts` wants a list of submodules; niri and Hyprland want the joined
+    # string. Both come off `myConfig.keyboard` via ../modules/home/keys.nix,
+    # which is the module both compositors already read.
+    input.keyboard = {
+      layouts = map (l: { layout = l; }) keyboard.layouts;
+      inherit (keyboard) options repeatDelay repeatRate;
+    };
 
     configFile = {
       "kcmfonts"."General"."forceFontDPI" = 96;

@@ -292,7 +292,7 @@ in
 
     input {
         kb_layout = ${keyboard.layout}
-        kb_options = ${keyboard.options}
+        kb_options = ${keyboard.optionString}
         repeat_delay = ${toString keyboard.repeatDelay}
         repeat_rate = ${toString keyboard.repeatRate}
         touchpad {

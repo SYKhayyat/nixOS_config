@@ -275,7 +275,7 @@ in
         keyboard {
             xkb {
                 layout "${keyboard.layout}"
-                options "${keyboard.options}"
+                options "${keyboard.optionString}"
             }
             repeat-delay ${toString keyboard.repeatDelay}
             repeat-rate ${toString keyboard.repeatRate}

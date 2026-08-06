@@ -210,9 +210,10 @@ Same mechanism as theming, one layer up. There is one place that decides what a
 key does, and every file that needs it is generated from there:
 
 ```
-myConfig.keyboard (flake.nix)     xkb layout + options, for BOTH module systems
+myConfig.keyboard (flake.nix)    layouts + xkb options, list AND joined string
         │
-        ├── modules/system/desktop.nix → services.xserver.xkb  (XWayland, SDDM)
+        ├── modules/system/desktop.nix → services.xserver.xkb    (the X server)
+        ├── home/shaul.nix             → programs.plasma.input.keyboard (KWin)
         │
 modules/home/keys.nix        config.shaulos.keys
         │
@@ -234,14 +235,27 @@ Ctrl+Alt that the VT switch is built out of. Both Shifts is the one chord with
 nothing else on it, and xkeyboard-config spells it `[Shift_L, ISO_Prev_Group]` /
 `[Shift_R, ISO_Next_Group]` — so both keys go on being Shift. The single-key
 alternatives (`grp:rctrl_toggle` and friends) *replace* their key's symbols,
-which spends a modifier to save a keystroke. Caps Lock is Escape, and has never
-been the Hebrew toggle whatever the old cheat-sheets claimed.
+which spends a modifier to save a keystroke.
 
-The layout and options live in `myConfig` rather than in `keys.nix` because
-`keys.nix` is not the only consumer: `services.xserver.xkb` needs the same two
-strings and a home-manager module cannot be read from a NixOS one. They were
-written out separately in both, which made this file's own claim — one keymap,
-one statement — false by one copy.
+**Caps Lock is Caps Lock.** `caps:escape` used to be set and is deliberately
+gone; adding it back is one string in `myConfig.keyboard.options`. It has never
+been the Hebrew toggle, whatever the old cheat-sheets claimed.
+
+**Plasma had never been told any of this**, and that is why the keyboard felt
+unreliable rather than wrong. KWin does not read `services.xserver.xkb`, and
+NixOS does not export `XKB_DEFAULT_*` from it — that is a workaround people add
+by hand, precisely because the console and some Wayland compositors ignore the
+option. KWin reads `kxkbrc`, and `programs.plasma.overrideConfig = true` means
+plasma-manager owns `kxkbrc` outright and resets it on every activation. With no
+keyboard declared, the default session fell back to bare `us`: set it in System
+Settings and it survived until the next `just switch`.
+
+So the layout and options live in `myConfig` rather than in `keys.nix` — three
+consumers in two module systems, and a home-manager module cannot be read from a
+NixOS one. `myConfig` renders both spellings, because xkb's own format and the
+two compositor configs want a comma-joined string while plasma-manager wants
+lists. Nothing downstream reformats a keyboard value, for the same reason nothing
+downstream formats a colour.
 
 The split is the same one `wayland-common.nix` draws. A bind that *spawns a
 program both sessions provide* is shared, because its target comes from a module

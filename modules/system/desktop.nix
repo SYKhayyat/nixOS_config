@@ -27,7 +27,10 @@
   # so the shared statement lives in `myConfig` (flake.nix), which both sides
   # already receive. Same reason `seforimPath` is there.
   services.xserver.enable = true;
-  services.xserver.xkb = { inherit (myConfig.keyboard) layout options; };
+  services.xserver.xkb = {
+    inherit (myConfig.keyboard) layout;
+    options = myConfig.keyboard.optionString;
+  };
 
   # ── Greeter ──────────────────────────────────────────────────────────────
   # Was declared here *and* in ./core.nix — both saying `enable = true`, so the
