@@ -1,8 +1,19 @@
-{ pkgs, config, lib, ... }:
+# modules/home/waybar.nix
+#
+# One bar config listing both compositors' modules. waybar loads the ones its
+# compositor supports and ignores the rest — which used to be a shared config
+# hedging about a fact its closure already knew, and is now simply correct: one
+# closure serves all three sessions and the bar cannot know in advance which one
+# started it.
+#
+# Not started here. Each compositor spawns waybar itself, so there is one place
+# that says when the bar appears.
+{ ... }:
 
 let
   inherit (import ./palette.nix) bg fg blue gray;
-in {
+in
+{
   programs.waybar = {
     enable = true;
     settings = [{

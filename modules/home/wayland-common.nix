@@ -1,26 +1,34 @@
 # modules/home/wayland-common.nix
 #
-# Shared home-manager bits for every Wayland compositor session (niri, hyprland,
-# study). Previously these were copy-pasted across home/niri.nix and
-# home/study.nix. Import as a *function* so the compositor name is passed in:
+# The Wayland session stack: bar, notifier, launcher, wallpaper, lock, file
+# manager, clipboard, screenshots. Everything that is true of *a* Wayland
+# session here rather than of one particular compositor.
 #
-#   imports = [ (import ../modules/home/wayland-common.nix { xdgDesktop = "niri"; }) ];
+# It used to be a function taking `xdgDesktop` because it was imported once per
+# boot closure. There is one closure now, so it is a plain module, and the two
+# session variables it existed to set are gone:
+#
+#   XDG_CURRENT_DESKTOP — uwsm sets this from the session's DesktopNames, and
+#     SDDM sets it for Plasma. Pinning it in home.sessionVariables was only
+#     possible when the closure knew which compositor it was for, and it would
+#     now be a lie in two sessions out of three.
+#   WAYLAND_DISPLAY = "wayland-1" — the compositor exports the real value. This
+#     was a hardcoded guess sourced by every login shell, i.e. a guess with the
+#     power to override the truth. It happened to be right.
 #
 # Notification/mount/bar daemons are intentionally NOT started here — each
-# compositor module launches them via its own exec-once/spawn-at-startup so
-# there is a single source of truth (avoids the old double-start of mako/udiskie).
-{ xdgDesktop }:
-{ pkgs, lib, config, ... }:
+# compositor config launches them via its own exec-once/spawn-at-startup so
+# there is a single source of truth (avoids the old double-start of mako).
+{ pkgs, ... }:
 
 {
-  systemd.user.sessionVariables = {
-    WAYLAND_DISPLAY = "wayland-1";
-    XDG_CURRENT_DESKTOP = xdgDesktop;
-  };
+  imports = [
+    ./waybar.nix
+    ./yazi.nix
+    ./lock.nix
+  ];
 
   home.sessionVariables = {
-    WAYLAND_DISPLAY = "wayland-1";
-    XDG_CURRENT_DESKTOP = xdgDesktop;
     # Graphical prompt for sudo -A / ssh over Wayland
     SSH_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
     SUDO_ASKPASS = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
@@ -31,11 +39,10 @@
 
   fonts.fontconfig.enable = true;
 
-  # Toolkit shared by all Wayland sessions. (pamixer, brightnessctl, fd, fzf,
-  # jq, playerctl, libsecret already come from home/common.nix.)
+  # (pamixer, brightnessctl, fd, fzf, jq, playerctl, libsecret already come from
+  # home/common.nix; hyprlock/hypridle from ./lock.nix; waybar from ./waybar.nix.)
   home.packages = with pkgs; [
     foot
-    wlogout
     udiskie
     networkmanagerapplet
     cliphist
@@ -45,5 +52,20 @@
     libnotify
     wl-clipboard
     kdePackages.ksshaskpass
+
+    # Notifier, launcher and wallpaper daemon. Both compositor configs spawn
+    # these by name at startup and neither can start what it did not install —
+    # so they belong to the session, not to a compositor.
+    mako
+    fuzzel
+    swww
+
+    # dolphin is bound to Mod+E in the Hyprland config and is yazi's `reveal`
+    # opener, and was installed by the *niri* module. Plasma ships it
+    # system-wide, which is why the gap only showed up in the one session that
+    # forced Plasma off.
+    kdePackages.dolphin
+    kdePackages.kate
+    kdePackages.okular
   ];
 }

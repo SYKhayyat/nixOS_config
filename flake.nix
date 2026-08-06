@@ -87,9 +87,8 @@
         seforimPath = "/home/shaul/Documents/seforim";
 
         # From the emacs-config input. Threaded through `myConfig` rather than
-        # `extraSpecialArgs` on purpose: only one module needs them, and the
-        # alternative is plumbing `inputs` through mk-specialization.nix and
-        # all four specialisations to reach it.
+        # `extraSpecialArgs` on purpose: only one module needs them, and
+        # `myConfig` already reaches every home module.
         emacsConfig = inputs.emacs-config.packages.${system}.default; # pre-tangled
         emacsPackage = inputs.emacs-config.packages.${system}.emacs; # emacs + packages
       };

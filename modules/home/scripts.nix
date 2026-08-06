@@ -1,4 +1,17 @@
-{ pkgs, lib, config, ... }:
+# modules/home/scripts.nix
+#
+# Session helpers, bound to keys in both compositor configs.
+#
+# The `pgrep` below is deliberate and it was not always defensible. While each
+# compositor had its own boot closure, this was rediscovering at runtime — on a
+# keypress path, in eight scripts — a fact the build had already compiled in.
+# There is one closure for all three sessions now, so the compositor genuinely
+# is not knowable until the key is pressed, and detection is the right answer.
+#
+# What was never right is the silent fall-through: under Plasma these scripts
+# matched no branch and exited 0 having done nothing, which is three commands on
+# $PATH that lie about having run. They say so now.
+{ pkgs, ... }:
 
 let
   compositorDetect = ''
@@ -9,6 +22,13 @@ let
     else
       COMPOSITOR="plasma"
     fi
+  '';
+
+  # Fail visibly instead of exiting 0 having done nothing.
+  unsupported = ''
+    ${pkgs.libnotify}/bin/notify-send \
+      "$(basename "$0")" "needs niri or Hyprland — this session is $COMPOSITOR"
+    exit 1
   '';
 
   powerSearch = pkgs.writeShellScriptBin "power-search" ''
@@ -45,6 +65,8 @@ let
           pkill -SIGUSR1 waybar
           rm "$STATE_FILE"
       fi
+    else
+      ${unsupported}
     fi
   '';
 
@@ -60,6 +82,8 @@ let
       [ -z "$WINDOW" ] && exit 0
       ADDR=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
       hyprctl dispatch focuswindow "address:$ADDR"
+    else
+      ${unsupported}
     fi
   '';
 
@@ -110,6 +134,11 @@ let
        else
          ${pkgs.foot}/bin/foot --app-id="$ID" &
        fi
+    else
+      # No compositor to focus an existing one with, but a terminal is still a
+      # terminal — this is the one case where "just do the useful half" beats
+      # refusing.
+      ${pkgs.foot}/bin/foot --app-id="$ID" &
     fi
   '';
 

@@ -17,7 +17,8 @@ test:
 build:
     nixos-rebuild build --flake .#{{host}}
 
-# Show which specialisations exist for next boot
+# Show which specialisations exist for next boot (there is one: `study`).
+# The compositors are NOT here — they are greeter sessions, pick them at login.
 specialisations:
     @ls /run/current-system/specialisation 2>/dev/null || echo "none active"
 

@@ -23,7 +23,7 @@
 
 let
   # Both come from the emacs-config flake input, threaded via myConfig so this
-  # module does not need `inputs` plumbed through four specialisations.
+  # module does not need `inputs` plumbed down to it.
   emacs = myConfig.emacsPackage; # Emacs + the package set the config expects
   emacsConfig = myConfig.emacsConfig; # that repo, with every module pre-tangled
 

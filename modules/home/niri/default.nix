@@ -1,20 +1,16 @@
-{ pkgs, config, lib, ... }:
+# modules/home/niri/default.nix
+#
+# The niri session: its KDL config and the one package only niri needs.
+# The bar, launcher, notifier, wallpaper daemon, locker, terminal and file
+# manager it spawns below all come from ../wayland-common.nix, which the
+# Hyprland session imports too — that is the whole point of the module.
+{ pkgs, ... }:
 
 let
   inherit (import ../palette.nix) blue gray;
-in {
-  imports = [ ../yazi.nix ../waybar.nix ../lock-niri.nix ../scripts.nix ];
-
-  home.packages = with pkgs; [
-    swww
-    mako
-    waybar
-    fuzzel
-    xwayland-satellite
-    kdePackages.dolphin
-    kdePackages.kate
-    kdePackages.okular
-  ];
+in
+{
+  home.packages = [ pkgs.xwayland-satellite ];
 
   # Master Niri KDL Configuration
   xdg.configFile."niri/config.kdl".text = ''
@@ -90,6 +86,9 @@ in {
 
     spawn-at-startup "bash" "-c" "sleep 2 && waybar"
     spawn-at-startup "mako"
+    // Idle -> dim -> lock -> panel off. Config in modules/home/lock.nix.
+    // Before the sessions were unified, niri had no idle daemon at all.
+    spawn-at-startup "hypridle"
     spawn-at-startup "bash" "-c" "${pkgs.swww}/bin/swww-daemon & sleep 1 && ${pkgs.swww}/bin/swww img ${./../../../wallpaper.jpg}"
     spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
     spawn-at-startup "udiskie" "--tray"

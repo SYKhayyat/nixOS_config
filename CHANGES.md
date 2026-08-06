@@ -7,6 +7,120 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (c) — four specialisations became one, and the sessions became sessions
+
+Findings 2.1 and 1.2 of the Lamdan review, taken at the root rather than patched.
+
+**Why.** A specialisation is a whole second system closure. Three of the four
+were buying one with money they didn't need to spend:
+
+- `hyprland` and `niri` were answering *"which session should the display
+  manager start"* — which is the entire job description of a display manager.
+  Both compositors install cleanly beside Plasma and register `.desktop`
+  sessions through uwsm; SDDM lists them. The price of asking the bootloader
+  instead was: every `nixos-rebuild` built all four closures, each was a GC
+  root, and changing your mind about a compositor cost a reboot rather than a
+  logout.
+- `minimal` was answering *"how do I get a shell when the desktop is wedged"* —
+  which systemd-boot already answers with ten kept generations, any of which
+  boots the system you had *before* you broke it. And it was not minimal:
+  specialisations inherit, so force-disabling xserver/sddm/plasma6 left
+  pipewire, printing, flatpak, all 16 font packages and the whole of
+  `cli-tools.nix`. Its home side didn't shrink either — `lib.mkIf false` around
+  the home-manager block contributes nothing, it does not *retract* the
+  parent's, so "recovery mode" still built GIMP, Krita, digiKam and darktable.
+- `study` stays, and it is the whole reason the mechanism is in the repo: the
+  radios are off and the firewall denies everything. That state genuinely
+  cannot coexist with the base system at runtime.
+
+**The bug the split was hiding, and it is worse than the review said.**
+`home-manager.users.<name>` is a submodule, so two definitions of it *merge*.
+The base set `users.shaul.imports = [ home/desktop.nix ]`; each specialisation
+set `users.shaul.imports = [ its own profile ]`. Both were imported. **The
+study specialisation was therefore running the full desktop profile
+underneath its own** — tor-browser, qutebrowser and the entire graphics suite,
+in the session whose stated purpose is not having them. That is fixed by
+construction now: one import site, and a `shaulos.study` boolean the profile
+branches on.
+
+**And the drift the split had already produced**, all of it now structurally
+impossible rather than individually patched:
+
+| Was | Now |
+|---|---|
+| `p10k.nix` and `foot.nix` imported only by `desktop.nix`, while `common.nix` loads the p10k plugin and sources `~/.p10k.zsh` everywhere — so niri and study booted with an unconfigured prompt and an unconfigured `Mod+Return` terminal | one profile imports both |
+| `dolphin` installed by the niri and study profiles; Hyprland is the session that binds `Mod+E` to it and is yazi's `reveal` opener. Invisible until you booted the one session with Plasma forced off | in `wayland-common.nix`, present in every session |
+| **niri never auto-locked** — `lock-niri.nix` was three lines installing swaylock, no idle daemon, no timeout | one `lock.nix`: hyprlock + hypridle for both compositors |
+| Hyprland's hypridle config was never started either — `lock-idle.nix` said "started via exec-once in Hyprland" and `hyprland.conf` had no such line. Both sessions shipped an idle config nothing ran | `spawn-at-startup "hypridle"` / `exec-once = hypridle`, explicitly |
+| wlogout's stock layout hardcodes `swaylock`, installed in exactly one session — so the power menu's lock button did nothing under Hyprland | `programs.wlogout` with an explicit layout naming `hyprlock` |
+| `hyprland.conf` hardcoded `monitor = , 1366x768@60, 0x0, 1` while niri used `output ".*" { scale 1.0 }` — plug in an external display and the sessions behaved differently, for no reason anyone chose | `monitor = , preferred, auto, 1` |
+| `modules/system/{niri,hyprland}.nix` were the same file: 22 of ~30 non-blank lines byte-identical | `modules/system/wayland.nix`, imported by both; each compositor module is now four lines |
+
+**Changed**
+
+- `hosts/desktop/configuration.nix`: imports the three session modules; one
+  `specialisation.study`; one home-manager import site. The per-specialisation
+  portal lists are gone — plasma6, `programs.niri` and `programs.hyprland` each
+  register their own backend and per-desktop `portals.conf` via
+  `xdg.portal.configPackages`, which only works when they coexist.
+- **Deleted:** `lib/mk-specialization.nix` (its only remaining caller was the
+  one specialisation, and it carried three `lxqt` branches for a desktop
+  environment nothing in the repo ever passed it), `modules/system/minimal.nix`,
+  `modules/home/lock-idle.nix`, `modules/home/lock-niri.nix`,
+  `home/desktop.nix`, `home/niri.nix`, `home/study.nix`.
+- **New:** `modules/system/wayland.nix`, `modules/system/profile.nix`,
+  `modules/home/lock.nix`, `home/shaul.nix`.
+- `modules/home/wayland-common.nix` stopped being a function. It took an
+  `xdgDesktop` argument to pin `XDG_CURRENT_DESKTOP`, and also pinned
+  `WAYLAND_DISPLAY = "wayland-1"`. Both are gone: uwsm and SDDM set the former
+  from the session's `DesktopNames`, and the compositor exports the latter. A
+  hardcoded `WAYLAND_DISPLAY` in `home.sessionVariables` is a guess sourced by
+  every login shell — i.e. a guess with the power to override the truth. It
+  happened to be right.
+- `modules/home/scripts.nix`: the `pgrep` compositor detection **stays**, and
+  is now correct rather than merely harmless — one closure serves three
+  sessions, so the compositor genuinely isn't knowable until the key is
+  pressed. What changed is the silent fall-through: under Plasma, `spotlight`
+  and `teleport` matched no branch and exited 0 having done nothing. They now
+  say so.
+- One-line rider, finding 3.2: `programs.firefox.enable = lib.mkForce false` in
+  `study-offline.nix`. `cli-tools.nix` sets the *NixOS* option, which puts
+  firefox in `environment.systemPackages`; the home-side `mkForce false` never
+  touched it, so "offline airgap, no browsers" had a browser on `$PATH`.
+
+**What this costs you.** One boot-menu entry (`minimal`) and two boot-menu
+entries (`hyprland`, `niri`) disappear; the compositors move to the greeter.
+`pcmanfm-qt` and `thunar` moved from the Hyprland module — which every session
+imports now — to the non-study application list, so study mode loses two file
+managers it never asked for. niri's `XCURSOR_SIZE = 12` override is gone; the
+KDL's `cursor { xcursor-size 12 }` already did that job for the session that
+wanted it.
+
+**⚠ Not evaluated.** Authored off-machine as usual, but this one restructures
+the module graph rather than editing leaves, so it is the change most likely to
+fail at `nix flake check`. Run `just check`, then `just build`, before
+`just switch`. Specifically worth watching: `programs.niri.enable` and
+`programs.hyprland.enable` in one closure (they should merge cleanly — both
+contribute to `xdg.portal.*` and `environment.sessionVariables` as lists or as
+equal values), and `programs.wlogout`'s default CSS finding its icons.
+
+**On the machine, in order**
+
+```sh
+just check                    # statix + deadnix + the emacs-config input
+just build                    # full closure, no activation
+just switch
+# log out; SDDM should now list Plasma, Niri (uwsm) and Hyprland (uwsm)
+# reboot only to reach `study` in the boot menu
+```
+
+Sanity checks after switching, one per drift row above: `which dolphin` in a
+Hyprland session; `pgrep hypridle` in a niri session; `cat ~/.p10k.zsh` exists
+in every session; `spotlight` under Plasma should now pop a notification rather
+than nothing.
+
+---
+
 ## 2026-08-06 (b) — the Emacs config moved to its own repo
 
 Finding 1.1 of the Lamdan review, the other half. The config now lives at

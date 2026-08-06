@@ -1,31 +1,31 @@
-{ pkgs, config, lib, ... }:
+# modules/home/hyprland/default.nix
+#
+# The Hyprland session: its config file, and nothing else. The bar, launcher,
+# notifier, wallpaper daemon, locker, terminal and file manager it spawns below
+# all come from ../wayland-common.nix, which the niri session imports too.
+{ pkgs, ... }:
 
 let
   palette = import ../palette.nix;
   inherit (palette.hypr) blue gray;
   wallpaper = ../../../wallpaper.jpg;
-in {
-  imports = [ ../yazi.nix ../waybar.nix ../lock-idle.nix ../scripts.nix ];
-
-  home.packages = with pkgs; [
-    swww
-    mako
-    waybar
-    pcmanfm-qt
-    thunar
-    fuzzel
-    kdePackages.okular
-    kdePackages.kate
-  ];
-
+in
+{
   xdg.configFile."hypr/hyprland.conf".text = ''
-    monitor = , 1366x768@60, 0x0, 1
+    # `preferred, auto` rather than the panel this laptop happens to have.
+    # The niri config has always said `output ".*" { scale 1.0 }`; hardcoding
+    # 1366x768@60 here meant plugging in an external display behaved differently
+    # in the two sessions, for no reason anyone chose.
+    monitor = , preferred, auto, 1
 
     exec-once = uwsm finalize
     exec-once = ${pkgs.dbus}/bin/dbus-update-activation-environment --all
     exec-once = waybar
     exec-once = mako
-   
+    # Idle -> dim -> lock -> DPMS off. Config in modules/home/lock.nix, which
+    # has always existed and which nothing had ever actually started.
+    exec-once = hypridle
+
     exec-once = bash -c "${pkgs.swww}/bin/swww-daemon & until ${pkgs.swww}/bin/swww query 2>/dev/null; do sleep 0.5; done && ${pkgs.swww}/bin/swww img ${wallpaper}"
     exec-once = nm-applet --indicator
     exec-once = udiskie --tray

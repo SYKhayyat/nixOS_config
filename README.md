@@ -1,9 +1,9 @@
 # ShaulOS — NixOS configuration
 
 A single-host NixOS flake for the machine `desktop` (`nixosConfigurations.desktop`,
-`x86_64-linux`). The base system boots **KDE Plasma**; four boot-time
-**specialisations** swap in alternative desktop sessions, a literate Emacs
-environment, and an offline "study" mode. Theming is driven by
+`x86_64-linux`). One system closure offers three graphical sessions — **KDE
+Plasma**, **Niri** and **Hyprland** — which you pick at the SDDM greeter, plus a
+single boot-time **specialisation** (`study`) for hard-offline work. Theming is driven by
 [stylix](https://github.com/nix-community/stylix), Plasma by
 [plasma-manager](https://github.com/nix-community/plasma-manager), the user
 environment by [home-manager](https://github.com/nix-community/home-manager),
@@ -25,18 +25,24 @@ and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
 
 ```
 flake.nix                     # inputs, myConfig, outputs (host + fmt/check/devShell)
-hosts/desktop/                # host entrypoint + hardware-configuration.nix + specialisations
-lib/mk-specialization.nix     # factory that builds each specialisation
+hosts/desktop/                # host entrypoint + hardware-configuration.nix
 home/
-  common.nix                  # shell (zsh/p10k), git, aliases — imported by ALL sessions
-  desktop.nix / niri.nix / study.nix
+  common.nix                  # shell (zsh), git, aliases, session scripts
+  shaul.nix                   # THE home profile — one file, every session
 modules/
   system/                     # NixOS modules (core, hardware, dev, services, secrets, ...)
+    profile.nix               # the `shaulos.study` flag the home profile reads
+    desktop.nix               # X, SDDM, Plasma 6, audio, printing, fonts
+    wayland.nix               # everything a Wayland session needs that isn't a compositor
+    niri.nix  hyprland.nix    # the compositors, four lines each
+    study-offline.nix         # the one specialisation
   home/                       # home-manager modules
-    wayland-common.nix        # shared toolkit for niri/hyprland/study
+    wayland-common.nix        # bar/launcher/notifier/lock/file-manager for any Wayland session
+    lock.nix                  # hyprlock + hypridle, both compositors
     palette.nix               # single source of truth for ricing colors
     emacs/default.nix         # packages + daemon only — the config is a flake input
-    niri/  hyprland/  waybar.nix  yazi.nix  ...
+    niri/  hyprland/          # just the compositor config files
+    waybar.nix  yazi.nix  scripts.nix  foot.nix  p10k.nix
 secrets/                      # sops-nix encrypted secrets (see below)
 ```
 
@@ -47,19 +53,42 @@ Windows and macOS as well, and has its own CI. `modules/home/emacs/default.nix`
 keeps only what this *machine* provides: the package set, `services.emacs`, and
 `recoll.conf`.
 
-## Specialisations
+## Sessions
 
-Specialisations are defined in `hosts/desktop/configuration.nix` and built by
-`lib/mk-specialization.nix`. The base system boots **KDE Plasma**; the others
-appear in the systemd-boot menu:
+Pick these at the SDDM greeter — one system closure has all three, and SDDM
+remembers the last one you used:
 
-| Name       | Session            | Home profile       | Notes                     |
-|------------|--------------------|--------------------|---------------------------|
-| *(base)*   | Plasma             | `home/desktop.nix` | default                   |
-| `hyprland` | Hyprland (uwsm)    | `home/desktop.nix` | full desktop + Hyprland   |
-| `niri`     | Niri (uwsm)        | `home/niri.nix`    | scrollable tiling         |
-| `study`    | Hyprland (uwsm)    | `home/study.nix`   | offline airgap, no browsers |
-| `minimal`  | none (TTY)         | —                  | recovery mode             |
+| Session          | Config                                          |
+|------------------|-------------------------------------------------|
+| **Plasma**       | `plasma-manager` in `home/shaul.nix` (default)  |
+| **Niri (uwsm)**  | `modules/home/niri/default.nix` (KDL)           |
+| **Hyprland (uwsm)** | `modules/home/hyprland/default.nix`          |
+
+Prefer the `(uwsm)` entries for the tiling compositors: they get a proper
+systemd user scope and working portals. Nothing needs a rebuild or a reboot to
+switch — log out, pick another.
+
+## The one specialisation
+
+| Name    | What it changes                                             |
+|---------|-------------------------------------------------------------|
+| `study` | NetworkManager, wireless, Bluetooth, sshd, onedrive and rclone off; firewall deny-all; no browsers; the study toolchain instead of the desktop app suite |
+
+Pick it in the systemd-boot menu. It is a specialisation and the sessions are
+not, and the line between them is whether the difference can coexist with the
+base system at runtime. "Which compositor" can — that is what a display manager
+is for. "The radios are off" cannot.
+
+`study` sets `shaulos.study = true` (declared in `modules/system/profile.nix`),
+which `home/shaul.nix` reads via `osConfig`. That flag exists so there is
+exactly **one** place that says which home profile to import: `home-manager.
+users.<name>` is a submodule, so a second `imports = [ … ]` inside a
+specialisation *merges* with the parent's rather than replacing it.
+
+**Lost your desktop?** Reboot and pick an older generation — systemd-boot keeps
+ten (`configurationLimit`). For a guaranteed TTY on any generation, press `e` at
+the boot menu and append `systemd.unit=multi-user.target`. That is what the old
+`minimal` specialisation was for, minus a whole system closure.
 
 ## Everyday commands
 
@@ -70,7 +99,7 @@ or `just --list` to see them all):
 just switch          # sudo nixos-rebuild switch --flake .#desktop
 just test            # sudo nixos-rebuild test  --flake .#desktop  (no boot entry)
 just build           # nixos-rebuild build --flake .#desktop  (build only, no activation)
-just specialisations # list specialisations available for next boot
+just specialisations # list specialisations available for next boot (just `study`)
 just update          # nix flake update
 just update-emacs    # bump the emacs-config input only
 just emacs-dev PATH  # rebuild against a local emacs-config checkout
