@@ -4,12 +4,18 @@
 # The bar, launcher, notifier, wallpaper daemon, locker, terminal and file
 # manager it spawns below all come from ../wayland-common.nix, which the
 # Hyprland session imports too — that is the whole point of the module.
-{ pkgs, ... }:
+#
+# Border colours come from ../palette.nix, which derives them from the stylix
+# scheme. niri's KDL takes the same `#rrggbb` spelling CSS does, which is why
+# this file and waybar.nix read the same `css` view.
+{ config, pkgs, ... }:
 
 let
-  inherit (import ../palette.nix) blue gray;
+  inherit (config.shaulos.palette) css;
 in
 {
+  imports = [ ../palette.nix ];
+
   home.packages = [ pkgs.xwayland-satellite ];
 
   # Master Niri KDL Configuration
@@ -50,14 +56,14 @@ in
 
         focus-ring {
             width 2
-            active-color "${blue}"
-            inactive-color "${gray}"
+            active-color "${css.accent}"
+            inactive-color "${css.dim}"
         }
 
         border {
             width 2
-            active-color "${blue}"
-            inactive-color "${gray}"
+            active-color "${css.accent}"
+            inactive-color "${css.dim}"
         }
     }
 

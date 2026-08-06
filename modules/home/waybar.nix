@@ -8,12 +8,20 @@
 #
 # Not started here. Each compositor spawns waybar itself, so there is one place
 # that says when the bar appears.
-{ ... }:
+#
+# Colours and the monospace family come from ./palette.nix, which derives them
+# from the stylix scheme rather than restating it. The font *size* below stays a
+# literal on purpose: `stylix.fonts.sizes.desktop` is 9 and this bar is 12px
+# because of the Nerd Font glyphs in the module formats, not because anyone
+# forgot to wire it. A deliberate exception, said out loud.
+{ config, ... }:
 
 let
-  inherit (import ./palette.nix) bg fg blue gray;
+  inherit (config.shaulos.palette) css font;
 in
 {
+  imports = [ ./palette.nix ];
+
   programs.waybar = {
     enable = true;
     settings = [{
@@ -56,22 +64,22 @@ in
 
     style = ''
       * {
-        font-family: "JetBrainsMono Nerd Font", "Noto Sans Hebrew", "Font Awesome 6 Free";
+        font-family: "${font.mono}", "Noto Sans Hebrew", "Font Awesome 6 Free";
         font-size: 12px;
         border: none;
       }
       window#waybar { background: transparent; }
       #window, #workspaces, #network, #pulseaudio, #battery, #clock, #tray {
-        background: ${bg};
-        color: ${fg};
+        background: ${css.bg};
+        color: ${css.fg};
         padding: 2px 12px;
         margin: 0 4px;
         border-radius: 10px;
-        border: 1px solid ${gray};
+        border: 1px solid ${css.dim};
       }
-      #workspaces button { color: ${gray}; padding: 0 4px; }
-      #workspaces button.focused { color: ${blue}; }
-      #workspaces button.active { color: ${blue}; }
+      #workspaces button { color: ${css.dim}; padding: 0 4px; }
+      #workspaces button.focused { color: ${css.accent}; }
+      #workspaces button.active { color: ${css.accent}; }
     '';
   };
 }

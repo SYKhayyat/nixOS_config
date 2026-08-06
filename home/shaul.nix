@@ -21,6 +21,7 @@
 # you pick at the greeter reads its own and ignores the others. The only axis
 # left is study mode, and it is a boot-time choice because the airgap is.
 {
+  config,
   lib,
   pkgs,
   myConfig,
@@ -31,6 +32,15 @@
 let
   # Set by modules/system/study-offline.nix inside the `study` specialisation.
   study = osConfig.shaulos.study;
+
+  inherit (config.shaulos.palette) font;
+
+  # Plasma stores a font as `family,size,-1,5,weight,italic,underline,strikeout,
+  # fixed,0`. Building the string means the family and the size come from
+  # stylix — see the note on stylix.targets.kde below for why they otherwise
+  # would not.
+  qtFont = family: size: "${family},${toString size},-1,5,50,0,0,0,0,0";
+  uiSize = font.sizes.applications;
 in
 {
   imports = [
@@ -38,16 +48,24 @@ in
     ../modules/home/p10k.nix # the prompt common.nix sources
     ../modules/home/foot.nix # the terminal every compositor binds
     ../modules/home/emacs
+    ../modules/home/palette.nix # the stylix scheme, per-syntax
     ../modules/home/wayland-common.nix # bar, launcher, lock, notifier, yazi
     ../modules/home/niri
     ../modules/home/hyprland
   ];
 
+  # `targets.kde` is off, so stylix does not theme Plasma and plasma-manager
+  # writes the fonts below itself. That is a decision; the four hardcoded font
+  # strings it used to write were not. Deriving them keeps one source of truth
+  # for the family and size without turning the KDE target back on.
   stylix.targets.kde.enable = false;
   stylix.targets.qt.enable = false;
   stylix.targets.firefox.profileNames = [ myConfig.username ];
   stylix.fonts.sizes.applications = 9;
   stylix.fonts.sizes.desktop = 9;
+  # Was `lib.mkForce "…:size=10"` inside modules/home/foot.nix, overriding the
+  # font stylix derives for its foot target. Sizes belong with the other sizes.
+  stylix.fonts.sizes.terminal = 10;
 
   # Off in study mode. The firewall is the backstop, not the feature — the
   # feature is that the thing you open out of habit is not there.
@@ -72,10 +90,11 @@ in
     configFile = {
       "kcmfonts"."General"."forceFontDPI" = 96;
       "kdeglobals"."KScreen"."ScaleFactor" = 1;
-      "kdeglobals"."General"."font" = "Noto Sans,9,-1,5,50,0,0,0,0,0";
-      "kdeglobals"."General"."fixed" = "JetBrainsMono Nerd Font,9,-1,5,50,0,0,0,0,0";
-      "kdeglobals"."General"."menuFont" = "Noto Sans,9,-1,5,50,0,0,0,0,0";
-      "kdeglobals"."General"."toolBarFont" = "Noto Sans,8,-1,5,50,0,0,0,0,0";
+      "kdeglobals"."General"."font" = qtFont font.sans uiSize;
+      "kdeglobals"."General"."fixed" = qtFont font.mono uiSize;
+      "kdeglobals"."General"."menuFont" = qtFont font.sans uiSize;
+      # Toolbars a point down, which is Plasma's own convention.
+      "kdeglobals"."General"."toolBarFont" = qtFont font.sans (uiSize - 1);
       "kdeglobals"."KDE"."widgetStyle" = "Breeze";
     };
 

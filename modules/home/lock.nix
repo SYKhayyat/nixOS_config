@@ -16,10 +16,20 @@
 # hyprlock speaks ext-session-lock-v1 and hypridle speaks ext-idle-notify-v1;
 # niri implements both, so one pair covers both compositors and swaylock is
 # gone. Startup is now explicit in each compositor's config.
-{ pkgs, ... }:
+#
+# And the colours below were never applied. This file used to write
+# `outer_color = rgb(#7aa2f7)`; hyprlang's rgb() takes six *bare* hex
+# characters, so the `#` made all four coloured lines parse errors and those
+# four properties kept hyprlock's defaults. Which nobody could have noticed:
+# until the commit above this one nothing started hypridle, and wlogout's lock
+# button pointed at a swaylock this config does not install — so hyprlock had
+# never actually been on screen. It is on the idle path now, so the theming
+# lands with it. See ./palette.nix: the palette hands out `rgb(…)` already
+# wrapped, so there is nothing left here to get wrong.
+{ config, pkgs, ... }:
 
 let
-  inherit (import ./palette.nix) bg blue;
+  inherit (config.shaulos.palette) hypr font;
 
   # The one verb hypridle cannot express portably. This is the case runtime
   # detection is genuinely right for — one closure, several possible
@@ -44,6 +54,8 @@ let
   '';
 in
 {
+  imports = [ ./palette.nix ];
+
   home.packages = [
     pkgs.hyprlock
     pkgs.hypridle
@@ -111,9 +123,9 @@ in
         dots_size = 0.33
         dots_spacing = 0.15
         dots_center = true
-        outer_color = rgb(${blue})
-        inner_color = rgb(${bg})
-        font_color = rgb(${blue})
+        outer_color = ${hypr.accent}
+        inner_color = ${hypr.bg}
+        font_color = ${hypr.accent}
         fade_on_empty = true
         placeholder_text = <i>Password...</i>
         hide_input = false
@@ -125,9 +137,9 @@ in
     label {
         monitor =
         text = $TIME
-        color = rgb(${blue})
+        color = ${hypr.accent}
         font_size = 64
-        font_family = JetBrainsMono Nerd Font
+        font_family = ${font.mono}
         position = 0, 80
         halign = center
         valign = center

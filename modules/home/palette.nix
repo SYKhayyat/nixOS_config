@@ -1,24 +1,88 @@
 # modules/home/palette.nix
 #
-# Single source of truth for the accent colors used by the ricing modules
-# (waybar, hyprlock, niri, hyprland). These mirror the Stylix base16 scheme
-# (tokyo-night-dark) so the ricing matches the system theme:
+# The theme, derived rather than copied.
 #
-#   base00 bg | base03 gray | base05 fg | base0D blue | base0E magenta
+# ── The two sources of truth ──────────────────────────────────────────────
 #
-# Kept as literals so every module evaluates without reaching into Stylix
-# internals. To re-theme, change the scheme in modules/system/core.nix and
-# update these five values (or later wire them to config.lib.stylix.colors).
-rec {
-  bg = "#1a1b26";
-  fg = "#c0caf5";
-  blue = "#7aa2f7";
-  magenta = "#bb9af7";
-  gray = "#414868";
+# This file used to be five hex literals, with a comment that admitted exactly
+# what they were: "These mirror the Stylix base16 scheme (tokyo-night-dark) …
+# To re-theme, change the scheme in modules/system/core.nix and update these
+# five values." That is one theme with two definitions, and the second only
+# updates if you remember it exists. Change `stylix.base16Scheme` and every
+# riced surface — the bar, the lock screen, both compositors' borders — keeps
+# the old colours. Silently, because nothing connects them.
+#
+# There is one definition now: `config.lib.stylix.colors`, which stylix
+# computes from the scheme named in modules/system/core.nix.
+#
+# ── The half nobody was watching: format ──────────────────────────────────
+#
+# Copying a colour by hand is two jobs, and only the first one is obvious. The
+# same `#7aa2f7` has to be spelled three ways here — CSS for waybar, a quoted
+# CSS-ish string for niri's KDL, and hyprlang's own function syntax for
+# hyprland.conf and hyprlock.conf — and the hand-copy got the third one wrong:
+#
+#     outer_color = rgb(#7aa2f7)
+#
+# hyprlang's `rgb()` takes six *bare* hex characters. The `#` makes seven, it
+# fails the length check, and hyprlang returns "rgb() expects length of 6
+# characters (3 bytes) or 3 comma separated values". All four coloured lines in
+# hyprlock.conf were parse errors: the password field's outline, its fill, its
+# text and the clock have never been themed at all. Nobody noticed because a
+# lock screen that falls back to defaults still locks.
+#
+# So the palette hands out values that are *already in the target syntax*, and
+# no module downstream ever writes a colour or wraps one in a function again.
+# Getting the format wrong is now a thing you do once, here, in front of a
+# comment explaining the format — not a thing you do silently in a heredoc.
+{ config, lib, ... }:
 
-  # Hyprland wants 0xAARRGGBB (opaque) rather than #RRGGBB.
-  hypr = {
-    blue = "0xff7aa2f7";
-    gray = "0xff414868";
+let
+  # base16.nix exposes both `baseXX` (bare) and `withHashtag.baseXX`. Take the
+  # hashed set as the source and strip when a syntax wants it bare, so which of
+  # the two carries the `#` is not a fact this file has to be right about.
+  hashed = config.lib.stylix.colors.withHashtag;
+  bare = base: lib.removePrefix "#" hashed.${base};
+
+  # The roles anything riced in this repo actually asks for. The old file had a
+  # fifth literal, `magenta`, with zero call sites in the whole tree — the same
+  # thing the Lamdan report says about `unstable` and the `lxqt` branches: a
+  # knob nothing turns was never a requirement.
+  roles = {
+    bg = "base00"; # bar and lock-screen background
+    dim = "base03"; # inactive border, unfocused workspace
+    fg = "base05"; # foreground text
+    accent = "base0D"; # active border, focused workspace, lock field
+  };
+in
+{
+  options.shaulos.palette = lib.mkOption {
+    type = lib.types.attrs;
+    readOnly = true;
+    description = ''
+      The stylix base16 scheme, pre-rendered into the syntaxes this config's
+      riced surfaces need, plus the stylix font set.
+
+      `css`  — `#rrggbb`. CSS (waybar) and niri's KDL, which take the same form.
+      `hypr` — `rgb(rrggbb)`. hyprland.conf and hyprlock.conf. Already wrapped:
+               interpolate it bare, do not put it inside another `rgb(…)`.
+      `font` — `mono` / `sans` names and the `sizes` set, so a module writing a
+               config file that names a font does not name it a second time.
+
+      Read this; never hand-write a colour or a font name in a consuming module.
+      Both halves of that rule have been broken before, and the format half is
+      the one that broke silently.
+    '';
+  };
+
+  config.shaulos.palette = {
+    css = lib.mapAttrs (_role: base: hashed.${base}) roles;
+    hypr = lib.mapAttrs (_role: base: "rgb(${bare base})") roles;
+
+    font = {
+      mono = config.stylix.fonts.monospace.name;
+      sans = config.stylix.fonts.sansSerif.name;
+      inherit (config.stylix.fonts) sizes;
+    };
   };
 }

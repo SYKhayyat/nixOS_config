@@ -3,14 +3,21 @@
 # The Hyprland session: its config file, and nothing else. The bar, launcher,
 # notifier, wallpaper daemon, locker, terminal and file manager it spawns below
 # all come from ../wayland-common.nix, which the niri session imports too.
-{ pkgs, ... }:
+#
+# Border colours come from ../palette.nix in hyprlang's own `rgb(…)` spelling.
+# They used to be a hand-written third format, `0xAARRGGBB`, kept beside the
+# `#rrggbb` literals for the same two colours — one theme, three transcriptions,
+# and the transcription hyprlock got was a parse error. Two formats now, both
+# generated.
+{ config, pkgs, ... }:
 
 let
-  palette = import ../palette.nix;
-  inherit (palette.hypr) blue gray;
+  inherit (config.shaulos.palette) hypr;
   wallpaper = ../../../wallpaper.jpg;
 in
 {
+  imports = [ ../palette.nix ];
+
   xdg.configFile."hypr/hyprland.conf".text = ''
     # `preferred, auto` rather than the panel this laptop happens to have.
     # The niri config has always said `output ".*" { scale 1.0 }`; hardcoding
@@ -47,8 +54,8 @@ kb_options = grp:lctrl_lalt_toggle,caps:escape
         gaps_in = 4
         gaps_out = 8
         border_size = 2
-        col.active_border = ${blue}
-        col.inactive_border = ${gray}
+        col.active_border = ${hypr.accent}
+        col.inactive_border = ${hypr.dim}
         layout = master
     }
 

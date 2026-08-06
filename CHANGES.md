@@ -7,6 +7,107 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (e) — the theme had two definitions, and the copy was in the wrong syntax
+
+Lamdan finding 2.4. The report rated it `wrong-but-keep` — "a two-source-of-truth
+arrangement whose second source you touch once a year," not worth a dedicated
+pass. That was the right call on the evidence the report had. It was working from
+the *values*, and the values were correct. The bug was in the **format**.
+
+**What the file said about itself.** `modules/home/palette.nix` was five hex
+literals with a comment that named its own problem:
+
+> These mirror the Stylix base16 scheme (tokyo-night-dark) … Kept as literals so
+> every module evaluates without reaching into Stylix internals. To re-theme,
+> change the scheme in `modules/system/core.nix` and update these five values
+> (or later wire them to `config.lib.stylix.colors`).
+
+One theme, two definitions, and the second only updates if you remember it is
+there. Change `stylix.base16Scheme` and the bar, the lock screen and both
+compositors' borders keep the old colours — silently, because nothing connects
+them. That is the finding as written, and on its own it really is a once-a-year
+annoyance.
+
+**The part underneath it.** Copying a colour by hand is two jobs and only the
+first is obvious. `#7aa2f7` has to be spelled three different ways in this repo —
+CSS for waybar, a quoted string for niri's KDL, and hyprlang's function syntax
+for `hyprland.conf` and `hyprlock.conf` — and `lock.nix` was emitting
+
+```
+outer_color = rgb(#7aa2f7)
+```
+
+hyprlang's `rgb()` takes six **bare** hex characters. The `#` makes seven, it
+fails the length check, and hyprlang answers `rgb() expects length of 6
+characters (3 bytes) or 3 comma separated values`. All four coloured lines in
+`hyprlock.conf` — the password field's outline, its fill, its text, and the
+clock — were parse errors, and those four properties have been running on
+hyprlock's defaults since the day they were written.
+
+Nobody could have noticed. Until commit (c) nothing started `hypridle`, and
+wlogout's lock button named a `swaylock` this config does not install, so
+hyprlock had never been on screen. The idle chain works now, which is precisely
+why this had to be fixed now: the first thing that lock screen was ever going to
+do is show you the bug.
+
+Getting a colour into the wrong *format* is a failure a value-level review does
+not see and a `nix flake check` cannot see either — statix and deadnix read Nix,
+not the heredocs Nix writes. The only defence is not hand-writing the format.
+
+**The change.** `palette.nix` stops being a bare-`import` data file and becomes a
+home-manager module that derives everything from `config.lib.stylix.colors` and
+`config.stylix.fonts`, exposing `config.shaulos.palette`:
+
+| View | Form | Consumers |
+|---|---|---|
+| `.css` | `#rrggbb` | `waybar.nix`, `niri/default.nix` (KDL takes the same spelling) |
+| `.hypr` | `rgb(rrggbb)` — already wrapped | `hyprland/default.nix`, `lock.nix` |
+| `.font` | `mono` / `sans` names + the `sizes` set | `waybar.nix`, `lock.nix`, Plasma in `home/shaul.nix` |
+
+No consuming module writes a colour, wraps one in a function, or names a font any
+more. There are two formats now instead of three: the hand-written
+`0xAARRGGBB` variant that existed alongside the `#rrggbb` literals for the same
+two colours is gone, because hyprlang takes `rgb()` perfectly well.
+
+The palette also loses `magenta`, a fifth literal with zero call sites in the
+tree — the same thing the report says about `unstable` and the `lxqt` branches.
+
+**Fonts had the same disease.** `modules/home/foot.nix` was
+
+```nix
+font = lib.mkForce "JetBrainsMono Nerd Font:size=10";
+```
+
+Stylix's foot target writes exactly `${fonts.monospace.name}:size=${fonts.sizes.terminal}`
+along with the whole base16 colour table. So this was a hand-copy of a font
+stylix had *just derived from the scheme*, wrapped in the one operator
+guaranteed to win, carrying a size that lived nowhere near the other three font
+sizes. `foot.nix` is now one line; the size is
+`stylix.fonts.sizes.terminal = 10` in `home/shaul.nix`, beside
+`sizes.applications` and `sizes.desktop`. Same rendered value.
+
+Likewise Plasma's four hardcoded font strings in `home/shaul.nix`
+(`"Noto Sans,9,-1,5,50,0,0,0,0,0"` and friends) are now built by a `qtFont`
+helper from `config.stylix.fonts`. `stylix.targets.kde` stays off — that is a
+decision, and plasma-manager still writes the files; what changed is that it no
+longer decides *which font* independently of the thing that decides every other
+font.
+
+**Two exceptions, both said out loud in the file that makes them:** waybar's
+`font-size: 12px` (Nerd Font glyph sizing, not UI scale — `sizes.desktop` is 9)
+and Plasma's toolbar font at one point below `sizes.applications`, which is
+Plasma's own convention. Deriving those would have been a visible change nobody
+asked for; leaving them silent is how the original problem started, so they are
+annotated instead.
+
+**On the machine:** nothing to do. Every rendered value is byte-identical to what
+you had *except* the four hyprlock colours, which change from hyprlock's defaults
+to the tokyo-night blue they were always supposed to be. Lock the screen once
+(`Mod+Shift+Q` → Lock, or wait seven minutes) and you should see a blue password
+outline on a `#1a1b26` fill instead of hyprlock's stock grey. Nothing else moves.
+
+---
+
 ## 2026-08-06 (d) — the seforim library was never downloading
 
 Lamdan finding 3.4's first bullet ("three sync tools, one user, one drive"),

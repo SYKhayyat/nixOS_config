@@ -40,7 +40,7 @@ modules/
   home/                       # home-manager modules
     wayland-common.nix        # bar/launcher/notifier/lock/file-manager for any Wayland session
     lock.nix                  # hyprlock + hypridle, both compositors
-    palette.nix               # single source of truth for ricing colors
+    palette.nix               # the stylix scheme, rendered per config-file syntax
     emacs/default.nix         # packages + daemon only — the config is a flake input
     niri/  hyprland/          # just the compositor config files
     waybar.nix  yazi.nix  scripts.nix  foot.nix  p10k.nix
@@ -90,6 +90,41 @@ specialisation *merges* with the parent's rather than replacing it.
 ten (`configurationLimit`). For a guaranteed TTY on any generation, press `e` at
 the boot menu and append `systemd.unit=multi-user.target`. That is what the old
 `minimal` specialisation was for, minus a whole system closure.
+
+## Theming
+
+There is one place that decides how this machine looks: `stylix` in
+`modules/system/core.nix` — the base16 scheme, the wallpaper, the four font
+families. Everything else derives from it.
+
+```
+modules/system/core.nix          stylix.base16Scheme  +  stylix.fonts.*
+        │
+        ├── stylix's own targets ──── GTK, foot, waybar base, firefox, …
+        │
+        └── modules/home/palette.nix ── config.shaulos.palette
+                                            ├── .css   "#rrggbb"      → waybar, niri KDL
+                                            ├── .hypr  "rgb(rrggbb)"  → hyprland.conf, hyprlock.conf
+                                            └── .font  mono/sans/sizes → waybar, hyprlock, Plasma
+```
+
+**To re-theme, change `stylix.base16Scheme` and rebuild.** Nothing else needs
+touching — which was not true before: `palette.nix` used to be five hex literals
+transcribed from the scheme by hand, so a new scheme left the bar, the lock
+screen and both compositors' borders on the old colours with nothing to tell
+you.
+
+`palette.nix` hands out colours **already in the target syntax**, and consuming
+modules interpolate them bare. The copying-by-hand it replaced went wrong
+exactly there: `hyprlock.conf` was getting `rgb(#7aa2f7)`, and hyprlang's
+`rgb()` takes six *bare* hex characters, so every coloured line in it was a
+parse error.
+
+Two deliberate exceptions, both stated in the files that make them: waybar's
+`font-size: 12px` (glyph sizing, not UI scale) and Plasma's toolbar font (one
+point below `stylix.fonts.sizes.applications`, which is Plasma's own
+convention). `stylix.targets.kde` is off — Plasma's fonts are written by
+plasma-manager, but they are *built* from `stylix.fonts` rather than restated.
 
 ## Everyday commands
 
