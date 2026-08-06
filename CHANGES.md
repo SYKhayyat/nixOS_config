@@ -7,6 +7,52 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (i) — `spotlight` cached a fact the compositor was holding
+
+Lamdan 3.4, fifth bullet: *"`spotlight` keeps toggle state in
+`/tmp/spotlight-state`. If the toggle ever desyncs from reality it stays
+desynced until reboot."*
+
+It is worse than "if". The file was written on the way in and removed on the way
+out, and the branch that removes it is the branch the stale file sends you away
+from — so a desync is not a state the script can leave. Unfloat the window with
+any other key, or close it while spotlighted, and every subsequent press does
+the wrong half of the toggle until `/tmp` is wiped.
+
+Both compositors have always been able to answer the question. niri's IPC
+`Window` struct carries `is_floating`; Hyprland's `activewindow -j` carries
+`floating`. The state file was a cache of a value one query away, with no
+invalidation — which is the same finding as the five hex literals in
+`palette.nix` and the hand-copied Qt theme in `core.nix`, in a shell script
+instead of a Nix file.
+
+```sh
+floating=$(niri msg --json windows |
+  jq -r 'map(select(.is_focused))[0].is_floating | tostring')
+```
+
+`tostring` rather than jq's `//` default operator, which treats `false` as
+absent and would have reported every tiled window as unknown — the kind of
+detail that turns a correct rewrite into a differently-wrong one.
+
+**waybar got the same treatment, and this is the part that would have been easy
+to miss.** `pkill -SIGUSR1 waybar` is a *toggle*. Reading the window truthfully
+and then hitting the bar blind does not fix the bug, it splits it: the two
+halves drift apart instead of one file drifting from both. The bar is stopped
+and started now, because "is waybar running" is a question `pgrep` can answer
+and "is waybar hidden" is not. It costs a couple of hundred milliseconds of bar
+on the way out, which the old code already paid on any press where waybar had
+died.
+
+Also new: pressing it on an empty workspace says so instead of dispatching
+`togglefloating` at nothing.
+
+**On the machine:** press `Super+Alt+S` (spotlight) twice — window in, window out,
+bar out, bar in. Then float the window by hand, press it once, and confirm it
+*tiles* rather than floating harder. That second test is the whole finding.
+
+---
+
 ## 2026-08-06 (h) — the look had six definitions, and the one that derives it was switched off
 
 The README has said this for a while:

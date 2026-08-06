@@ -38,39 +38,80 @@ let
     exit 1
   '';
 
+  # Whether this window is spotlighted is a fact about the window, and both
+  # compositors have always been able to state it: niri's IPC `Window` carries
+  # `is_floating`, Hyprland's `activewindow -j` carries `floating`.
+  #
+  # This used to keep the answer in `/tmp/spotlight-state` — touch a file going
+  # in, remove it coming out, believe the file (Lamdan 3.4). Nothing kept the
+  # file and the window in agreement. Unfloat the window with any other key, or
+  # close it while spotlighted, and the file is a lie; and because the only
+  # thing that ever removed it was the branch the lie sent you away from, it
+  # stayed a lie until a reboot wiped /tmp. A cache of a value one query away,
+  # with no invalidation — the same shape as the palette literals and the
+  # hand-copied Qt theme, one directory over.
+  #
+  # waybar gets the same treatment for the same reason. `pkill -SIGUSR1 waybar`
+  # is a *toggle*: it assumes it knows whether the bar is up, which is the bug
+  # again at one remove — read the window truthfully, hit the bar blind, and the
+  # two halves drift apart instead of the file drifting from both. Stopping and
+  # starting it costs a couple of hundred milliseconds of bar and answers to
+  # `pgrep`, which is a question with an answer.
   spotlight = pkgs.writeShellScriptBin "spotlight" ''
     ${compositorDetect}
-    STATE_FILE="/tmp/spotlight-state"
 
-    if [ "$COMPOSITOR" = "niri" ]; then
-      if [ ! -f "$STATE_FILE" ]; then
+    hide_bar() { pkill -x waybar; true; }
+    show_bar() {
+      pgrep -x waybar > /dev/null && return 0
+      waybar > /dev/null 2>&1 &
+    }
+
+    # "true" / "false" / anything else, and anything else means "no window to
+    # ask about" — an empty workspace, or a compositor that did not answer.
+    # `tostring` rather than jq's `//`, which treats `false` as absent and would
+    # report every tiled window as unknown.
+    case "$COMPOSITOR" in
+      niri)
+        floating=$(niri msg --json windows |
+          ${pkgs.jq}/bin/jq -r 'map(select(.is_focused))[0].is_floating | tostring')
+        ;;
+      hyprland)
+        floating=$(hyprctl activewindow -j |
+          ${pkgs.jq}/bin/jq -r '.floating | tostring')
+        ;;
+      *)
+        ${unsupported}
+        ;;
+    esac
+
+    case "$floating" in
+      false)
+        if [ "$COMPOSITOR" = "niri" ]; then
           niri msg action toggle-window-floating
           niri msg action center-column
           niri msg action set-column-width "90%"
-          pgrep -x waybar && pkill -SIGUSR1 waybar
-          touch "$STATE_FILE"
-      else
-          niri msg action toggle-window-floating
-          niri msg action set-column-width "50%"
-          pgrep -x waybar || waybar &
-          pkill -SIGUSR1 waybar
-          rm "$STATE_FILE"
-      fi
-    elif [ "$COMPOSITOR" = "hyprland" ]; then
-      if [ ! -f "$STATE_FILE" ]; then
+        else
           hyprctl dispatch togglefloating
           hyprctl dispatch centerwindow
           hyprctl dispatch resizeactive exact 90% 90%
-          pkill -SIGUSR1 waybar
-          touch "$STATE_FILE"
-      else
+        fi
+        hide_bar
+        ;;
+      true)
+        if [ "$COMPOSITOR" = "niri" ]; then
+          niri msg action toggle-window-floating
+          niri msg action set-column-width "50%"
+        else
           hyprctl dispatch togglefloating
-          pkill -SIGUSR1 waybar
-          rm "$STATE_FILE"
-      fi
-    else
-      ${unsupported}
-    fi
+        fi
+        show_bar
+        ;;
+      *)
+        ${pkgs.libnotify}/bin/notify-send \
+          "spotlight" "no focused window to spotlight"
+        exit 1
+        ;;
+    esac
   '';
 
   teleport = pkgs.writeShellScriptBin "teleport" ''
