@@ -1,0 +1,171 @@
+name: check
+
+# The job this repo did not have.
+#
+# `emacs-config` grew a CI job because 1,569 of its lines stopped loading and
+# nothing said a word for weeks — the Lamdan report's conclusion about that was
+# "this is not carelessness, this is a missing CI job." The lesson got applied
+# to exactly half the problem. The elisp got a gate. The half that actually
+# boots this laptop did not, and it is the half that has been authored on a
+# Windows box with no Nix on it, nine entries running.
+#
+# What that costs, in this tree, today: `flake.nix` declares six inputs and
+# `flake.lock` pins four. `sops-nix` and `emacs-config` were added and never
+# locked, so the repo AS COMMITTED does not evaluate — not "builds something
+# slightly different", does not evaluate. CHANGES.md knows: step 1 of its
+# checklist is `nix flake lock`. But a checklist is a thing you remember, and
+# the entire argument of the Lamdan report is that the check you have to
+# remember is the check that breaks quietly.
+#
+# Four gates, cheapest first, each one strictly stronger than the last:
+#
+#   lock    ~1m   the lock pins every input. Everything else `needs:` it, so an
+#                 incomplete lock is ONE red job and three skipped ones instead
+#                 of four identical failures with the cause buried in each.
+#   lint    ~2m   statix + deadnix — the checks that were already in the flake
+#                 and had nothing running them.
+#   eval    ~5m   the module system evaluates. This is the gate that catches
+#                 what this repo has actually shipped: `awww` for `swww`,
+#                 `gtk.gtk4.theme = null`, `kb_options` where KDL wants
+#                 `options`. Every one an evaluation error, none of them needing
+#                 a single byte downloaded to find.
+#   build   ~40m  the closure builds, and then tools/check-closure.sh asks it
+#                 whether it is the machine the README describes.
+#
+# And one property that comes free and is worth naming, because it is finding
+# 1.1's other half: CI checks out from git. Six `.org` modules were once
+# untracked, invisible on the machine that already had them and simply gone on
+# a fresh install. An untracked .nix file here cannot make a build pass — the
+# runner has never seen it.
+#
+# NOT here, on purpose: `nix fmt --check`. Nothing this config has suffered was
+# a formatting problem, and a gate that goes red for cosmetics is a gate people
+# learn to scroll past. `just fmt` stays a thing you run.
+#
+# `install-nix-action` is pinned to the same version emacs-config uses, so the
+# two repos move together. Note that CI runs upstream Nix while the machine runs
+# Lix (`nix.package` in modules/system/core.nix); flake semantics are the same
+# and this has never been the difference between green and red, but it is the
+# gap to look at first if CI and the box ever disagree.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A second push supersedes the first. The build job is 40 minutes and there is
+# no reason to spend them proving something about a commit you have replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lock:
+    name: the lock pins every input
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # `--no-update-lock-file` is the whole check. Without it nix resolves a
+      # missing input, writes the entry and carries on — which is exactly how a
+      # flake with two unlocked inputs sat in this repo looking fine. With it,
+      # an input that the lock does not pin is an error.
+      #
+      # It is on every nix invocation in every job below for the same reason: a
+      # job that silently re-locks is a job whose green says nothing about the
+      # thing you are actually going to build.
+      - name: flake.lock accounts for every input
+        run: nix flake metadata --no-update-lock-file
+
+  lint:
+    name: statix + deadnix
+    needs: lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: nix build .#checks.statix .#checks.deadnix
+        run: |
+          nix build --no-link --print-build-logs --no-update-lock-file \
+            .#checks.x86_64-linux.statix \
+            .#checks.x86_64-linux.deadnix
+
+  eval:
+    name: the system evaluates
+    needs: lock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Forcing the toplevel's drvPath forces the entire module system: every
+      # option's type, every `pkgs.<name>` lookup, every home-manager module,
+      # both compositors, plasma-manager and the specialisation. It downloads
+      # nixpkgs and the inputs and builds nothing.
+      - name: nixosConfigurations.desktop evaluates
+        run: |
+          nix eval --raw --no-update-lock-file \
+            .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
+          echo
+
+      # The one specialisation, by name, at eval time. `attrNames` deliberately
+      # does not reach inside the submodule — the closure test below is what
+      # proves it builds; this is here so that deleting `study` by accident is
+      # a red job in five minutes rather than a surprise at the boot menu.
+      - name: the specialisations are the ones we think
+        run: |
+          got=$(nix eval --json --no-update-lock-file \
+            .#nixosConfigurations.desktop.config.specialisation \
+            --apply builtins.attrNames)
+          echo "specialisations: $got"
+          test "$got" = '["study"]' || {
+            echo "FAIL: expected exactly [\"study\"] — see README, 'The one specialisation'"
+            exit 1
+          }
+
+  build:
+    name: the closure builds
+    needs: lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      # A GitHub runner has ~25 GB free on /. A closure with Plasma 6, three
+      # sessions, texlive, an Emacs package set and the creative suite does not
+      # fit in it. These four paths are preinstalled toolchains this repo has no
+      # use for and they are worth ~25 GB between them. If it ever stops being
+      # enough, the next move is bind-mounting /nix onto /mnt, which is the
+      # runner's ephemeral disk and has ~70 GB.
+      - name: make room for the store
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
+          df -h /
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # checks.toplevel is `nixosConfigurations.desktop.config.system.build.
+      # toplevel` — named once, in flake.nix, so `nix flake check` and this job
+      # cannot come to mean different things.
+      - name: nix build .#checks.toplevel
+        run: |
+          nix build --print-build-logs --no-update-lock-file \
+            .#checks.x86_64-linux.toplevel
+
+      - name: what the closure claims about itself
+        run: bash tools/check-closure.sh ./result

@@ -5,6 +5,11 @@ made Emacs reproducible, and added laptop hardware + a real study airgap.
 It was authored off-machine, so **nothing here has been `nixos-rebuild`-tested** —
 work through the checklist below on the NixOS box.
 
+As of entry (o) that sentence has a machine standing behind half of it: CI now
+evaluates the module system, builds the closure and interrogates the result on
+every push. What it still cannot tell you is whether the system *switches*. The
+checklist stays.
+
 ## Status of `lamdan/shaulos-config-2026-08-06.md`
 
 **Closed**, as of entry (m). Every row of the ranked table and every bullet of
@@ -23,6 +28,7 @@ work through the checklist below on the NixOS box.
 | 2.4 | `palette.nix` duplicates the scheme | (e) — rated `wrong-but-keep`; done anyway, because the second copy was in the wrong *format* and four hyprlock lines had never parsed |
 | 3.4 | five smalls | (d), (f), (g), (h), (i), (j) |
 | — | *"laptop or desktop?"* | (l) — laptop |
+| — | *"that's not carelessness; that's a missing CI job"* (1.1) | (o) — the sentence was about the elisp, the diagnosis was about the repo. `emacs-config` got a CI job out of it and this half got none |
 
 **Still open, and both are yours rather than the config's:**
 
@@ -31,6 +37,157 @@ work through the checklist below on the NixOS box.
   is the first file that has to stop being a singleton, and it says so at the top.
 - Secure boot (lanzaboote) and the `nix-ld`/`steam-run.args.multiPkgs` hack, both
   flagged under *Deliberately NOT changed* below. Neither is a Lamdan finding.
+
+---
+
+## 2026-08-06 (o) — nothing had ever built this repo
+
+The Lamdan report's biggest finding ended on a diagnosis rather than a defect:
+*"That's not carelessness; that's a missing CI job."* It was written about the
+elisp — `tools/verify.sh` byte-compiled every module, was wired to nothing that
+runs, and 1,569 lines of the seforim system stopped loading for weeks with no
+build going red anywhere. Entry (a) fixed the modules and entry (b) moved the
+config to `emacs-config`, **where it got the CI job**.
+
+The diagnosis was about the repo. The fix went to half of it.
+
+### The bill was already in the tree
+
+`flake.nix` declares six inputs. `flake.lock` pins four. `sops-nix` and
+`emacs-config` were added in entries (b) and (c) and never locked, so **the
+repo as committed does not evaluate** — not "builds something slightly stale",
+does not evaluate.
+
+This is written down. Step 1 of the checklist below is `nix flake lock`, in bold,
+with *"nothing will evaluate until this runs"* next to it. And that is exactly
+the shape the report kept naming: a check you have to remember is a check that
+breaks quietly. Fourteen entries were authored on a Windows box with no Nix on
+it, against a flake that did not evaluate, and the only thing standing between
+that and a bad afternoon was a line in a markdown file.
+
+### Four gates
+
+`.github/workflows/check.yml`, cheapest first, each strictly stronger than the
+last, every one of them a command you can also run by hand:
+
+| Gate | ~ | What it proves | By hand |
+|---|---|---|---|
+| `lock` | 1m | the lock accounts for every input | `nix flake metadata --no-update-lock-file` |
+| `lint` | 2m | statix and deadnix are clean | `just check` |
+| `eval` | 5m | the module system evaluates; `study` is the only specialisation | `just eval` |
+| `build` | 40m | the closure builds, and is the machine README.md describes | `just closure` |
+
+`eval` is the one that earns its runtime. Forcing the toplevel's `drvPath` walks
+the entire module system — every option type, every `pkgs.<name>`, both
+compositors, plasma-manager, home-manager, the specialisation — and builds
+nothing. Every build-blocking bug this repo has actually shipped is in that net:
+`awww` for `swww`, `gtk.gtk4.theme = null`, `kb_options` where niri's KDL wants
+`options`. Three eval errors, none of which needed a byte downloaded to find,
+all three of which reached the machine.
+
+`lint`, `eval` and `build` all `needs: lock`. An unlocked input is then **one**
+red job and three skipped ones, rather than four identical failures with the
+cause buried in each — and 40 minutes of runner time not spent proving something
+about a flake that cannot resolve.
+
+### `--no-update-lock-file`, on every invocation
+
+That flag is the `lock` gate, and it is on every nix command in every job and on
+every `justfile` recipe that touches the flake — including `switch`, `test` and
+`build`, which reach it through the same forwarding `emacs-dev` already used for
+`--override-input`. One rule, and it fits in a sentence:
+
+> Nothing changes `flake.lock` except `just lock`.
+
+Without the flag, nix resolves an input the lock does not pin, writes the entry
+and carries on — which is precisely how a six-input flake with a four-input lock
+sat here looking fine, and why the consequence is not merely a misleading green:
+`just switch` would have put the machine on a system built from inputs nobody
+had committed, silently. `just lock` prints the diff.
+
+That does mean a `just switch` can now fail on a lock error where it used to
+proceed. That is the trade, taken deliberately, and the error names the fix.
+
+### `tools/check-closure.sh` — the gate that reads the artifact
+
+`build` does not stop at "it built". It reads the result and asks whether the
+README is true of it:
+
+- **no browser is a system package, in either closure.** That is the rule
+  `base-tools.nix` states, and it is the exact route `firefox` and `lynx` took
+  into the airgap: a NixOS-level `programs.firefox.enable = true`, inherited by
+  a specialisation that cannot subtract it.
+- **`study` has no browser and no downloader in the home profile at all** —
+  `lynx`, `qutebrowser`, `tor-browser` (both spellings nixpkgs has used),
+  `firefox`, `aria2`, `yt-dlp`, `ytfzf`, `rclone`, `persepolis`.
+- **`study` still has what it is supposed to keep** — one binary per clause of
+  the README sentence: `rg`, `fd`, `nnn`, `pandoc`, `gcc`, `mpv`, and `emacs`.
+  The airgap is only worth booting if it loses the things it exists to lose.
+
+The presence tests are not padding, and this is the part worth arguing. An "is X
+absent" test passes trivially when you are looking in the wrong directory, and a
+check that cannot distinguish *absent* from *I could not find the profile* goes
+green forever and reports nothing — which is the failure mode this whole entry
+exists to kill, reproduced inside the tool built to kill it. So every absence
+test is paired with a presence test in the same directory, and a missing
+directory exits `2` as a hard failure rather than passing.
+
+One property comes free and is worth naming, because it is finding 1.1's other
+half: **CI checks out from git.** Six `.org` modules were once untracked —
+invisible on the machine that already had them, simply gone on a fresh install.
+An untracked `.nix` file cannot make a run pass here. The runner has never seen
+it.
+
+### Not a gate, on purpose
+
+`nix fmt --check` is absent and stays absent. Nothing this config has suffered
+was a formatting problem; the register of defect in this repo is *a claim that
+is false*, not *a bracket in the wrong column*. A check that goes red for
+cosmetics is a check people learn to scroll past, and the ones above are worth
+more than that. `just fmt` stays a thing you run.
+
+Also absent: a scheduled `nix flake update` PR bot. Bumping inputs is a decision
+with a rollback attached, `just update` and `just update-emacs` are two words,
+and a robot opening pull requests against a personal laptop config is ceremony.
+
+### Rider — `nix develop` had been lying
+
+README.md has claimed the dev shell carries `sops` and `age` for as long as
+there has been a README, and `secrets/README.md`'s entire walkthrough is written
+in terms of `sops` and `ssh-to-age`. None of the three were in `devShells`. Same
+defect as a documented airgap with a browser in it, one order of magnitude down,
+and found while writing the CI section that describes the shell. They are in it
+now.
+
+### Expect the first run to be red
+
+`lock` will fail, and three jobs will skip. That is not the workflow being
+broken; that is the workflow doing the only thing it was built to do, against a
+tree that has been in this state since entry (b). On the machine:
+
+```sh
+just lock          # writes the sops-nix and emacs-config entries
+just eval          # ~5 min, no build — the fast confirmation
+git add flake.lock && git commit -m 'lock sops-nix and emacs-config' && git push
+```
+
+Then the four gates go green or they tell you something true. Either is progress
+on fourteen entries of "authored off-machine, untested."
+
+### Rider — `.gitattributes` pinned `*.sh` and not `*.yml`
+
+That file exists because a CRLF shebang inside a Nix build costs you an hour and
+reads like a nix bug. A workflow's `run:` block is a bash script with no shebang
+to go wrong, so the CR lands *inside* the commands instead — `fi<CR>`, or a
+trailing `\<CR>` that eats the next line — which reads like a nix bug for
+exactly the same reason and takes exactly as long. This repo is edited from
+Windows. `*.yml` and `*.yaml` are pinned to LF now.
+
+**Cost.** One workflow file, one shell script, one new `checks` attribute
+(`toplevel`), four new `justfile` recipes plus one flag on three existing ones,
+three packages in the dev shell, two lines of `.gitattributes`, and about 40
+minutes of GitHub Actions per push — cancelled automatically when you push
+again. Nothing about the running system changes.
 
 ---
 
@@ -1242,18 +1399,28 @@ The byte-compile check is new and has never run. If it fails on a module that
 
 1. **Lock the new inputs** (adds sops-nix and emacs-config). `flake.lock` was
    authored off-machine and has no entry for either — **nothing will evaluate
-   until this runs**:
+   until this runs**, and as of entry (o) nothing will quietly paper over it
+   either: every other recipe passes `--no-update-lock-file`.
    ```sh
-   nix flake lock
+   just lock                  # nix flake lock, then the diff
    ```
-2. **Format + lint** to catch anything I couldn't:
+   Commit and push `flake.lock` — CI's `lock` gate is red until you do, and the
+   other three gates skip.
+2. **Evaluate, then lint.** `just eval` is the fast one: it forces the whole
+   module system and builds nothing, so it finds a bad option or a typo'd
+   package in minutes.
    ```sh
-   just fmt && just check     # nix fmt ; nix flake check (statix + deadnix)
+   just eval
+   just fmt && just check     # nix fmt ; then statix, deadnix, Emacs, the closure
    ```
-   First `just check` may list pre-existing statix/deadnix findings — fix or ignore.
-3. **Dry build** before switching:
+   First `just check` may list pre-existing statix/deadnix findings — fix or
+   ignore. Note that it now also **builds the system closure**, so the first run
+   is long and every one after it is cached.
+3. **Dry build** before switching, and ask the result whether it is what the
+   README says:
    ```sh
    just build
+   just closure               # build + tools/check-closure.sh
    ```
 4. **Switch**: `just switch`. Then reboot and test each specialisation from the
    systemd-boot menu (niri, hyprland, study, minimal).

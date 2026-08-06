@@ -9,3 +9,9 @@
 *.el    text eol=lf
 *.org   text eol=lf
 justfile text eol=lf
+
+# Same hazard, second file. A GitHub workflow's `run:` block is a bash script
+# with no shebang to go wrong — the CR ends up *inside* the commands instead,
+# where `nix build \<CR>` and `fi<CR>` fail in ways that read like nix bugs.
+*.yml   text eol=lf
+*.yaml  text eol=lf

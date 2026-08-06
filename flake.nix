@@ -164,7 +164,18 @@
       # `nix fmt` — format every .nix file with the RFC-style formatter.
       formatter.${system} = pkgs.nixfmt-rfc-style;
 
-      # `nix flake check` — lint the .nix files.
+      # `nix flake check` — everything that can be verified without a machine
+      # to switch, and every one of these is now run by .github/workflows/
+      # check.yml on every push.
+      #
+      # That last clause is the point. These checks existed before CI did and
+      # nothing ran them, which is the same shape as the finding that caused the
+      # Emacs split: `tools/verify.sh` byte-compiled every module and was wired
+      # to nothing, so 1,569 lines stopped loading and no build went red. The
+      # Emacs half got its CI job. This half did not, and it is the half that
+      # has been authored on a Windows box with no Nix on it — including a
+      # flake.lock that pinned four of the six inputs, so the repo as committed
+      # did not evaluate and nothing anywhere said so.
       #
       # The Emacs checks that briefly lived here (module consistency, tangle +
       # byte-compile) moved with the config into the emacs-config repo, where
@@ -189,6 +200,26 @@
         # of the emacs-config input does not tangle — rather than discovering
         # it halfway through a switch.
         emacs-config = inputs.emacs-config.packages.${system}.default;
+
+        # The whole machine, built.
+        #
+        # `nix flake check` already *evaluates* every nixosConfiguration, and
+        # evaluation is the gate that catches most of what this repo has
+        # actually shipped — `awww` where `swww` was meant, `gtk.gtk4.theme =
+        # null`, `kb_options` where niri's KDL wants `options`. All three are
+        # eval errors and none of them needed a byte downloaded to find.
+        #
+        # Evaluating is not building, though, and the difference is every
+        # derivation that fails while running rather than while being described.
+        # Naming the toplevel here is what turns `nix flake check` from "this
+        # config parses" into "this config is a system", and it is the attribute
+        # the `build` job in .github/workflows/check.yml builds — one spelling,
+        # so a green check and a green CI cannot come to mean different things.
+        #
+        # Building it also builds the `study` specialisation: the toplevel
+        # derivation links its children into $out/specialisation/<name>, which
+        # is exactly what tools/check-closure.sh then reads.
+        toplevel = self.nixosConfigurations.desktop.config.system.build.toplevel;
       };
 
       # `nix develop` — tools for hacking on this flake.
@@ -200,6 +231,15 @@
           nil
           just
           nh
+
+          # README.md has claimed these three were in here for as long as there
+          # has been a README, and secrets/README.md's walkthrough is written in
+          # terms of them. They were never listed. A documented command that
+          # `command not found`s is the same defect as a documented airgap with
+          # a browser in it, one order of magnitude down.
+          sops
+          age
+          ssh-to-age
         ];
       };
     };

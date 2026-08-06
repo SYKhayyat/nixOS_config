@@ -1,5 +1,7 @@
 # ShaulOS — NixOS configuration
 
+[![check](https://github.com/SYKhayyat/nixOS_config/actions/workflows/check.yml/badge.svg)](https://github.com/SYKhayyat/nixOS_config/actions/workflows/check.yml)
+
 A single-host NixOS flake for the machine `desktop` (`nixosConfigurations.desktop`,
 `x86_64-linux`). One system closure offers three graphical sessions — **KDE
 Plasma**, **Niri** and **Hyprland** — which you pick at the SDDM greeter, plus a
@@ -26,6 +28,8 @@ and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
 
 ```
 flake.nix                     # inputs, myConfig, outputs (host + fmt/check/devShell)
+.github/workflows/check.yml   # the four gates — see "Continuous integration"
+tools/check-closure.sh        # asks the BUILT system whether the docs are true
 hosts/desktop/                # host entrypoint + hardware-configuration.nix
 home/
   common.nix                  # shell (zsh), git, aliases, session scripts
@@ -285,13 +289,17 @@ or `just --list` to see them all):
 just switch          # sudo nixos-rebuild switch --flake .#desktop
 just test            # sudo nixos-rebuild test  --flake .#desktop  (no boot entry)
 just build           # nixos-rebuild build --flake .#desktop  (build only, no activation)
+                     #   all three pass --no-update-lock-file; see below
 just specialisations # list specialisations available for next boot (just `study`)
 just update          # nix flake update
 just update-emacs    # bump the emacs-config input only
+just lock            # lock a newly added input, and nothing else
 just emacs-dev PATH  # rebuild against a local emacs-config checkout
 just bootstrap-data  # fetch ~/Documents from Google Drive + GitHub (idempotent)
 just fmt             # nix fmt (nixfmt-rfc-style)
-just check           # nix flake check (statix + deadnix; builds the Emacs config)
+just eval            # force the whole module system, build nothing (the fast gate)
+just check           # everything CI checks: statix, deadnix, Emacs, the closure
+just closure         # build the closure and assert what it claims about itself
 just gc              # nix-collect-garbage --delete-older-than 14d
 just bundle          # dump all *.nix into combined.txt (e.g. to paste)
 ```
@@ -301,7 +309,69 @@ Shell aliases (from `home/common.nix`): `nrs` (switch), `nrt` (test),
 the current directory.
 
 `nix develop` provides a dev shell with `nixfmt-rfc-style`, `statix`, `deadnix`,
-`nil`, `just`, `nh`, plus `sops`/`age` for secrets.
+`nil`, `just`, `nh`, plus `sops`/`age`/`ssh-to-age` for the secrets walkthrough
+below.
+
+## Continuous integration
+
+`.github/workflows/check.yml` runs four gates on every push, cheapest first.
+Each one is strictly stronger than the last, and all four run the same
+commands you can run by hand:
+
+| Gate | ~ | What it proves | By hand |
+|---|---|---|---|
+| `lock` | 1m | `flake.lock` accounts for every input in `flake.nix` | `nix flake metadata --no-update-lock-file` |
+| `lint` | 2m | statix and deadnix are clean | `just check` |
+| `eval` | 5m | the whole module system evaluates, and `study` is the only specialisation | `just eval` |
+| `build` | 40m | the closure builds, and is the machine this README describes | `just closure` |
+
+`lint`, `eval` and `build` all `needs: lock`, so an unlocked input is **one**
+red job and three skipped ones rather than four identical failures with the
+cause buried in each.
+
+**Why this exists.** These checks — most of them — were already in `flake.nix`,
+and nothing ran them. That is the same shape as the finding that split the Emacs
+config out of this repo: `tools/verify.sh` byte-compiled every module and was
+wired to nothing, so 1,569 lines silently stopped loading and no build ever went
+red. The Emacs half got a CI job out of that. This half did not, and it is the
+half authored on a Windows box with no Nix on it. The bill was sitting in the
+tree: `flake.nix` declared six inputs, `flake.lock` pinned four, and the repo as
+committed did not evaluate at all.
+
+**`--no-update-lock-file` is on every invocation, in CI and in the `justfile`.**
+One rule: *nothing changes `flake.lock` except `just lock`.* Without the flag,
+nix resolves an unpinned input, writes the entry and carries on — so a green run
+says nothing about the inputs you are going to build, and `just switch` puts you
+on a system that is not the one you committed. With it, an input the lock does
+not pin is an error, in CI and on the machine alike.
+
+**What CI cannot tell you** is whether the system *switches*. It builds the
+closure; activation, the greeter, and everything that only happens on real
+hardware are still yours. `just switch` is still a thing you do with a boot menu
+in reach.
+
+**Deliberately not a gate: formatting.** Nothing this config has ever suffered
+was a formatting problem, and a check that goes red for cosmetics is a check
+people learn to scroll past. `just fmt` stays a thing you run.
+
+### `tools/check-closure.sh`
+
+The `build` gate does not stop at "it built". It reads the result and asks
+whether the claims in this README are true of it:
+
+- no browser is in `environment.systemPackages`, in **either** closure — the
+  rule `base-tools.nix` states, and the exact way `firefox` and `lynx` got into
+  the airgap the first time;
+- `study` has no browser and no downloader in the home profile at all;
+- `study` still has the search tools, the file managers, the editors, the
+  document toolchain, the compilers and a local media player — one binary per
+  clause of the sentence three sections up.
+
+Every "is X absent" test is paired with an "is Y present" test in the same
+directory, and a missing directory is a hard failure rather than a pass. An
+absence test that cannot tell *absent* from *I was looking in the wrong place*
+goes green forever and tells you nothing, which is the failure mode this entire
+pass exists to kill.
 
 ## Secrets (sops-nix)
 
