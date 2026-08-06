@@ -31,10 +31,6 @@ let
     exit 1
   '';
 
-  powerSearch = pkgs.writeShellScriptBin "power-search" ''
-    exec ${pkgs.fsearch}/bin/fsearch
-  '';
-  
   spotlight = pkgs.writeShellScriptBin "spotlight" ''
     ${compositorDetect}
     STATE_FILE="/tmp/spotlight-state"
@@ -158,8 +154,12 @@ let
   '';
 
 in {
+  # `power-search` used to live here: writeShellScriptBin "power-search"
+  # "exec fsearch", a script whose entire body renamed a binary. That is only
+  # worth doing if the thing invoking it cannot name the real program, and the
+  # only caller was a keybinding. modules/home/keys.nix names fsearch.
   home.packages = [
-    powerSearch spotlight teleport swallow
+    spotlight teleport swallow
     volctl screenshot toggleTerm toggleEmacs
   ];
 }

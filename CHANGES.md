@@ -7,6 +7,127 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (f) — the keymap had five definitions, and four of them were wrong
+
+Lamdan finding 2.2, finished. The report's verdict there was about the two
+*system* compositor modules, and commit (c) factored those into
+`modules/system/wayland.nix`. But the argument it made was general, and it named
+the reason the repo kept producing this shape:
+
+> This isn't "abstract on the third," it's "you already abstracted this exact
+> thing, in this exact repo, and stopped halfway."
+
+It stopped halfway again. The keymap is the largest instance of the pattern in
+the tree, and it had **five hand-written transcriptions**: `niri/config.kdl`,
+`hypr/hyprland.conf`, and a `guide.org` cheat-sheet sitting beside each of them.
+
+**Why it got worse rather than better.** Commit (c) is what exposed this.
+`modules/system/wayland.nix` explains the mechanism: duplication between two
+mutually exclusive boot closures is invisible, "you could never see them side by
+side." Now there is one closure and you pick the session at the greeter — so the
+drift stopped being a fact about two files and became a fact about your hands.
+
+**The drift, in full.**
+
+| | niri | Hyprland |
+|---|---|---|
+| File search | `Mod+Space` | `Mod+P` |
+| File manager | *nothing* | `Mod+E` → dolphin |
+| Emacs frame | *nothing* | `Mod+Shift+E` |
+| Workspaces 1–5 | *nothing* | `Mod+1..5` |
+| Quit compositor | `Mod+Shift+Alt+Q` | *nothing* |
+| Move to workspace | follows you | followed you to 1–3, silent for 4–5 |
+| swww start | `sleep 1` and hope | waits for the daemon |
+| nm-applet | no tray flag | `--indicator` |
+
+None of that was a decision. `Mod+Space` versus `Mod+P` is one script — the same
+`power-search` — on two different keys, and the Hyprland cheat-sheet had a row
+whose entire content was the drift: `Super+Space | (unbound – power-search is
+Super+P)`.
+
+**The cheat-sheets were worse than stale.** They were a fourth and fifth copy of
+the config, written by hand, and essentially every factual row had rotted:
+
+- `hyprland/guide.org` documented resize on `Super+Ctrl+H/L/K/J`. It has always
+  been `Super+Alt`. `Super+Ctrl` has exactly one binding, and the guide never
+  mentioned it.
+- It documented a three-bind *"Dwindle Layout (Emacs-style splitting)"* section —
+  `Super+V`, `Super+Shift+V`, `Super+Shift+H` — none of which have ever existed
+  in `hyprland.conf`. It then listed `Super+V` as the clipboard 34 lines later,
+  contradicting itself on the same page.
+- It claimed `Super+Shift+1…5` moves a window to workspaces 1–5, and separately
+  that `Super+Shift+4…5` moves it silently. Both rows described the same two keys.
+- `niri/guide.org` had **three** concatenated `#+TITLE` lines from three drafts.
+  It told you to switch sessions by rebuilding a specialisation — untrue since
+  (c). It said Caps Lock toggles Hebrew; Caps Lock is Escape and the toggle is
+  Ctrl+Alt. It pointed at `~/nixos-config` for the source. It hardcoded `#7aa2f7`
+  and `#414868` — the exact literals commit (e) removed from `palette.nix`.
+
+A wrong bind in a config file is a key that does nothing. A wrong bind in the
+cheat-sheet is a key you believe in.
+
+**The fix, same shape as `palette.nix`.** `modules/home/keys.nix` is one
+definition that hands out values already in the target syntax. A bind is data —
+`{ mods, key, desc, group }` plus one action:
+
+- `spawn = [ argv ]` — a program the session provides. Rendered into niri's
+  `spawn "a" "b";` (KDL strings are JSON-escaped) and Hyprland's
+  `exec, <shell-quoted>` from one argv list. This is the shared layer: every
+  target comes from `wayland-common.nix`, `scripts.nix` or `lock.nix`, modules
+  both compositors import, so the key must not depend on which is running.
+- `cmd = "…"` — a compositor verb, already in that compositor's dialect, declared
+  only inside that compositor's own module. niri scrolls columns and Hyprland
+  tiles; those genuinely differ and nothing pretends otherwise.
+
+That split is the one `wayland-common.nix` already draws. 19 shared binds, 38
+niri verbs, 35 Hyprland verbs, zero duplicate chords in either session.
+
+The autostart list and the xkb settings went the same way — one list each,
+rendered to `spawn-at-startup` and `exec-once`.
+
+**The guide is now output, not documentation.** `~/.config/shaulos/keys.org` is
+generated from the same lists that write the configs, plus the colours from
+`palette.nix`. Both `guide.org` files are deleted. Open it with `Super+Shift+/`
+in either session — one document covering both, which is a thing you could not
+have had while they were separate closures.
+
+It documents only what it *derives*. Gaps, opacity, animation curves and window
+rules are still literals inside each compositor's config text, so the guide says
+nothing about them. Restating an underived fact is how the last cheat-sheet
+started.
+
+**Also gone:** `power-search`, which was
+`writeShellScriptBin "power-search" "exec fsearch"` — a script whose entire body
+renamed a binary (Lamdan 3.4's fourth bullet). That is only worth doing if the
+caller cannot name the real program, and the only caller was a keybinding. The
+keymap names `fsearch`.
+
+**On the machine — keys that moved.** This is the one change here you will feel:
+
+| Key | Before | Now |
+|---|---|---|
+| `Super+Space` | search (niri only) | search, both sessions |
+| `Super+P` | search (Hyprland only) | **unbound** |
+| `Super+E` / `Super+Shift+E` | Hyprland only | both |
+| `Super+1..5`, `Super+Shift+1..5` | Hyprland only | both |
+| `Super+Shift+Alt+Q` | niri only | both |
+| `Super+Shift+/` | — | opens the generated guide |
+| `Super+Shift+Return`, `Super+Ctrl+Return` | Hyprland scratchpad aliases | **unbound** — `Super+` ` is the pair both sessions always had |
+
+If you want the Return aliases back they are two entries in the `session` list in
+`keys.nix`; they were dropped because they existed in one session out of two and
+duplicated keys that existed in both.
+
+Hyprland's waybar and nm-applet now start two seconds late, which is the niri
+side's spelling — a tray icon that starts before the tray exists does not appear,
+and waybar is the tray. Cosmetic either way; unified rather than left to differ.
+
+**Verify after switching:** `Super+Shift+/` should open the guide in Emacs; every
+row in it should be a key that works. `Super+Space` should open FSearch in *both*
+tiling sessions, and `Super+P` should do nothing.
+
+---
+
 ## 2026-08-06 (e) — the theme had two definitions, and the copy was in the wrong syntax
 
 Lamdan finding 2.4. The report rated it `wrong-but-keep` — "a two-source-of-truth

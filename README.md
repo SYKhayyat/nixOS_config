@@ -41,6 +41,7 @@ modules/
     wayland-common.nix        # bar/launcher/notifier/lock/file-manager for any Wayland session
     lock.nix                  # hyprlock + hypridle, both compositors
     palette.nix               # the stylix scheme, rendered per config-file syntax
+    keys.nix                  # the shared keymap + autostart, rendered per compositor
     emacs/default.nix         # packages + daemon only — the config is a flake input
     niri/  hyprland/          # just the compositor config files
     waybar.nix  yazi.nix  scripts.nix  foot.nix  p10k.nix
@@ -125,6 +126,45 @@ Two deliberate exceptions, both stated in the files that make them: waybar's
 point below `stylix.fonts.sizes.applications`, which is Plasma's own
 convention). `stylix.targets.kde` is off — Plasma's fonts are written by
 plasma-manager, but they are *built* from `stylix.fonts` rather than restated.
+
+## Keys
+
+Same mechanism as theming, one layer up. There is one place that decides what a
+key does, and every file that needs it is generated from there:
+
+```
+modules/home/keys.nix        config.shaulos.keys
+        │
+        ├── .session ── the shared binds: terminal, launcher, file manager,
+        │               Emacs, the scripts from scripts.nix, the volume keys
+        ├── .startup ── the shared autostart list
+        ├── .keyboard ─ xkb layout, options, repeat
+        │
+        ├── .niri.binds  / .niri.startup  → niri/config.kdl
+        ├── .hypr.binds  / .hypr.startup  → hypr/hyprland.conf
+        └── the guide                     → ~/.config/shaulos/keys.org
+```
+
+**Press `Super+Shift+/` in either session to read the generated guide.**
+
+The split is the same one `wayland-common.nix` draws. A bind that *spawns a
+program both sessions provide* is shared, because its target comes from a module
+both compositors import and the key must not depend on which one is running. A
+bind that names a *compositor verb* — `consume-window-into-column`,
+`layoutmsg, swapnext` — lives in that compositor's own module, because niri
+scrolls columns and Hyprland tiles and no abstraction should pretend otherwise.
+
+This replaced five hand-written copies of one keymap — two configs and a
+`guide.org` cheat-sheet beside each — of which four were wrong. `power-search`
+was `Super+Space` under niri and `Super+P` under Hyprland; `Super+E`,
+`Super+Shift+E` and `Super+1..5` existed only under Hyprland; the Hyprland
+cheat-sheet documented resize on `Super+Ctrl` (it is `Super+Alt`) and listed a
+three-bind dwindle section the config has never had. The niri one still told you
+to rebuild a specialisation to switch sessions.
+
+The guide is not documentation *about* the config, it is *output of* it. Editing
+`~/.config/shaulos/keys.org` accomplishes nothing — the next `just switch`
+overwrites it, which is the only reason it can be trusted.
 
 ## Everyday commands
 

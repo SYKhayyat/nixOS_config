@@ -1,33 +1,284 @@
 # modules/home/niri/default.nix
 #
 # The niri session: its KDL config and the one package only niri needs.
+#
 # The bar, launcher, notifier, wallpaper daemon, locker, terminal and file
-# manager it spawns below all come from ../wayland-common.nix, which the
-# Hyprland session imports too — that is the whole point of the module.
+# manager it spawns all come from ../wayland-common.nix, which the Hyprland
+# session imports too — that is the whole point of the module.
+#
+# The keys and the autostart list come from ../keys.nix for exactly the same
+# reason. Everything below is either a niri verb — scrolling columns, consuming
+# into a column, expelling out of one — or a niri-shaped fact. Nothing here
+# names a program that both sessions provide, because those keys must not
+# depend on which compositor is running, and while they were written out twice
+# they did not stay the same: `power-search` was Mod+Space here and Mod+P under
+# Hyprland, and Mod+E, Mod+Shift+E and Mod+1..5 existed only there.
 #
 # Border colours come from ../palette.nix, which derives them from the stylix
 # scheme. niri's KDL takes the same `#rrggbb` spelling CSS does, which is why
 # this file and waybar.nix read the same `css` view.
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 let
   inherit (config.shaulos.palette) css;
+  inherit (config.shaulos.keys) keyboard session startup;
+  render = config.shaulos.keys.niri;
+
+  ws = lib.concatMap (n: [
+    {
+      mods = [ "Mod" ];
+      key = toString n;
+      cmd = "focus-workspace ${toString n}";
+      desc = "Focus workspace ${toString n}";
+      group = "Workspaces";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = toString n;
+      cmd = "move-window-to-workspace ${toString n}";
+      desc = "Move window to workspace ${toString n}";
+      group = "Workspaces";
+    }
+  ]) (lib.range 1 5);
+
+  # niri's own verbs. Anything that spawns a program belongs in ../keys.nix.
+  binds = [
+    {
+      mods = [ "Mod" ];
+      key = "Slash";
+      cmd = "show-hotkey-overlay";
+      desc = "niri's built-in key overlay";
+      group = "Session";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "C";
+      cmd = "close-window";
+      desc = "Close the focused window";
+      group = "Session";
+    }
+    {
+      mods = [ "Mod" "Shift" "Alt" ];
+      key = "Q";
+      cmd = "quit";
+      desc = "Quit niri immediately (emergency)";
+      group = "Session";
+    }
+
+    {
+      mods = [ "Mod" ];
+      key = "H";
+      cmd = "focus-column-left";
+      desc = "Focus the column to the left";
+      group = "Focus";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "L";
+      cmd = "focus-column-right";
+      desc = "Focus the column to the right";
+      group = "Focus";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "B";
+      cmd = "focus-floating";
+      desc = "Focus the floating windows";
+      group = "Focus";
+    }
+    {
+      mods = [ "Mod" "Ctrl" ];
+      key = "K";
+      cmd = "focus-window-top";
+      desc = "Focus the top window in the column";
+      group = "Focus";
+    }
+    {
+      mods = [ "Mod" "Ctrl" ];
+      key = "J";
+      cmd = "focus-window-bottom";
+      desc = "Focus the bottom window in the column";
+      group = "Focus";
+    }
+    {
+      mods = [ "Mod" "Ctrl" ];
+      key = "H";
+      cmd = "focus-monitor-left";
+      desc = "Focus the monitor to the left";
+      group = "Focus";
+    }
+    {
+      mods = [ "Mod" "Ctrl" ];
+      key = "L";
+      cmd = "focus-monitor-right";
+      desc = "Focus the monitor to the right";
+      group = "Focus";
+    }
+
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "H";
+      cmd = "move-column-left";
+      desc = "Move the column left";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "L";
+      cmd = "move-column-right";
+      desc = "Move the column right";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "Comma";
+      cmd = "consume-window-into-column";
+      desc = "Pull the next window into this column";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "Period";
+      cmd = "expel-window-from-column";
+      desc = "Push this window out into its own column";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "U";
+      cmd = "consume-or-expel-window-left";
+      desc = "Consume or expel leftwards";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "Y";
+      cmd = "consume-or-expel-window-right";
+      desc = "Consume or expel rightwards";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "Space";
+      cmd = "toggle-window-floating";
+      desc = "Toggle floating / tiled";
+      group = "Arrange";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "C";
+      cmd = "center-column";
+      desc = "Centre the focused column";
+      group = "Arrange";
+    }
+
+    {
+      mods = [ "Mod" ];
+      key = "R";
+      cmd = "switch-preset-column-width";
+      desc = "Cycle preset column width (33 / 50 / 66%)";
+      group = "Size";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "F";
+      cmd = "maximize-column";
+      desc = "Maximise the column to full width";
+      group = "Size";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "F";
+      cmd = "fullscreen-window";
+      desc = "Fullscreen the window";
+      group = "Size";
+    }
+    {
+      mods = [ "Mod" "Ctrl" ];
+      key = "F";
+      cmd = "expand-column-to-available-width";
+      desc = "Expand the column into the free space";
+      group = "Size";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "Equal";
+      cmd = ''set-column-width "+10%"'';
+      desc = "Widen the column by 10%";
+      group = "Size";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "Minus";
+      cmd = ''set-column-width "-10%"'';
+      desc = "Narrow the column by 10%";
+      group = "Size";
+    }
+
+    {
+      mods = [ "Mod" ];
+      key = "K";
+      cmd = "focus-workspace-up";
+      desc = "Focus the workspace above";
+      group = "Workspaces";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "J";
+      cmd = "focus-workspace-down";
+      desc = "Focus the workspace below";
+      group = "Workspaces";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "K";
+      cmd = "move-window-to-workspace-up";
+      desc = "Move the window to the workspace above";
+      group = "Workspaces";
+    }
+    {
+      mods = [ "Mod" "Shift" ];
+      key = "J";
+      cmd = "move-window-to-workspace-down";
+      desc = "Move the window to the workspace below";
+      group = "Workspaces";
+    }
+  ]
+  ++ ws;
 in
 {
-  imports = [ ../palette.nix ];
+  imports = [
+    ../palette.nix
+    ../keys.nix
+  ];
 
   home.packages = [ pkgs.xwayland-satellite ];
+
+  shaulos.compositors.niri = {
+    title = "Niri — scrollable tiling";
+    order = 1;
+    intro = [
+      "Windows live on a ribbon that scrolls sideways forever. A *column* holds"
+      "one or more windows stacked vertically; Super+, pulls the next window into"
+      "the current column and Super+. pushes one back out. Nothing ever shrinks"
+      "to fit — the ribbon just gets longer, and you scroll."
+      ""
+      "Workspaces are vertical: Super+J and Super+K move between them, and"
+      "Super+1..5 jump straight to one."
+    ];
+    inherit binds;
+  };
 
   # Master Niri KDL Configuration
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
             xkb {
-                layout "us,il"
-                options "grp:lctrl_lalt_toggle,caps:escape"
+                layout "${keyboard.layout}"
+                options "${keyboard.options}"
             }
-            repeat-delay 250
-            repeat-rate 40
+            repeat-delay ${toString keyboard.repeatDelay}
+            repeat-rate ${toString keyboard.repeatRate}
         }
         touchpad {
             tap
@@ -43,7 +294,7 @@ in
         xcursor-size 12
     }
 
-        layout {
+    layout {
         gaps 8
         center-focused-column "never"
         always-center-single-column true
@@ -90,76 +341,13 @@ in
         default-column-width { proportion 0.8; }
     }
 
-    spawn-at-startup "bash" "-c" "sleep 2 && waybar"
-    spawn-at-startup "mako"
-    // Idle -> dim -> lock -> panel off. Config in modules/home/lock.nix.
-    // Before the sessions were unified, niri had no idle daemon at all.
-    spawn-at-startup "hypridle"
-    spawn-at-startup "bash" "-c" "${pkgs.swww}/bin/swww-daemon & sleep 1 && ${pkgs.swww}/bin/swww img ${./../../../wallpaper.jpg}"
-    spawn-at-startup "bash" "-c" "sleep 2 && nm-applet"
-    spawn-at-startup "udiskie" "--tray"
-    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
-    spawn-at-startup "bash" "-c" "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist store"
+    // Autostart. One list, in ../keys.nix, shared with the Hyprland session —
+    // neither can start something the other lacks, and the swww start no longer
+    // races the daemon.
+    ${render.startup startup}
 
     binds {
-        Mod+Slash { show-hotkey-overlay; }
-        Mod+Return { spawn "foot"; }
-        Mod+D { spawn "fuzzel"; }
-        Mod+N { spawn "nm-connection-editor"; }
-        Mod+V { spawn "bash" "-c" "${pkgs.cliphist}/bin/cliphist list | ${pkgs.fuzzel}/bin/fuzzel -d | ${pkgs.cliphist}/bin/cliphist decode | ${pkgs.wl-clipboard}/bin/wl-copy"; }
-        Mod+Shift+C { close-window; }
-        Mod+Shift+Q { spawn "wlogout"; }
-        Mod+Shift+Alt+Q { quit; }
-
-        // Universal Script Binds
-        Mod+Space { spawn "power-search"; }
-        Mod+T { spawn "teleport"; }
-        Mod+Alt+S { spawn "spotlight"; }
-        Mod+grave { spawn "toggle-scratchpad-terminal"; }
-        Mod+Shift+grave { spawn "toggle-scratchpad-emacs"; }
-
-        // Navigation (HJKL)
-        Mod+H { focus-column-left; }
-        Mod+L { focus-column-right; }
-        Mod+K { focus-workspace-up; }
-        Mod+J { focus-workspace-down; }
-        Mod+Shift+H { move-column-left; }
-        Mod+Shift+L { move-column-right; }
-        Mod+Shift+K { move-window-to-workspace-up; }
-        Mod+Shift+J { move-window-to-workspace-down; }
-
-        // New binds (validated)
-        Mod+B { focus-floating; }
-        Mod+U { consume-or-expel-window-left; }
-        Mod+Y { consume-or-expel-window-right; }
-        Mod+Ctrl+K { focus-window-top; }
-        Mod+Ctrl+J { focus-window-bottom; }
-        Mod+Ctrl+H { focus-monitor-left; }
-        Mod+Ctrl+L { focus-monitor-right; }
-        Mod+Ctrl+F { expand-column-to-available-width; }
-
-        // Tiling & Floating Logic (The Hybrid)
-        Mod+Comma  { consume-window-into-column; }
-        Mod+Period { expel-window-from-column; }
-        Mod+Shift+Space { toggle-window-floating; }
-        Mod+C { center-column; }
-
-        Mod+R { switch-preset-column-width; }
-        Mod+F { maximize-column; }
-        Mod+Shift+F { fullscreen-window; }
-
-        // Hardware Controls
-        XF86AudioRaiseVolume { spawn "volctl" "up"; }
-        XF86AudioLowerVolume { spawn "volctl" "down"; }
-        XF86AudioMute { spawn "volctl" "mute"; }
-        XF86MonBrightnessUp { spawn "volctl" "br-up"; }
-        XF86MonBrightnessDown { spawn "volctl" "br-down"; }
-
-        Print { spawn "screenshot-edit"; }
-
-        // Resolution Magnifier
-        Mod+Equal { set-column-width "+10%"; }
-        Mod+Minus { set-column-width "-10%"; }
+    ${render.binds (session ++ binds)}
     }
   '';
 }
