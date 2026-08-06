@@ -49,6 +49,18 @@
   # ── Printing ─────────────────────────────────────────────────────────────
   services.printing.enable = true;
 
+  # ── KDE Connect ──────────────────────────────────────────────────────────
+  # Phone pairing. ./core.nix used to open TCP and UDP 1714 and 1764 by hand,
+  # and those are the two *endpoints* of the range KDE Connect uses — it picks
+  # freely inside 1714-1764, so pairing worked only if both ends happened to
+  # land on exactly those two. Two ports out of fifty-one, transcribed instead
+  # of derived: this repo's oldest bug, in its smallest possible form.
+  #
+  # This module contributes the whole range to `allowedTCPPortRanges` and
+  # `allowedUDPPortRanges` itself, and installs the app that Plasma's indicator
+  # talks to. No file in this repo names a KDE Connect port any more.
+  programs.kdeconnect.enable = true;
+
   # ── Flatpak ──────────────────────────────────────────────────────────────
   # For apps outside nixpkgs. Portals are configured in
   # hosts/desktop/configuration.nix. Add the remote once:

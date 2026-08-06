@@ -37,7 +37,7 @@ modules/
     base-tools.nix            # what the MACHINE installs — the repair set, and nothing else
     profile.nix               # the `shaulos.study` flag the home profile reads
     data.nix                  # the one-time ~/Documents bootstrap
-    desktop.nix               # X, SDDM, Plasma 6, audio, printing, Flatpak
+    desktop.nix               # X, SDDM, Plasma 6, audio, printing, KDE Connect, Flatpak
     wayland.nix               # everything a Wayland session needs that isn't a compositor
     niri.nix  hyprland.nix    # the compositors, four lines each
     study-offline.nix         # the one specialisation

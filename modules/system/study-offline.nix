@@ -19,11 +19,25 @@
   networking.networkmanager.enable = lib.mkForce false;
   networking.wireless.enable = lib.mkForce false;
 
-  # Deny everything at the firewall as a backstop.
+  # Deny everything at the firewall as a backstop — all four lists, not the two
+  # obvious ones.
+  #
+  # `programs.kdeconnect.enable` in ./desktop.nix contributes to
+  # `allowedTCPPortRanges` and `allowedUDPPortRanges`, which the singular
+  # `allowedTCPPorts`/`allowedUDPPorts` forces do not touch. With only those
+  # two, "the firewall denies everything" would have quietly become false and a
+  # 51-port range would have stayed open in the airgap, with nothing printed.
+  #
+  # A backstop that enumerates which *modules* to undo is not a backstop; it is
+  # a list you have to remember to extend, which is the same fault the package
+  # rule exists to kill. These forces are written in terms of the firewall's own
+  # surface instead, so a feature added later cannot punch through it.
   networking.firewall = {
     enable = lib.mkForce true;
     allowedTCPPorts = lib.mkForce [ ];
     allowedUDPPorts = lib.mkForce [ ];
+    allowedTCPPortRanges = lib.mkForce [ ];
+    allowedUDPPortRanges = lib.mkForce [ ];
   };
 
   # Kill the radios.

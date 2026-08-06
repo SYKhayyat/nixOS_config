@@ -7,6 +7,54 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (k) — two ports out of fifty-one, transcribed instead of derived
+
+Entry (h) ended with this under *Noted, not changed*, because whether you want
+phone pairing at all is a decision and a cleanup pass does not get to make it.
+You want it. So:
+
+`core.nix` opened TCP 22, 1714 and 1764, plus UDP 1714 and 1764. **1714 and 1764
+are the two endpoints of a range.** KDE Connect uses all of 1714-1764 and picks
+freely inside it, so this opened two ports out of fifty-one — pairing worked
+only if both ends happened to land on exactly those two, and when it didn't, the
+firewall looked configured for it. That is the palette-literal finding in its
+smallest possible form: a fact copied by hand out of the thing that knows it,
+and copied wrong.
+
+`programs.kdeconnect.enable = true` in `desktop.nix` states the requirement
+once — the upstream module contributes the whole range to
+`allowedTCPPortRanges`/`allowedUDPPortRanges` and installs the app Plasma's
+indicator talks to. No file in this repo names a KDE Connect port now.
+
+### And it would have opened a hole in the airgap
+
+This is the part that matters more than the ports.
+
+`study-offline.nix` forced `allowedTCPPorts` and `allowedUDPPorts` to `[ ]`. KDE
+Connect does not contribute to either of those — it contributes to the
+**Ranges** options, which those two forces do not touch. Enabling it properly
+would have left a 51-port range open in the specialisation whose stated
+guarantee is "the firewall denies everything", and nothing anywhere would have
+printed a word.
+
+The two extra forces are the fix, but the reason is the general one: a backstop
+that enumerates which *modules* to undo is not a backstop, it is a list you have
+to remember to extend — the same fault the package rule exists to kill, one
+layer over. The four forces are written in terms of the firewall's own surface,
+so the next feature that wants a port cannot punch through the airgap by using
+an option nobody thought to force.
+
+**On the machine:**
+
+```sh
+sudo iptables -S nixos-fw | grep 17          # expect a 1714:1764 range, not two ports
+# pair the phone: KDE Connect on Android, both devices on the same network
+# then reboot into `study`:
+sudo iptables -S nixos-fw | grep 17          # expect nothing
+```
+
+---
+
 ## 2026-08-06 (j) — the third sync client follows the other two
 
 Lamdan 3.4, first bullet, taken to the end. The report found three tools for one
@@ -247,7 +295,9 @@ next.
 last two are the *endpoints* of KDE Connect's 1714-1764 range, so pairing works
 only if both ends happen to pick them; `programs.kdeconnect.enable = true` opens
 the range itself. Whether you want phone pairing at all is a decision, and this
-pass does not get to make it.
+pass does not get to make it. — **decided, and done in (k)**: you want it, and
+enabling it properly turned out to also expose a hole in the `study` firewall
+that the two hand-written port lists were hiding.
 
 **⚠ Not evaluated**, like everything else here — but note that the gtk4 finding
 means the *previous* state did not evaluate either. Expect `just check` to be

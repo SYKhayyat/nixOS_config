@@ -79,24 +79,20 @@
   networking.hostName = myConfig.hostname;
   networking.networkmanager.enable = true;
 
-  # 22 is sshd, below. 1714 and 1764 are the two *endpoints* of KDE Connect's
-  # port range — it uses all of 1714-1764 and picks freely within it — so this
-  # opens two ports out of fifty-one and pairing works only if both ends happen
-  # to land on them. Left as found rather than guessed at: whether you want
-  # phone pairing at all is a decision, and a cleanup pass does not get to make
-  # it. If you do: `programs.kdeconnect.enable = true` opens the range itself
-  # and these two lines can go.
+  # 22 is sshd, below, and it is the only port this file has an opinion about.
+  #
+  # There used to be 1714 and 1764 here too, on both protocols — the two
+  # *endpoints* of the range KDE Connect uses. It picks freely inside
+  # 1714-1764, so that opened two ports out of fifty-one and pairing worked
+  # only if both ends happened to land on them. `programs.kdeconnect.enable` in
+  # ./desktop.nix contributes the whole range to `allowedTCPPortRanges` and
+  # `allowedUDPPortRanges` on its own, which is the shape you want: a feature
+  # states its own requirements, and a second file transcribing two of the
+  # fifty-one is how you get a firewall that is open and a phone that still
+  # will not pair.
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = [
-      22
-      1714
-      1764
-    ];
-    allowedUDPPorts = [
-      1714
-      1764
-    ];
+    allowedTCPPorts = [ 22 ];
   };
 
   # ── Time and language ────────────────────────────────────────────────────
