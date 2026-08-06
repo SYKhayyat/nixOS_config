@@ -7,6 +7,44 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (l) — it is a laptop
+
+The Lamdan report closed with two questions it could not answer from the repo.
+This is the first one, and the answer is now in the file rather than in a
+report.
+
+The evidence pointed both ways and the report laid it out fairly: the host is
+called `desktop`, it lives in `hosts/desktop/`, and
+`hardware-configuration.nix` shows a swap *partition* and `kvm-intel` with
+nothing battery-shaped in it — against `hardware.nix` saying "Laptop hardware",
+configuring TLP with `START/STOP_CHARGE_THRESH_BAT0`, enabling thermald and
+`powerManagement`, and Hyprland once hardcoding a 1366x768 panel. *"If it's a
+desktop, the TLP battery-threshold block is configuring hardware that doesn't
+exist."*
+
+It is a laptop — one of several, some of which live on mains. So nothing is
+deleted: the whole power stack stays, **including** the 40/80 charge
+thresholds, which are precisely the half that only earns its keep on a machine
+that spends its life plugged in. `hardware.nix` now says which of the two it
+is, why the thresholds are the right trade here, and which two numbers to change
+if that stops being true.
+
+**Not acted on, deliberately, and both are recorded in the file:**
+
+- `hosts/desktop/` and `networking.hostName = "desktop"` are now *known* to be
+  misnomers rather than merely suspicious. Renaming a live machine's hostname
+  touches ssh host keys, `known_hosts` and `myConfig.flakePath`; it is a
+  deliberate act, not tidying, and it is yours to schedule.
+- **"Several machines" is half the answer to the report's other closing
+  question.** It changes nothing today — the repo has one host and building
+  `hosts/<name>/` for a host count of one is the `lxqt`-branch mistake again —
+  but `hardware.nix` is the file that has to stop being a singleton first, and
+  it now says so at the top. Finding 1.1 was already resolved the way a second
+  machine wants it: the Emacs config is a pinned flake input, so machine number
+  two consumes it rather than forking it.
+
+---
+
 ## 2026-08-06 (k) — two ports out of fifty-one, transcribed instead of derived
 
 Entry (h) ended with this under *Noted, not changed*, because whether you want
