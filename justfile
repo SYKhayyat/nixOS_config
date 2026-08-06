@@ -29,21 +29,21 @@ update:
 fmt:
     nix fmt
 
-# Full check: statix + deadnix over the .nix, plus the Emacs module checks
+# Lint: statix (anti-patterns) + deadnix (dead code), and build the Emacs config
 check:
     nix flake check
 
-# Emacs module consistency only — no Emacs, no build, runs in about a second.
-# Catches unresolvable `require's, provide/filename drift, and .org files you
-# forgot to `git add` (which vanish from the Nix store build without a word).
-check-emacs:
-    @bash modules/home/emacs/tools/check-modules.sh
+# Pull the latest Emacs config (github:SYKhayyat/emacs-config) and show the move.
+# The config lives in its own repo; this is how its changes reach this machine.
+update-emacs:
+    nix flake update emacs-config
+    @git diff --stat flake.lock
 
-# Tangle every .org module, then byte-compile the result. Slower, and needs the
-# system Emacs — this is what catches syntax errors and missing packages.
-verify-emacs:
-    @bash modules/home/emacs/tools/tangle.sh
-    @bash modules/home/emacs/tools/verify.sh
+# Point the Emacs config at a local checkout for a fast edit loop — no commit,
+# no push, no input bump. Undo with `just update-emacs`.
+emacs-dev path="/home/shaul/emacs-config":
+    sudo nixos-rebuild switch --flake .#{{host}} \
+        --override-input emacs-config path:{{path}}
 
 # Garbage-collect generations older than 14 days
 gc:

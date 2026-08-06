@@ -35,9 +35,17 @@ modules/
   home/                       # home-manager modules
     wayland-common.nix        # shared toolkit for niri/hyprland/study
     palette.nix               # single source of truth for ricing colors
-    emacs/  niri/  hyprland/  waybar.nix  yazi.nix  ...
+    emacs/default.nix         # packages + daemon only — the config is a flake input
+    niri/  hyprland/  waybar.nix  yazi.nix  ...
 secrets/                      # sops-nix encrypted secrets (see below)
 ```
+
+The Emacs *configuration* is not in this repo. It lives at
+[SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config) and comes in
+as a pinned flake input — it is ~3× the size of this whole Nix config, runs on
+Windows and macOS as well, and has its own CI. `modules/home/emacs/default.nix`
+keeps only what this *machine* provides: the package set, `services.emacs`, and
+`recoll.conf`.
 
 ## Specialisations
 
@@ -64,10 +72,10 @@ just test            # sudo nixos-rebuild test  --flake .#desktop  (no boot entr
 just build           # nixos-rebuild build --flake .#desktop  (build only, no activation)
 just specialisations # list specialisations available for next boot
 just update          # nix flake update
+just update-emacs    # bump the emacs-config input only
+just emacs-dev PATH  # rebuild against a local emacs-config checkout
 just fmt             # nix fmt (nixfmt-rfc-style)
-just check           # nix flake check — statix + deadnix, AND the Emacs modules
-just check-emacs     # module consistency only (~1s, no Emacs needed)
-just verify-emacs    # tangle + byte-compile every module against the real packages
+just check           # nix flake check (statix + deadnix; builds the Emacs config)
 just gc              # nix-collect-garbage --delete-older-than 14d
 just bundle          # dump all *.nix into combined.txt (e.g. to paste)
 ```
@@ -109,8 +117,15 @@ Some data is provisioned outside Nix:
 
 - **rclone** (Google Drive sync) — run `rclone config`, name the remote `unified`.
   See `modules/system/file-sync.nix` for the full walkthrough.
-- **Emacs literate modules** live in `~/.config/emacs/modules/*.org` and are
-  tangled on startup. Keep them in the repo (see `modules/home/emacs/modules`) so
-  a fresh install is reproducible.
+- **Emacs** needs nothing provisioned. The configuration lives in its own repo,
+  [SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config), and
+  arrives as the `emacs-config` flake input already tangled — so
+  `~/.config/emacs/modules` is a read-only store symlink pinned in `flake.lock`,
+  not a directory that drifts. Bump it with `just update-emacs`.
+
+  > On the first switch after the split, home-manager will move your existing
+  > writable `~/.config/emacs/modules` to `modules.pre-flake-input` rather than
+  > clobber it. Diff that against the repo before deleting it — under the old
+  > scheme a hand-edit in there could silently have become your live config.
 
 See `CHANGES.md` for the last overhaul and its post-install checklist.

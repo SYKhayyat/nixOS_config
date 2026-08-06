@@ -7,7 +7,71 @@ work through the checklist below on the NixOS box.
 
 ---
 
-## 2026-08-06 — the seforim system was dead, and nothing could have told you
+## 2026-08-06 (b) — the Emacs config moved to its own repo
+
+Finding 1.1 of the Lamdan review, the other half. The config now lives at
+**[github.com/SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config)**
+and arrives here as a pinned flake input.
+
+**Why.** By line count this was never a NixOS configuration that includes
+Emacs — ~6,900 lines of Emacs config against ~2,300 of Nix. And it is
+explicitly a different product: `init.el` advertises "ONE config, everywhere"
+and carries `w32-pipe-read-delay`, `~/scoop/shims`, `C:/msys64` and a darwin
+branch; `00-core` self-installs from MELPA on a bare box; `tools/deploy.sh`
+exists to put it on a non-Nix machine and has to warn you away from the machine
+this repo is named after.
+
+**What that cost, and what's gone.** The store is read-only and the config
+tangles `.el` next to `.org` at runtime, so `default.nix` staged the modules at
+`~/.config/emacs/modules-src` and then ran an mtime-gated `cp` into a *writable*
+`~/.config/emacs/modules`. That copy was a directory Nix did not own: no
+rollback, no GC, and the sync only ever added. Edit a module in place and either
+your edit silently became the live config while the repo went stale, or it was
+clobbered with no backup — with nothing to tell you which. It also hid its own
+failures: six untracked modules never entered the store at all, invisible
+because the writable copy still had them from an earlier deploy.
+
+The new repo's flake tangles **at build time**, so what lands here is an
+immutable store symlink. The staging hop and the syncer are deleted.
+
+**Changed here**
+
+- `flake.nix`: new `emacs-config` input; `myConfig.emacsConfig` (pre-tangled
+  config) and `myConfig.emacsPackage` (Emacs + package set) threaded to the one
+  module that needs them. New `emacs-config` check so a bad input bump fails
+  `nix flake check` rather than halfway through a switch.
+- `modules/home/emacs/default.nix`: down to packages, `services.emacs`,
+  `recoll.conf`, directory scaffolding, and three `home.file` symlinks.
+- Removed: `init.el`, `early-init.el`, `modules/` (40 modules), `tools/`,
+  `emacs-package.nix`, and the four Emacs READMEs — all now in the other repo,
+  **with their history** (`git subtree split`).
+- The `emacs-modules` / `emacs-bytecompile` checks added earlier today moved to
+  the new repo, where they run in GitHub Actions on every push.
+- `justfile`: `just update-emacs` bumps the input; `just emacs-dev [PATH]`
+  rebuilds against a local checkout for a fast edit loop.
+
+**The new edit loop.** Commit in `emacs-config` → `just update-emacs` →
+`just switch`. Slower than editing in place; the trade is that the revision you
+are running is written in `flake.lock` and can be rolled back. While actively
+hacking, `just emacs-dev ~/emacs-config` skips the round trip entirely.
+
+**⚠ Migration, read before switching.** `~/.config/emacs/modules` is currently a
+real writable directory and becomes a store symlink. home-manager refuses to
+clobber a real directory, so an activation step **moves it to
+`~/.config/emacs/modules.pre-flake-input`** first. That is deliberate: under the
+old scheme a hand-edit there could silently have become your live config, so
+those files may be the only copy of something.
+
+```sh
+just update-emacs && just build      # dry build first
+just switch
+diff -ru ~/.config/emacs/modules.pre-flake-input ~/emacs-config/modules
+# nothing you care about? then: rm -rf ~/.config/emacs/modules.pre-flake-input
+```
+
+---
+
+## 2026-08-06 (a) — the seforim system was dead, and nothing could have told you
 
 Acting on finding 1.1 of `lamdan/shaulos-config-2026-08-06.md`. This is the
 root-cause fix, not the symptom fix.
@@ -92,25 +156,32 @@ mirror. What changed is that breaking the coupling is now **loud**: a renumber
 that misses a dependant fails `nix flake check` instead of silently deleting a
 subsystem. See `modules/README.md` → *Renumbering a module*.
 
-**Verify on the machine:**
+**Verify on the machine.** Entry (b) above moved these tools into the
+`emacs-config` repo, so run them there — `just check-emacs` / `just
+verify-emacs` no longer exist here:
 
 ```sh
-just check-emacs     # expect: "check-modules: 40 modules OK"
-just check           # full flake check, now including the two Emacs checks
-just switch
-# then, in Emacs:  M-x my/load-report   → "All modules loaded cleanly."
+cd ~/emacs-config                  # or wherever you clone it
+bash tools/check-modules.sh        # expect: "check-modules: 40 modules OK"
+nix flake check                    # + the real tangle & byte-compile
+
+cd ~/nixOS_config-specializations
+just update-emacs && just switch
+# then, in Emacs:  M-x my/load-report     → "All modules loaded cleanly."
 #                  M-x seforim-mefarshim  → should exist
 ```
 
-`emacs-bytecompile` is new and has never run; if it fails on a module that
-`check-emacs` passes, that is a *real* finding (a syntax error or a `require`
-of a package missing from `emacs-package.nix`), not a false positive.
+The byte-compile check is new and has never run. If it fails on a module that
+`check-modules.sh` passes, that is a *real* finding — a syntax error, or a
+`require` of a package missing from `emacs-package.nix` — not a false positive.
 
 ---
 
 ## Do this on the machine (in order)
 
-1. **Lock the new input** (adds sops-nix):
+1. **Lock the new inputs** (adds sops-nix and emacs-config). `flake.lock` was
+   authored off-machine and has no entry for either — **nothing will evaluate
+   until this runs**:
    ```sh
    nix flake lock
    ```
@@ -125,14 +196,12 @@ of a package missing from `emacs-package.nix`), not a false positive.
    ```
 4. **Switch**: `just switch`. Then reboot and test each specialisation from the
    systemd-boot menu (niri, hyprland, study, minimal).
-5. **Make Emacs reproducible** — move your literate modules into the repo once.
-   The modules are split into two groups, `essentials/` (a general Emacs config)
-   and `extras/` (Hebrew + seforim), and the structure has to be preserved:
+5. **Emacs** — nothing to copy any more. The config is the `emacs-config` flake
+   input and the modules arrive pre-tangled; see entry (b) at the top,
+   including the one-time `modules.pre-flake-input` migration.
    ```sh
-   cp -r ~/.config/emacs/modules/essentials modules/home/emacs/modules/
-   cp -r ~/.config/emacs/modules/extras     modules/home/emacs/modules/
+   just update-emacs      # lock the input
    ```
-   (see `modules/home/emacs/modules/README.md`)
 6. **Secrets (optional)** — follow `secrets/README.md` to set up sops-nix, then
    uncomment the secret blocks in `modules/system/secrets.nix`. Until then the
    secrets module is inert.

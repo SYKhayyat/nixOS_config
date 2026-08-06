@@ -38,6 +38,26 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # ── The Emacs configuration ──────────────────────────────────────────
+    # It used to live at modules/home/emacs/modules/ in this repo. By line
+    # count it was never a NixOS config that includes Emacs — it is an Emacs
+    # distribution that Nix happens to ship (~6,900 lines against ~2,300 of
+    # Nix), and it runs on Windows and macOS too, which is why its own
+    # deploy.sh has to warn you away from the machine this repo is named after.
+    #
+    # As an input rather than a subdirectory it is *pinned*: the exact revision
+    # you are running is in flake.lock, so an older lock rebuilds the exact
+    # Emacs you had. As a subdirectory it only looked pinned — the modules were
+    # mtime-copied into a writable $HOME dir that Nix could not roll back.
+    #
+    # `packages.default` is that repo with every module already tangled, so
+    # nothing is written at runtime. Bump it with:
+    #     nix flake update emacs-config
+    emacs-config = {
+      url = "github:SYKhayyat/emacs-config";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, stylix, plasma-manager, sops-nix, ... }@inputs:
@@ -65,6 +85,13 @@
         timezone = "America/New_York";
         locale = "en_US.UTF-8";
         seforimPath = "/home/shaul/Documents/seforim";
+
+        # From the emacs-config input. Threaded through `myConfig` rather than
+        # `extraSpecialArgs` on purpose: only one module needs them, and the
+        # alternative is plumbing `inputs` through mk-specialization.nix and
+        # all four specialisations to reach it.
+        emacsConfig = inputs.emacs-config.packages.${system}.default; # pre-tangled
+        emacsPackage = inputs.emacs-config.packages.${system}.emacs; # emacs + packages
       };
     in
     {
@@ -87,17 +114,13 @@
       # `nix fmt` — format every .nix file with the RFC-style formatter.
       formatter.${system} = pkgs.nixfmt-rfc-style;
 
-      # `nix flake check` — lint the Nix, and verify the elisp.
+      # `nix flake check` — lint the .nix files.
       #
-      # Until now this checked .nix files only. Nothing in this repo had ever
-      # looked at the Emacs modules, which is why the essentials/extras split
-      # could renumber every module, leave five of them requiring the old
-      # feature names, and silently stop loading 1,569 of the seforim system's
-      # 1,775 lines. The build stayed green the entire time; the only symptom
-      # was `M-x seforim-mefarshim` not existing.
-      #
-      # By line count the Emacs config is ~3x the Nix configuration. Checking
-      # only the smaller half was never defensible.
+      # The Emacs checks that briefly lived here (module consistency, tangle +
+      # byte-compile) moved with the config into the emacs-config repo, where
+      # they run in its own CI on every push. That is the right home for them:
+      # they verify the config, not the machine, and they need to run on
+      # non-Nix machines too. `nix flake check` there covers both.
       checks.${system} = {
         statix = pkgs.runCommand "statix-check" { nativeBuildInputs = [ pkgs.statix ]; } ''
           cd ${self}
@@ -111,49 +134,11 @@
           touch $out
         '';
 
-        # Static consistency over the literate module tree: every `provide`
-        # matches its filename, every local `require` resolves to a module that
-        # exists, dependencies point essentials -> extras and never back, no
-        # orphaned .el, no capability gate naming a module that isn't there.
-        #
-        # Needs no Emacs and no packages, so it is fast and cannot be flaky.
-        # This is the check that would have caught the breakage above.
-        emacs-modules =
-          pkgs.runCommand "emacs-modules-check" { nativeBuildInputs = [ pkgs.bash ]; }
-            ''
-              bash ${self}/modules/home/emacs/tools/check-modules.sh \
-                   ${self}/modules/home/emacs/modules
-              touch $out
-            '';
-
-        # The heavier half: tangle every .org and byte-compile the result
-        # against the *same* Emacs the system installs. Catches what static
-        # analysis can't — syntax errors, a `require` of a package that isn't
-        # in the package set, macros used before they're defined.
-        #
-        # Warnings are informational (`byte-compile-error-on-warn` is nil in
-        # verify.sh); only genuine compile errors fail this.
-        emacs-bytecompile =
-          let
-            emacsWithPackages = import ./modules/home/emacs/emacs-package.nix { inherit pkgs; };
-          in
-          pkgs.runCommand "emacs-bytecompile-check"
-            {
-              nativeBuildInputs = [
-                emacsWithPackages
-                pkgs.bash
-              ];
-            }
-            ''
-              # The tools write .el next to the .org, so work on a copy: the
-              # store path this check reads from is read-only.
-              cp -r ${self}/modules/home/emacs ./emacs
-              chmod -R u+w ./emacs
-              export HOME="$PWD/home" && mkdir -p "$HOME"
-              bash ./emacs/tools/tangle.sh
-              bash ./emacs/tools/verify.sh
-              touch $out
-            '';
+        # The Emacs config builds as part of the system closure, but building
+        # it here too makes `nix flake check` fail fast and loudly when a bump
+        # of the emacs-config input does not tangle — rather than discovering
+        # it halfway through a switch.
+        emacs-config = inputs.emacs-config.packages.${system}.default;
       };
 
       # `nix develop` — tools for hacking on this flake.
