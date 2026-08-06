@@ -5,6 +5,33 @@ made Emacs reproducible, and added laptop hardware + a real study airgap.
 It was authored off-machine, so **nothing here has been `nixos-rebuild`-tested** —
 work through the checklist below on the NixOS box.
 
+## Status of `lamdan/shaulos-config-2026-08-06.md`
+
+**Closed**, as of entry (m). Every row of the ranked table and every bullet of
+3.4 has been acted on or argued down in writing:
+
+| # | Verdict | Where |
+|---|---|---|
+| 1.1 | Emacs config is a separate product | (a) the `require` breakage, (b) the repo split |
+| 2.1 | compositors should be sessions | (c) |
+| 1.2 | `minimal` isn't minimal | (c) |
+| 2.2 | the two compositor modules are one file | (c) `wayland.nix`, finished in (f) |
+| 2.3 | scripts `pgrep` for a compiled-in fact | (c) — the premise changed with the closure count; the silent fall-through was the real bug and it is fixed |
+| 3.1 | second nixpkgs, zero call sites | (h) |
+| 3.2 | firefox in the "no browsers" airgap | (c) one line, then (g) at the root |
+| 3.3 | duplicate terminal toggle | `emacs-config`, 2026-08-06 |
+| 2.4 | `palette.nix` duplicates the scheme | (e) — rated `wrong-but-keep`; done anyway, because the second copy was in the wrong *format* and four hyprlock lines had never parsed |
+| 3.4 | five smalls | (d), (f), (g), (h), (i), (j) |
+| — | *"laptop or desktop?"* | (l) — laptop |
+
+**Still open, and both are yours rather than the config's:**
+
+- *"What are you building next?"* — half-answered: there are several laptops.
+  Nothing in here changes at a host count of one, but `modules/system/hardware.nix`
+  is the first file that has to stop being a singleton, and it says so at the top.
+- Secure boot (lanzaboote) and the `nix-ld`/`steam-run.args.multiPkgs` hack, both
+  flagged under *Deliberately NOT changed* below. Neither is a Lamdan finding.
+
 ---
 
 ## 2026-08-06 (m) — the Hebrew toggle was sitting on the VT switch, and the keymap had a sixth copy
