@@ -35,7 +35,7 @@
     ../../modules/system/hardware.nix
     ../../modules/system/base-tools.nix # what the MACHINE installs — see toolkit.nix
     ../../modules/system/development.nix
-    ../../modules/system/data.nix # OneDrive + the first-boot data bootstrap
+    ../../modules/system/data.nix # the first-boot data bootstrap
     ../../modules/system/services.nix
     ../../modules/system/appearance.nix # the ONE statement of how this looks
     ../../modules/system/desktop.nix # X, SDDM, Plasma 6, audio, printing

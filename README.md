@@ -36,7 +36,7 @@ modules/
     appearance.nix            # the ONE statement of how this machine looks
     base-tools.nix            # what the MACHINE installs — the repair set, and nothing else
     profile.nix               # the `shaulos.study` flag the home profile reads
-    data.nix                  # OneDrive + the one-time ~/Documents bootstrap
+    data.nix                  # the one-time ~/Documents bootstrap
     desktop.nix               # X, SDDM, Plasma 6, audio, printing, Flatpak
     wayland.nix               # everything a Wayland session needs that isn't a compositor
     niri.nix  hyprland.nix    # the compositors, four lines each
@@ -79,7 +79,7 @@ switch — log out, pick another.
 
 | Name    | What it changes                                             |
 |---------|-------------------------------------------------------------|
-| `study` | NetworkManager, wireless, Bluetooth, sshd, OneDrive and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
+| `study` | NetworkManager, wireless, Bluetooth, sshd and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
 
 Pick it in the systemd-boot menu. It is a specialisation and the sessions are
 not, and the line between them is whether the difference can coexist with the

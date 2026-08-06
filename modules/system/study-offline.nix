@@ -41,8 +41,13 @@
   # but both are named so `systemctl start` is off too.
   systemd.timers.shaulos-data-bootstrap.enable = lib.mkForce false;
   systemd.services.shaulos-data-bootstrap.enable = lib.mkForce false;
-  services.onedrive.enable = lib.mkForce false;
   services.openssh.enable = lib.mkForce false;
+  #
+  # `services.onedrive.enable = lib.mkForce false` used to sit here. The base
+  # system no longer enables it, so there is nothing to undo: it had never been
+  # authenticated on any machine, which made it a hedge that this file paid
+  # rent on. One fewer force to remember is the whole point of the section
+  # below.
 
   # ── What is NOT here any more, and why that is the fix ──────────────────
   #

@@ -7,6 +7,43 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (j) — the third sync client follows the other two
+
+Lamdan 3.4, first bullet, taken to the end. The report found three tools for one
+drive; commit (d) deleted `onedriver` and rewrote `file-sync.nix`, and kept
+`services.onedrive` with a comment saying what it actually does. This deletes
+that too, which was your call and not the config's.
+
+`enable = true` does less than it looks like: it installs abraunegg's client and
+defines a per-user unit, but the sync only runs for a user who has
+interactively authenticated (`onedrive` once, for a refresh token) and started
+their instance. **Nothing in this repo has ever done either**, on any machine,
+since the initial import.
+
+So it is finding 3.1 again — *a config knob with no call sites and no history of
+changing was never a requirement, it was a hedge* — except this hedge was
+charging rent. `study-offline.nix` carried a `lib.mkForce false` for it, so the
+airgap had to remember to switch off a daemon that has never run. That force is
+gone with it, and the file's own closing argument ("every line is a service or a
+radio") is one line truer.
+
+Re-adding it is one line, on the day you type `onedrive` and authenticate.
+
+```
+modules/system/data.nix          services.onedrive.enable deleted; the header
+                                 now argues the deletion instead of the keep
+modules/system/study-offline.nix one fewer mkForce
+modules/system/services.nix      the pointer comment updated
+hosts/desktop/configuration.nix  import comment
+README.md                        layout + the `study` table row
+```
+
+**On the machine:** nothing to do. If you had somehow authenticated it, the
+client is no longer installed — `onedrive --version` will stop resolving, and
+`~/OneDrive` is left exactly where it is, because Nix never owned it.
+
+---
+
 ## 2026-08-06 (i) — `spotlight` cached a fact the compositor was holding
 
 Lamdan 3.4, fifth bullet: *"`spotlight` keeps toggle state in
@@ -1026,7 +1063,8 @@ The byte-compile check is new and has never run. If it fails on a module that
   migrating off systemd-boot — too risky to wire blind. Do it as a focused pass.
 - ~~**Three overlapping sync tools**: `services.onedrive` + `onedriver` package +
   rclone file-sync. Pick the ones you actually use.~~ — **done 2026-08-06 (d)**:
-  one module (`modules/system/data.nix`), `onedriver` deleted.
+  one module (`modules/system/data.nix`), `onedriver` deleted; and
+  **(j)**: `services.onedrive` deleted too, so the count is one.
 - ~~**QT vs Stylix theming fight** (many `mkForce breeze`/`kde` in core + desktop):
   functional but messy; left alone to avoid regressing your Plasma look.~~ —
   **done 2026-08-06 (h)**: it was not functional-but-messy. The stylix target

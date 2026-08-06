@@ -13,8 +13,27 @@
 #   * `file-sync.nix` — 268 lines, of which ~180 were a hand-rolled shell
 #     script and 68 were a setup manual living in comments.
 #
-# `onedriver` is gone: two clients for one remote is one client. The rest is
-# below, and the interesting part is why the third one never worked.
+# All three are gone. `onedriver` went first — two clients for one remote is
+# one client — and `services.onedrive` followed, which is the part worth
+# arguing rather than just recording.
+#
+# ── Why OneDrive is not here at all ──────────────────────────────────────
+#
+# `enable = true` does less than it looks like. It installs the client and
+# defines a per-user unit, but the sync only runs for a user who has
+# interactively authenticated (`onedrive` once, for a refresh token) and
+# started their instance. Nothing in this repo has ever done either, on any
+# machine, since the initial import.
+#
+# That is the `nixpkgs-unstable` input again (Lamdan 3.1): a knob with no call
+# sites and no history of changing was never a requirement, it was a hedge.
+# Here the hedge also had a bill — `study-offline.nix` carried a `mkForce
+# false` for it, so the airgap had to remember to switch off a daemon that has
+# never once run. Re-adding it is one line, on the day you actually type
+# `onedrive` and authenticate.
+#
+# What is left is the one mechanism that has real work to do, and the
+# interesting part is why it never did it.
 #
 # ── The bug ──────────────────────────────────────────────────────────────
 #
@@ -180,17 +199,6 @@ in
   # was how a dependency of the *machine* came to look like a dependency of the
   # sync.
   #
-  # ── OneDrive ────────────────────────────────────────────────────────────
-  # The surviving client of the two. Note what `enable` does and does not do:
-  # it installs the client and defines the per-user unit, but the sync only
-  # runs for a user who has authenticated interactively (`onedrive` once, to
-  # get a refresh token) and started their instance. Nothing in this repo does
-  # either, so on a fresh machine this is a package until you set it up.
-  #
-  # It lives here rather than in services.nix because "how does my data get
-  # here" is one question and this file is where it is answered.
-  services.onedrive.enable = true;
-
   # ── First-boot provisioning ─────────────────────────────────────────────
   # NOT wanted by multi-user.target. See the header: a one-time job on the boot
   # path is a permanent tax for a job that is done. The timer below starts it

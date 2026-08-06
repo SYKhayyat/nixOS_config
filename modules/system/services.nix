@@ -10,10 +10,11 @@
     package = pkgs.ollama-cpu;
   };
 
-  # OneDrive moved to modules/system/data.nix, which owns every answer to
-  # "how does my data get onto this machine" — there used to be three of them
-  # in three files, and the `onedriver` package was a second client for the
-  # same remote.
+  # OneDrive used to be declared here. "How does my data get onto this machine"
+  # is answered once, in modules/system/data.nix — and the OneDrive half of the
+  # answer is now that it does not: three clients became one and then none, on
+  # the grounds that nothing had ever given any of them credentials. See that
+  # file's header.
 
   # ══════════════════════════════════════════════════════════════════
   # FILE INDEXING (plocate)
