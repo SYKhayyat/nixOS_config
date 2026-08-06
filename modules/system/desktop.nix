@@ -9,15 +9,25 @@
 # particular was doing real damage from in here: it disabled the target that
 # computes the Qt theme from `plasma6.enable`, four lines below the module that
 # sets `plasma6.enable`, while ./core.nix wrote the target's output out by hand.
-{ ... }:
+{ myConfig, ... }:
 
 {
   # ── Display server ───────────────────────────────────────────────────────
+  # This is the keyboard for XWayland, for SDDM, and for the handful of X-only
+  # apps — i.e. everything that is not one of the two compositor configs.
+  #
+  # The two strings used to be written out here *and* in modules/home/keys.nix,
+  # which is the file that exists because the keymap had five hand-written
+  # copies. It had a sixth, one directory over, in the other module system —
+  # and nothing would have said a word when they drifted: you would simply have
+  # had one Hebrew toggle in niri and Hyprland and a different one at the
+  # greeter, which is a bug you diagnose by logging out.
+  #
+  # A home-manager module and a NixOS module cannot read each other's config,
+  # so the shared statement lives in `myConfig` (flake.nix), which both sides
+  # already receive. Same reason `seforimPath` is there.
   services.xserver.enable = true;
-  services.xserver.xkb = {
-    layout = "us,il";
-    options = "grp:lctrl_lalt_toggle,caps:escape";
-  };
+  services.xserver.xkb = { inherit (myConfig.keyboard) layout options; };
 
   # ── Greeter ──────────────────────────────────────────────────────────────
   # Was declared here *and* in ./core.nix — both saying `enable = true`, so the

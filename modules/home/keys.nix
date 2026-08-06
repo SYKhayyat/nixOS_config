@@ -31,7 +31,7 @@
 #   * niri/guide.org had three concatenated #+TITLE lines, told you to switch
 #     sessions by rebuilding a specialisation (they have been greeter sessions
 #     since hosts/desktop/configuration.nix stopped building four closures),
-#     said Caps Lock toggles Hebrew (it is Escape; the toggle is Ctrl+Alt),
+#     said Caps Lock toggles Hebrew (it is Escape; the toggle is both Shifts),
 #     pointed at ~/nixos-config for the source, and hardcoded #7aa2f7 and
 #     #414868 — the exact literals ./palette.nix exists to abolish.
 #
@@ -68,6 +68,7 @@
   config,
   lib,
   pkgs,
+  myConfig,
   ...
 }:
 
@@ -350,11 +351,19 @@ let
 
   # ── Keyboard input, stated once ──────────────────────────────────────────
   # Both compositors set this and both cheat-sheets described it wrongly: they
-  # said Caps Lock switches to Hebrew. Caps Lock is Escape. The layout toggle
-  # is Ctrl+Alt.
-  keyboard = {
-    layout = "us,il";
-    options = "grp:lctrl_lalt_toggle,caps:escape";
+  # said Caps Lock switches to Hebrew. Caps Lock is Escape. The Hebrew toggle
+  # is both Shift keys — hold either, tap the other.
+  #
+  # `layout` and `options` come from myConfig because this module is not the
+  # only consumer: modules/system/desktop.nix hands the same two strings to
+  # `services.xserver.xkb` for XWayland, SDDM and the X-only apps, and a
+  # home-manager module and a NixOS module cannot read each other. They were
+  # written out separately in both files until the toggle moved — i.e. this
+  # file, which exists because the keymap had five hand-written copies, was
+  # quietly carrying a sixth.
+  #
+  # The repeat rates stay here: nothing outside a compositor config reads them.
+  keyboard = myConfig.keyboard // {
     repeatDelay = 250;
     repeatRate = 40;
   };
@@ -395,6 +404,26 @@ let
 
   compositors = lib.sort (a: b: a.order < b.order) (lib.attrValues config.shaulos.compositors);
 
+  # The guide's keyboard rows used to be two sentences somebody typed: "Ctrl+Alt
+  # (NOT Caps Lock, whatever the old guide said)" and "Acts as Escape". Both
+  # happened to be true, and both were exactly the thing this file exists to
+  # stop — a restatement of `keyboard.options` sitting next to it, free to rot
+  # the moment the option changes. It changed.
+  #
+  # So the rows are generated from the option string, and the only human writing
+  # left is this table of glosses. An option with no entry prints its own name
+  # rather than a neighbour's sentence: a guide that says "grp:foo_toggle" is
+  # merely unhelpful, and a guide that confidently says "Ctrl+Alt" while the
+  # config says both Shifts is the failure mode with a body count.
+  xkbOptionLabels = {
+    "grp:shifts_toggle" = "Hebrew/English - hold either Shift, tap the other";
+    "caps:escape" = "Caps Lock acts as Escape";
+  };
+  xkbRows = map (o: [
+    o
+    (xkbOptionLabels.${o} or "see xkeyboard-config(7)")
+  ]) (lib.splitString "," keyboard.options);
+
   # `intro` is a list of lines rather than a blob so the generated org indents
   # the same way every time regardless of how the caller wrote it.
   introBlock = lines: concatMapStringsSep "\n" (l: if l == "" then "" else "   ${l}") lines;
@@ -429,13 +458,20 @@ let
 
     * Keyboard
 
-    ${mkTable [ "Setting" "Value" ] [
-      [ "Layouts" "${keyboard.layout} - US English first, then Hebrew" ]
-      [ "Layout toggle" "Ctrl+Alt (NOT Caps Lock, whatever the old guide said)" ]
-      [ "Caps Lock" "Acts as Escape" ]
-      [ "Repeat delay" "${toString keyboard.repeatDelay} ms" ]
-      [ "Repeat rate" "${toString keyboard.repeatRate} per second" ]
-    ]}
+    ${mkTable [ "Setting" "Value" ] (
+      [ [ "Layouts" "${keyboard.layout} - US English first, then Hebrew" ] ]
+      ++ xkbRows
+      ++ [
+        [ "Repeat delay" "${toString keyboard.repeatDelay} ms" ]
+        [ "Repeat rate" "${toString keyboard.repeatRate} per second" ]
+      ]
+    )}
+
+      Every row above the repeat rates is generated from the xkb strings in
+      =myConfig.keyboard= (=flake.nix=), which is also what
+      =modules/system/desktop.nix= gives to the X server. The old guide said
+      Caps Lock switched to Hebrew, which had never been true in any config
+      this repo has shipped.
 
     * Colours
 

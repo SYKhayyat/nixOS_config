@@ -87,6 +87,39 @@
         locale = "en_US.UTF-8";
         seforimPath = "/home/shaul/Documents/seforim";
 
+        # The keyboard, stated once, and it has to be stated *here*.
+        #
+        # modules/home/keys.nix renders it into niri's KDL, into
+        # hyprland.conf and into the generated guide; modules/system/
+        # desktop.nix hands the same two strings to `services.xserver.xkb`,
+        # which is what XWayland, SDDM and the X-only apps read. Those are two
+        # different module systems and neither can see the other's config, so
+        # `myConfig` is the only place both of them can read from — the same
+        # reason `seforimPath` is up here rather than in the two modules that
+        # need it.
+        #
+        # It was in fact declared twice, once in each, and had already been
+        # given a sixth transcription of the keymap that keys.nix exists to
+        # abolish. Nothing would have said a word when they drifted; you would
+        # simply have had one layout toggle in the tiling sessions and a
+        # different one at the greeter.
+        #
+        # `grp:shifts_toggle` is the Hebrew/English toggle: hold either Shift,
+        # tap the other. It replaced `grp:lctrl_lalt_toggle`, which sat on the
+        # Ctrl+Alt that the VT switch (Ctrl+Alt+F1..F12) is built out of.
+        # Both Shifts is the one chord with genuinely nothing else on it, and
+        # — the part that matters — xkeyboard-config defines it as
+        # `[Shift_L, ISO_Prev_Group]` / `[Shift_R, ISO_Next_Group]`, so both
+        # keys keep working as Shift. The single-key options (`grp:rctrl_toggle`
+        # and friends) *replace* their key's symbols, which spends a modifier
+        # to save a keystroke.
+        #
+        # `caps:escape` is unrelated and long-standing: Caps Lock is Escape.
+        keyboard = {
+          layout = "us,il";
+          options = "grp:shifts_toggle,caps:escape";
+        };
+
         # From the emacs-config input. Threaded through `myConfig` rather than
         # `extraSpecialArgs` on purpose: only one module needs them, and
         # `myConfig` already reaches every home module.

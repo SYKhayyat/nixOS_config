@@ -7,6 +7,87 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (m) — the Hebrew toggle was sitting on the VT switch, and the keymap had a sixth copy
+
+Not from the Lamdan report — you asked for it — but it landed straight on top of
+the report's biggest structural finding, so it belongs here.
+
+**The ask.** The Hebrew/English toggle was `grp:lctrl_lalt_toggle`. Ctrl+Alt is
+the prefix the console VT switch is built out of (`Ctrl+Alt+F1..F12`), and
+sharing a chord with the thing that takes your session away is a poor trade for
+a key you press all day.
+
+**The answer: `grp:shifts_toggle` — hold either Shift, tap the other.** The
+reasoning, because "no conflicts" is a claim that has to be checked rather than
+asserted:
+
+- Super is `$mainMod` and carries about forty binds; Alt carries the resize
+  layer; Ctrl+Alt is the VT switch. All three are spent.
+- Caps Lock is already Escape, so `grp:caps_toggle` is spent too.
+- `Super+Space` is FSearch, so `grp:win_space_toggle` is out; `M-SPC` is
+  `just-one-space` in Emacs, so `grp:alt_space_toggle` is out.
+- Scroll Lock, Menu and Break are the genuinely-unused keys, and this is a
+  laptop — it may not have any of them.
+- **The single-key options are a trap.** xkeyboard-config's `rctrl_toggle`,
+  `lctrl_toggle` and `sclk_toggle` are written as
+  `symbols[Group1] = [ ISO_Next_Group ]`, which *replaces* the key. Take
+  `grp:rctrl_toggle` and Right Ctrl stops being a Ctrl key. That is spending a
+  modifier to save a keystroke, and on this machine — Emacs, both hands, Caps
+  already remapped — it is the wrong currency.
+- `shifts_toggle` is `key <LFSH> { [ Shift_L, ISO_Prev_Group ] }` and
+  `key <RTSH> { [ Shift_R, ISO_Next_Group ] }`. **Both keys keep their modifier
+  role.** The toggle needs both Shifts and nothing else, which no application
+  binds, and it works identically in Plasma, niri, Hyprland and at the greeter —
+  which a compositor keybinding would not.
+
+  (`grp:rctrl_rshift_toggle` is the runner-up and also keeps both roles, but it
+  eats right-hand-only `Ctrl+Shift+X` — and `Ctrl+Shift+C`/`V` is how you copy
+  out of foot.)
+
+### The part that was not in the ask
+
+`modules/home/keys.nix` is the file this repo wrote *because the keymap had five
+hand-written copies*. It had a sixth. `modules/system/desktop.nix` was carrying
+
+```nix
+  services.xserver.xkb = {
+    layout = "us,il";
+    options = "grp:lctrl_lalt_toggle,caps:escape";
+  };
+```
+
+— the same two strings, in the other module system, for XWayland, SDDM and the
+X-only apps. Changing only `keys.nix` would have given you both Shifts in niri
+and Hyprland and Ctrl+Alt at the greeter, with nothing anywhere to say so. You
+would have diagnosed it by logging out.
+
+A home-manager module and a NixOS module cannot read each other, so the shared
+statement is in **`myConfig.keyboard`** (`flake.nix`) — the same reason
+`seforimPath` is up there, and for the same reason: *"the two disagreeing
+silently is precisely the class of failure this module was built out of."* The
+repeat rates stay in `keys.nix`, because nothing outside a compositor config
+reads them.
+
+### And the guide had two typed sentences in it
+
+The generated guide's keyboard table said `Layout toggle | Ctrl+Alt (NOT Caps
+Lock, whatever the old guide said)` and `Caps Lock | Acts as Escape`. Both were
+true, and both were hand-typed restatements of `keyboard.options` sitting
+directly beside it — the one thing the guide is not allowed to contain. The rows
+are generated from the option string now, through a small table of glosses; an
+option with no gloss prints its own name rather than a neighbour's sentence. A
+guide that says `grp:foo_toggle` is unhelpful; a guide that says "Ctrl+Alt"
+while the config says both Shifts is the failure this whole mechanism exists to
+prevent.
+
+**On the machine:** `just switch`, then log out and back in — the X/SDDM half
+only takes effect on a new session. Tap Left Shift, then Right Shift, and type;
+you should get Hebrew. `Ctrl+Alt` should now do nothing except with an F-key,
+where it belongs. Then check the greeter, which is the half that used to be a
+separate statement.
+
+---
+
 ## 2026-08-06 (l) — it is a laptop
 
 The Lamdan report closed with two questions it could not answer from the repo.

@@ -210,12 +210,16 @@ Same mechanism as theming, one layer up. There is one place that decides what a
 key does, and every file that needs it is generated from there:
 
 ```
+myConfig.keyboard (flake.nix)     xkb layout + options, for BOTH module systems
+        │
+        ├── modules/system/desktop.nix → services.xserver.xkb  (XWayland, SDDM)
+        │
 modules/home/keys.nix        config.shaulos.keys
         │
         ├── .session ── the shared binds: terminal, launcher, file manager,
         │               Emacs, the scripts from scripts.nix, the volume keys
         ├── .startup ── the shared autostart list
-        ├── .keyboard ─ xkb layout, options, repeat
+        ├── .keyboard ─ myConfig.keyboard + the repeat rates
         │
         ├── .niri.binds  / .niri.startup  → niri/config.kdl
         ├── .hypr.binds  / .hypr.startup  → hypr/hyprland.conf
@@ -223,6 +227,21 @@ modules/home/keys.nix        config.shaulos.keys
 ```
 
 **Press `Super+Shift+/` in either session to read the generated guide.**
+
+**Hebrew is on both Shift keys** — hold either, tap the other
+(`grp:shifts_toggle`). It used to be `grp:lctrl_lalt_toggle`, sitting on the
+Ctrl+Alt that the VT switch is built out of. Both Shifts is the one chord with
+nothing else on it, and xkeyboard-config spells it `[Shift_L, ISO_Prev_Group]` /
+`[Shift_R, ISO_Next_Group]` — so both keys go on being Shift. The single-key
+alternatives (`grp:rctrl_toggle` and friends) *replace* their key's symbols,
+which spends a modifier to save a keystroke. Caps Lock is Escape, and has never
+been the Hebrew toggle whatever the old cheat-sheets claimed.
+
+The layout and options live in `myConfig` rather than in `keys.nix` because
+`keys.nix` is not the only consumer: `services.xserver.xkb` needs the same two
+strings and a home-manager module cannot be read from a NixOS one. They were
+written out separately in both, which made this file's own claim — one keymap,
+one statement — false by one copy.
 
 The split is the same one `wayland-common.nix` draws. A bind that *spawns a
 program both sessions provide* is shared, because its target comes from a module
