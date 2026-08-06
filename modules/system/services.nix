@@ -10,11 +10,10 @@
     package = pkgs.ollama-cpu;
   };
 
-  # ══════════════════════════════════════════════════════════════════
-  # ONEDRIVE
-  # ══════════════════════════════════════════════════════════════════
-
-  services.onedrive.enable = true;
+  # OneDrive moved to modules/system/data.nix, which owns every answer to
+  # "how does my data get onto this machine" — there used to be three of them
+  # in three files, and the `onedriver` package was a second client for the
+  # same remote.
 
   # ══════════════════════════════════════════════════════════════════
   # FILE INDEXING (plocate)

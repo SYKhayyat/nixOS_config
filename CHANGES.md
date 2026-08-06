@@ -7,6 +7,93 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (d) — the seforim library was never downloading
+
+Lamdan finding 3.4's first bullet ("three sync tools, one user, one drive"),
+taken at the root — and the root turned out to have a live bug under it.
+
+**The bug.** `file-sync.nix` decided whether to fetch anything by asking
+`[ ! -d "$dst" ]`. But `modules/home/emacs/default.nix` runs
+
+```sh
+mkdir -p "${seforimPath}/Bavli"
+```
+
+in its home-manager activation — that is, on **every `just switch`**, including
+the one that installs the machine, which happens long before this unit gets a
+boot. So the directory always existed by the time the question was asked,
+`unified:seforim` never copied, and the log said
+
+```
+[GDrive 2/2] seforim already exists, skipping.
+```
+
+for the rest of the machine's life. That is recoll's `topdirs` and the entire
+subject matter of the seforim Emacs system — the one resurrected two commits
+ago — silently absent and reported as success. Two modules in one closure, one
+of which scaffolds directories and one of which reads directories as evidence.
+
+The fix is the predicate: **ask about files, not about the directory.**
+
+```sh
+provisioned() { [ -n "$(find "$1" -type f -print -quit 2>/dev/null)" ]; }
+```
+
+Empty scaffolding no longer counts as data, and a machine that already has its
+files still skips — so this needs no stamp file and no migration.
+
+**It was never a service either.** Its own header said "no updates, no
+overwrites" — a bootstrap, not a sync. It was wired `wantedBy =
+multi-user.target` with `after = network-online.target`, and a `Type=oneshot`
+unit wanted by a target is one the target *waits for*. Every boot for the life
+of the machine therefore waited on NetworkManager-wait-online so a script could
+run three `[ -d ]` tests and exit. That is the ~90s stall `study-offline.nix`
+credited itself with fixing; it was never fixed, it was only absent from the
+airgap closure. It is now a timer at `OnBootSec = 2min`. The service keeps
+`After=network-online.target`, so the *job* still waits for the network — it
+just waits somewhere nobody is standing behind it.
+
+**And it failed on the one machine it exists for.** A missing `rclone.conf` was
+counted as an error and exited 1 with `Restart=on-failure`, so a fresh install —
+the only time the unit has work to do — retried three times over 90s and parked
+in `failed` forever. "You have not set rclone up yet" and "the transfer broke"
+no longer share an exit code. `Restart=` is gone entirely: when a bootstrap
+fails, the answer is to run it again once the reason is gone, and that is a
+command (`just bootstrap-data`), not a systemd policy.
+
+**Three tools became one place.** `file-sync.nix` → `modules/system/data.nix`,
+which now also owns `services.onedrive` (moved out of `services.nix`). The
+`onedriver` package is deleted: it is a *different project* that FUSE-mounts the
+same OneDrive account, with no service, no config, no README mention and no
+history since the initial import — two clients for one remote is one client.
+`services.onedrive` survives with a comment saying what it actually does, which
+is install the client; nothing here has ever given it credentials.
+
+Smaller things in the same pass:
+
+- `git` dropped from that module's `systemPackages` — it is already in
+  `cli-tools.nix`, and listing it here made it look like a dependency of the
+  sync rather than of the machine.
+- The seforim destination comes from `myConfig.seforimPath` instead of a second
+  hardcoded copy. `modules/home/emacs/default.nix` reads the same value; the two
+  disagreeing silently is the exact shape of the bug above.
+- `git clone` now lands in `$dst.incoming` and swaps, so a clone killed mid-
+  transfer leaves nothing the new file-based predicate would read as complete.
+  The `curl https://github.com` pre-flight is gone — a failed clone is the same
+  information one step later, without the second failure mode.
+- `SSL_CERT_FILE` set explicitly: a unit with an explicit `Environment=` is not
+  a login shell, and git needs a CA bundle.
+- The 68-line rclone setup manual that lived in `.nix` comments is now in
+  `README.md` under "First-boot setup", where someone setting up a machine
+  might actually find it.
+
+**On the machine:** nothing to do if your `~/Documents` is already populated —
+the new predicate sees the files and skips. If `~/Documents/seforim` is empty or
+only has `Bavli/`, this is the commit that finally fills it: run
+`just bootstrap-data` (after `rclone config`, if you have not).
+
+---
+
 ## 2026-08-06 (c) — four specialisations became one, and the sessions became sessions
 
 Findings 2.1 and 1.2 of the Lamdan review, taken at the root rather than patched.
@@ -372,8 +459,9 @@ The byte-compile check is new and has never run. If it fails on a module that
 
 - **Secure boot (lanzaboote)**: needs hands-on key enrollment (`sbctl`) and
   migrating off systemd-boot — too risky to wire blind. Do it as a focused pass.
-- **Three overlapping sync tools**: `services.onedrive` + `onedriver` package +
-  rclone file-sync. Pick the ones you actually use.
+- ~~**Three overlapping sync tools**: `services.onedrive` + `onedriver` package +
+  rclone file-sync. Pick the ones you actually use.~~ — **done 2026-08-06 (d)**:
+  one module (`modules/system/data.nix`), `onedriver` deleted.
 - **QT vs Stylix theming fight** (many `mkForce breeze`/`kde` in core + desktop):
   functional but messy; left alone to avoid regressing your Plasma look.
 - **`nix-ld` `steam-run.args.multiPkgs` hack**: fragile across nixpkgs bumps but

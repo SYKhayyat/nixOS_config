@@ -148,7 +148,6 @@ in
         lmms
         scribus
         persepolis
-        onedriver
         upscayl
         tor-browser
         qutebrowser

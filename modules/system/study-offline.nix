@@ -29,9 +29,18 @@
   # Kill the radios.
   hardware.bluetooth.enable = lib.mkForce false;
 
-  # Disable network-dependent services so nothing phones home — and so boot
-  # doesn't stall waiting on network-online.target (the old file-sync hang).
-  systemd.services.file-sync.enable = lib.mkForce false;
+  # Disable network-dependent services so nothing phones home.
+  #
+  # The boot stall this comment used to also claim credit for was never fixed
+  # here — it was fixed in modules/system/data.nix by taking the bootstrap off
+  # the boot path entirely. It was `wantedBy = multi-user.target` with
+  # `after = network-online.target`, so every boot of the *normal* system waited
+  # on the network for it; the airgap only ever hid that from this one closure.
+  #
+  # The timer is the part that matters now — nothing else starts the service —
+  # but both are named so `systemctl start` is off too.
+  systemd.timers.shaulos-data-bootstrap.enable = lib.mkForce false;
+  systemd.services.shaulos-data-bootstrap.enable = lib.mkForce false;
   services.onedrive.enable = lib.mkForce false;
   services.openssh.enable = lib.mkForce false;
 

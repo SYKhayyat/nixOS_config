@@ -46,6 +46,14 @@ emacs-dev path="/home/shaul/emacs-config":
     sudo nixos-rebuild switch --flake .#{{host}} \
         --override-input emacs-config path:{{path}}
 
+# Fetch ~/Documents from Google Drive + GitHub if it isn't there yet.
+# Idempotent: it checks for files, not directories, and skips what it finds.
+# A timer also runs this 2 minutes after boot — this is for when you've just
+# finished `rclone config`, or a fetch failed and you fixed the reason.
+bootstrap-data:
+    sudo systemctl start shaulos-data-bootstrap.service
+    @journalctl -u shaulos-data-bootstrap.service -n 30 --no-pager
+
 # Garbage-collect generations older than 14 days
 gc:
     sudo nix-collect-garbage --delete-older-than 14d

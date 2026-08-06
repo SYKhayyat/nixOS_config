@@ -34,7 +34,7 @@
     ../../modules/system/hardware.nix
     ../../modules/system/cli-tools.nix
     ../../modules/system/development.nix
-    ../../modules/system/file-sync.nix
+    ../../modules/system/data.nix # OneDrive + the first-boot data bootstrap
     ../../modules/system/services.nix
     ../../modules/system/desktop.nix # X, SDDM, Plasma 6, audio, printing, fonts
     ../../modules/system/niri.nix # + wayland.nix

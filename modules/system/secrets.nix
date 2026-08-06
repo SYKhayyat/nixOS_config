@@ -27,7 +27,9 @@ in
     #   group = "wheel";
     # };
     #
-    # rclone remote config for the file-sync service.
+    # rclone remote config for the data bootstrap (modules/system/data.nix).
+    # With this uncommented the bootstrap needs no interactive `rclone config`
+    # on a fresh machine — which is the whole point of it being a bootstrap.
     # secrets."rclone.conf" = {
     #   path = "${config.users.users.shaul.home}/.config/rclone/rclone.conf";
     #   owner = "shaul";

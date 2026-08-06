@@ -32,6 +32,7 @@ home/
 modules/
   system/                     # NixOS modules (core, hardware, dev, services, secrets, ...)
     profile.nix               # the `shaulos.study` flag the home profile reads
+    data.nix                  # OneDrive + the one-time ~/Documents bootstrap
     desktop.nix               # X, SDDM, Plasma 6, audio, printing, fonts
     wayland.nix               # everything a Wayland session needs that isn't a compositor
     niri.nix  hyprland.nix    # the compositors, four lines each
@@ -72,7 +73,7 @@ switch — log out, pick another.
 
 | Name    | What it changes                                             |
 |---------|-------------------------------------------------------------|
-| `study` | NetworkManager, wireless, Bluetooth, sshd, onedrive and rclone off; firewall deny-all; no browsers; the study toolchain instead of the desktop app suite |
+| `study` | NetworkManager, wireless, Bluetooth, sshd, OneDrive and the data bootstrap off; firewall deny-all; no browsers; the study toolchain instead of the desktop app suite |
 
 Pick it in the systemd-boot menu. It is a specialisation and the sessions are
 not, and the line between them is whether the difference can coexist with the
@@ -103,6 +104,7 @@ just specialisations # list specialisations available for next boot (just `study
 just update          # nix flake update
 just update-emacs    # bump the emacs-config input only
 just emacs-dev PATH  # rebuild against a local emacs-config checkout
+just bootstrap-data  # fetch ~/Documents from Google Drive + GitHub (idempotent)
 just fmt             # nix fmt (nixfmt-rfc-style)
 just check           # nix flake check (statix + deadnix; builds the Emacs config)
 just gc              # nix-collect-garbage --delete-older-than 14d
@@ -142,19 +144,60 @@ backstop — never commit a plaintext secret.
 
 ## First-boot setup
 
-Some data is provisioned outside Nix:
+### Your documents
 
-- **rclone** (Google Drive sync) — run `rclone config`, name the remote `unified`.
-  See `modules/system/file-sync.nix` for the full walkthrough.
-- **Emacs** needs nothing provisioned. The configuration lives in its own repo,
-  [SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config), and
-  arrives as the `emacs-config` flake input already tangled — so
-  `~/.config/emacs/modules` is a read-only store symlink pinned in `flake.lock`,
-  not a directory that drifts. Bump it with `just update-emacs`.
+Nix builds the system; it does not own your files. `modules/system/data.nix`
+fetches them once:
 
-  > On the first switch after the split, home-manager will move your existing
-  > writable `~/.config/emacs/modules` to `modules.pre-flake-input` rather than
-  > clobber it. Diff that against the repo before deleting it — under the old
-  > scheme a hand-edit in there could silently have become your live config.
+| Source                            | Destination                        |
+|-----------------------------------|------------------------------------|
+| Google Drive `unified:a_written`  | `~/Documents/siach_shai/a_written` |
+| Google Drive `unified:seforim`    | `~/Documents/seforim`              |
+| GitHub `SYKhayyat/typed_notes`    | `~/Documents/siach_shai/b_typed`   |
+
+A timer runs it two minutes after boot — deliberately *not* on the boot path,
+so nothing waits on the network for a job that is usually already done. It
+skips anything already present, and it decides that by looking for **files**,
+not for the directory: `modules/home/emacs/default.nix` creates
+`~/Documents/seforim/Bavli` during home-manager activation, so a directory test
+was always true and the seforim library never downloaded.
+
+Run it by hand any time with `just bootstrap-data`.
+
+**Google Drive needs rclone set up first.** Until it is, the bootstrap says so
+and skips that half — it does not fail. Either decrypt the config from sops
+(uncomment the `rclone.conf` secret in `modules/system/secrets.nix`, which is
+the reproducible route), or configure it interactively:
+
+```sh
+rclone config
+```
+
+- `n` for a new remote, named exactly **`unified`**
+- storage type **`drive`** (Google Drive)
+- leave `client_id`, `client_secret`, `root_folder_id` and
+  `service_account_file` blank
+- scope **`1`** (full access), advanced config **`n`**, auto config **`y`**
+- sign in in the browser that opens; shared drive **`n`**; confirm **`y`**, then **`q`**
+
+It writes `~/.config/rclone/rclone.conf`. Check it with `rclone lsd unified:` —
+you should see your Drive folders. Then `just bootstrap-data`.
+
+To move the remote to another machine, either re-run `rclone config` there or
+copy that one file. `.gitignore` blocks `rclone.conf`; never commit it in the
+clear.
+
+### Emacs
+
+Nothing to provision. The configuration lives in its own repo,
+[SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config), and arrives
+as the `emacs-config` flake input already tangled — so `~/.config/emacs/modules`
+is a read-only store symlink pinned in `flake.lock`, not a directory that
+drifts. Bump it with `just update-emacs`.
+
+> On the first switch after the split, home-manager will move your existing
+> writable `~/.config/emacs/modules` to `modules.pre-flake-input` rather than
+> clobber it. Diff that against the repo before deleting it — under the old
+> scheme a hand-edit in there could silently have become your live config.
 
 See `CHANGES.md` for the last overhaul and its post-install checklist.
