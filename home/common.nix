@@ -80,9 +80,14 @@ dotDir = lib.mkForce "${config.home.homeDirectory}/.config/zsh";
     l = "ls -CF";
   };
 
-  home.packages = with pkgs; [
-    pamixer brightnessctl playerctl libsecret jq fd fzf plasmaWipe
-  ];
+  # Only the script this file defines. Everything else that used to be on this
+  # line — pamixer, brightnessctl, playerctl, libsecret, jq, fd, fzf — was a
+  # tool, and tools live in modules/home/toolkit.nix now, where the `study` flag
+  # can reach them. Two of them (`fd`, `fzf`) were also already in
+  # modules/system/cli-tools.nix, and `fzf` was a third time over: `programs.fzf`
+  # below installs the package as part of configuring it, exactly as
+  # `programs.bat` and `programs.git` do.
+  home.packages = [ plasmaWipe ];
 
   programs.git = {
     enable = true;

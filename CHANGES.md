@@ -7,6 +7,123 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (g) — every package lived in the system closure, so the airgap could not remove one
+
+`study` is the only specialisation left, and the README's claim for it is
+*"offline airgap, no browsers."* It had a browser on `$PATH`.
+
+```
+modules/system/cli-tools.nix:31
+    aria2 bat navi lynx ytfzf yt-dlp mpv xapian
+                   ^^^^
+```
+
+**Why the previous fix did not fix it.** The Lamdan report's finding 3.2 caught
+`programs.firefox.enable = true` in that same file — the NixOS option, which puts
+firefox in `environment.systemPackages`, which a specialisation *inherits* — and
+fixed it with a `lib.mkForce false` in `study-offline.nix`. That worked, for
+firefox. `lynx` was two words away on line 31 and nobody wrote it a second
+`mkForce`, because the fix was aimed at the package and the fault was in the
+drawer.
+
+**The fault.** There was no rule about where a package goes, so the answer
+defaulted to `environment.systemPackages`. `cli-tools.nix` and `development.nix`
+between them installed about sixty user applications machine-wide. A
+specialisation can only ever *add* — inheriting is the mechanism — so every one
+of those sixty is unremovable, and every subtraction has to be spelled as a force
+you remembered to write.
+
+`modules/system/profile.nix` already records the home-manager half of exactly
+this lesson: `home-manager.users.<name>` is a submodule, so a second `imports`
+merges rather than replaces, which is how the old study mode ended up with the
+full desktop profile bolted underneath it. This is the same fault one layer down,
+and it survived the fix to the other one.
+
+**The bill, all of it already in the tree.**
+
+| | |
+|---|---|
+| `lynx` | a browser, on `$PATH` in the no-browsers airgap |
+| `programs.firefox.enable` | stated in two module systems, plus a third statement to cancel the first |
+| the study package branch | called itself *"a different list, not a subset"*; four of its five entries were already in `systemPackages` |
+| `ytfzf`, `yt-dlp` | YouTube clients, requested by the airgap |
+| `libreoffice-qt-fresh` | written out in **both** arms of the conditional |
+| 13 packages | declared once in a system list and once in a home list |
+| `fzf`, `bat`, `git` | listed as packages beside the `programs.*` modules that install them |
+
+A conditional in which one side is a no-op and the other is a copy is not a
+decision, it is a shape.
+
+**The rule** (stated in `modules/system/base-tools.nix` and
+`modules/home/toolkit.nix`, and in the README under *Where a package goes*):
+
+1. A package is declared in exactly **one** list.
+2. `environment.systemPackages` holds only what must work when home-manager is
+   broken, absent, or not yours — the set you repair a bad generation with, in a
+   TTY, possibly *because* the home profile is what failed. That is now ten
+   packages and one argued exception.
+3. Everything a person types goes to home-manager, in the module that owns it,
+   and everything else to `toolkit.nix` where `shaulos.study` can reach it.
+4. A program a script calls by store path needs no list entry at all.
+
+**What moved.**
+
+```
+modules/system/cli-tools.nix  →  base-tools.nix   30 packages → 10 + the spell stack
+modules/system/development.nix                    the toolchains → toolkit.nix
+modules/system/wayland.nix                        systemPackages block → deleted entirely
+modules/system/data.nix                           rclone → toolkit.nix
+home/shaul.nix                                    the if/else app suite → toolkit.nix
+home/common.nix                                   7 packages → 1 (the script it defines)
+modules/home/emacs/default.nix                    6 general tools → toolkit.nix
+NEW modules/home/toolkit.nix                      all of it, in two lists
+```
+
+**What study actually removes now**, by construction rather than by remembering:
+browsers (`lynx`, `qutebrowser`, `tor-browser`, firefox), anything whose job is
+fetching (`aria2`, `persepolis`, `ytfzf`, `yt-dlp`, `opencode`, `rclone`), and
+the creative and media suite. **Nothing else** — it keeps the search tools, the
+file managers, the editors, the document toolchain, the compilers and `mpv`. The
+airgap is two claims: the firewall means nothing gets out, and the absent
+programs mean you don't open one out of habit. Removing `ncdu` serves neither.
+
+**Deleted rather than moved**, both deliberate:
+
+- `nixpkgs-fmt` — `nix fmt` and `just fmt` run `nixfmt-rfc-style`. A second Nix
+  formatter on `$PATH` is a coin-flip about which one reformats the file you are
+  looking at.
+- `polkit_gnome` from `systemPackages` — `keys.nix` starts the agent by store
+  path, so it is in the closure regardless, and it is a libexec helper nobody
+  invokes by name.
+
+Also: `modules/home/scripts.nix` called `jq` by bare name, which worked because
+`home/common.nix` happened to install it on a line that also carried five
+duplicates. It is a store path now, like every other program those scripts call.
+`niri`, `hyprctl`, `waybar` and `pgrep` stay bare on purpose — the first three
+come from the running session and the last from the NixOS required-packages set.
+
+**Check it on the machine.**
+
+```sh
+just build                        # the merge of six package lists into one home
+                                  # profile is the only real risk here — a file
+                                  # collision between two packages that were
+                                  # previously in different profiles shows up
+                                  # as a build failure, before activation
+just switch
+command -v lynx qutebrowser firefox   # present
+
+# now reboot and pick `study` in the systemd-boot menu
+command -v lynx qutebrowser firefox   # ALL THREE SHOULD BE ABSENT
+command -v rg fd recoll nvim ncdu gcc mpv libreoffice   # all still present
+brightnessctl set 50%             # moved home; still on $PATH
+```
+
+**Still open from the Lamdan report**, untouched by this pass: finding 3.1, the
+second full `nixpkgs-unstable` evaluation with zero call sites.
+
+---
+
 ## 2026-08-06 (f) — the keymap had five definitions, and four of them were wrong
 
 Lamdan finding 2.2, finished. The report's verdict there was about the two

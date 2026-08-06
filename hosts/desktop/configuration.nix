@@ -17,7 +17,8 @@
 #     generations, any of which boots the system you had before you broke it.
 #     It also was not minimal: a specialisation inherits, so force-disabling
 #     xserver/sddm/plasma6 left pipewire, printing, flatpak, all 16 font
-#     packages and the whole of cli-tools.nix in place. If you want a guaranteed
+#     packages and the whole package drawer in place — the drawer that is now
+#     split between base-tools.nix and home's toolkit.nix. If you want a guaranteed
 #     TTY, press `e` at the boot menu and append `systemd.unit=multi-user.target`
 #     — no closure, no rebuild, and it works on every generation, not just this
 #     one.
@@ -32,7 +33,7 @@
     ../../modules/system/core.nix
     ../../modules/system/profile.nix
     ../../modules/system/hardware.nix
-    ../../modules/system/cli-tools.nix
+    ../../modules/system/base-tools.nix # what the MACHINE installs — see toolkit.nix
     ../../modules/system/development.nix
     ../../modules/system/data.nix # OneDrive + the first-boot data bootstrap
     ../../modules/system/services.nix

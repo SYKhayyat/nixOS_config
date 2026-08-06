@@ -31,22 +31,21 @@ let
   homeDir = config.home.homeDirectory;
 in
 {
+  # The test for belonging in this list: would you still want it if you
+  # uninstalled Emacs? If yes it is a tool and it lives in ../toolkit.nix.
+  # `recoll`, `plocate`, `fd`, `ripgrep`, `ripgrep-all` and `pandoc` were listed
+  # here *and* in modules/system/cli-tools.nix, and they all pass that test —
+  # so toolkit.nix owns them now, and the seforim search, Org export and the
+  # Markdown preview keep working because it installs them in every session
+  # including study. What is left is what exists only because Emacs shells out
+  # to it.
   home.packages = [
     emacs
   ]
   ++ (with pkgs; [
-    recoll
-    plocate
-    fd
-    ripgrep
-    ripgrep-all
     texlive.combined.scheme-full
     typst
     tinymist
-    # pandoc backs `ox-pandoc` (Org export) *and* the Markdown live preview in
-    # essentials/10-markdown — it is the converter that turns Markdown into the
-    # HTML that Emacs then renders with shr.
-    pandoc
     sqlite
     graphviz
     imagemagick

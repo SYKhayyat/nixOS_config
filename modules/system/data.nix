@@ -173,11 +173,13 @@ let
   '';
 in
 {
-  # rclone only. `git` is already in cli-tools.nix's systemPackages, and this
-  # module listing it again was how it looked like a dependency of the sync
-  # rather than of the machine.
-  environment.systemPackages = [ pkgs.rclone ];
-
+  # No `environment.systemPackages` here at all. The unit below names rclone and
+  # git in its own `PATH=`, so the service does not need either on the system
+  # path; and `rclone config`, the one command you type by hand, is a tool —
+  # modules/home/toolkit.nix has it. This module used to list `git` too, which
+  # was how a dependency of the *machine* came to look like a dependency of the
+  # sync.
+  #
   # ── OneDrive ────────────────────────────────────────────────────────────
   # The surviving client of the two. Note what `enable` does and does not do:
   # it installs the client and defines the per-user unit, but the sync only

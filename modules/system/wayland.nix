@@ -32,13 +32,18 @@
   security.pam.services.login.enableGnomeKeyring = true;
   security.pam.services.sddm.enableGnomeKeyring = true;
 
-  environment.systemPackages = with pkgs; [
-    wayland-utils
-    wl-clipboard
-    libsecret
-    polkit_gnome
-    networkmanagerapplet
-  ];
+  # There was an `environment.systemPackages` here and every entry in it was
+  # already accounted for somewhere else. `wl-clipboard` and
+  # `networkmanagerapplet` are in ../home/wayland-common.nix, which is where the
+  # things a session spawns belong. `libsecret` and `wayland-utils` are tools
+  # you type, so they are in ../home/toolkit.nix. And `polkit_gnome` never
+  # needed a list at all: ../home/keys.nix starts the agent by store path, so it
+  # is in the closure whether or not anything puts it on $PATH — which nothing
+  # should, because it is a libexec helper you never invoke by name.
+  #
+  # The gcr line above is the counter-example and the reason this file still
+  # exists: it puts a package on the *bus*, not on a path, and only the system
+  # can do that.
 
   fonts.fontconfig.enable = true;
 }

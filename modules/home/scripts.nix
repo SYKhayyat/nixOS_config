@@ -11,6 +11,13 @@
 # What was never right is the silent fall-through: under Plasma these scripts
 # matched no branch and exited 0 having done nothing, which is three commands on
 # $PATH that lie about having run. They say so now.
+#
+# `jq` is spelled as a store path like every other program these scripts call.
+# It was bare, which meant it worked because something else happened to install
+# it — home/common.nix did, on a line that also carried five duplicates of
+# modules/system/cli-tools.nix. `niri`, `hyprctl`, `waybar` and `pgrep` stay
+# bare deliberately: the first three come from the running session and the last
+# from the NixOS required-packages set, and none of them is ours to pin.
 { pkgs, ... }:
 
 let
@@ -69,12 +76,12 @@ let
   teleport = pkgs.writeShellScriptBin "teleport" ''
     ${compositorDetect}
     if [ "$COMPOSITOR" = "niri" ]; then
-      WINDOW=$(niri msg --json windows | jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
+      WINDOW=$(niri msg --json windows | ${pkgs.jq}/bin/jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
       [ -z "$WINDOW" ] && exit 0
       ID=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
       niri msg action focus-window --id "$ID"
     elif [ "$COMPOSITOR" = "hyprland" ]; then
-      WINDOW=$(hyprctl clients -j | jq -r '.[] | "\(.title) | \(.class) | \(.address)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
+      WINDOW=$(hyprctl clients -j | ${pkgs.jq}/bin/jq -r '.[] | "\(.title) | \(.class) | \(.address)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
       [ -z "$WINDOW" ] && exit 0
       ADDR=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
       hyprctl dispatch focuswindow "address:$ADDR"
@@ -119,13 +126,13 @@ let
     ${compositorDetect}
     ID="scratchpad"
     if [ "$COMPOSITOR" = "niri" ]; then
-      if niri msg --json windows | jq -e ".[] | select(.app_id == \"$ID\")" > /dev/null; then
+      if niri msg --json windows | ${pkgs.jq}/bin/jq -e ".[] | select(.app_id == \"$ID\")" > /dev/null; then
         niri msg action focus-window --app-id "$ID"
       else
         ${pkgs.foot}/bin/foot --app-id="$ID" &
       fi
     elif [ "$COMPOSITOR" = "hyprland" ]; then
-       if hyprctl clients -j | jq -e ".[] | select(.class == \"$ID\")" > /dev/null; then
+       if hyprctl clients -j | ${pkgs.jq}/bin/jq -e ".[] | select(.class == \"$ID\")" > /dev/null; then
          hyprctl dispatch focuswindow "class:$ID"
        else
          ${pkgs.foot}/bin/foot --app-id="$ID" &

@@ -19,20 +19,16 @@
 #
 # One closure, one profile. Every compositor's config is present; the session
 # you pick at the greeter reads its own and ignores the others. The only axis
-# left is study mode, and it is a boot-time choice because the airgap is.
+# left is study mode, and it is a boot-time choice because the airgap is — this
+# file no longer reads that flag at all: ../modules/home/toolkit.nix owns the
+# package set and is the one place the flag subtracts from.
 {
   config,
   lib,
-  pkgs,
-  myConfig,
-  osConfig,
   ...
 }:
 
 let
-  # Set by modules/system/study-offline.nix inside the `study` specialisation.
-  study = osConfig.shaulos.study;
-
   inherit (config.shaulos.palette) font;
 
   # Plasma stores a font as `family,size,-1,5,weight,italic,underline,strikeout,
@@ -48,6 +44,7 @@ in
     ../modules/home/p10k.nix # the prompt common.nix sources
     ../modules/home/foot.nix # the terminal every compositor binds
     ../modules/home/emacs
+    ../modules/home/toolkit.nix # every program you type the name of
     ../modules/home/palette.nix # the stylix scheme, per-syntax
     ../modules/home/wayland-common.nix # bar, launcher, lock, notifier, yazi
     ../modules/home/niri
@@ -60,25 +57,14 @@ in
   # for the family and size without turning the KDE target back on.
   stylix.targets.kde.enable = false;
   stylix.targets.qt.enable = false;
-  stylix.targets.firefox.profileNames = [ myConfig.username ];
   stylix.fonts.sizes.applications = 9;
   stylix.fonts.sizes.desktop = 9;
   # Was `lib.mkForce "…:size=10"` inside modules/home/foot.nix, overriding the
   # font stylix derives for its foot target. Sizes belong with the other sizes.
   stylix.fonts.sizes.terminal = 10;
 
-  # Off in study mode. The firewall is the backstop, not the feature — the
-  # feature is that the thing you open out of habit is not there.
-  programs.firefox = {
-    enable = !study;
-    configPath = lib.mkForce ".mozilla/firefox";
-    profiles.${myConfig.username} = {
-      settings = {
-        "layout.css.devPixelsPerPx" = "1.0";
-        "browser.uidensity" = 1;
-      };
-    };
-  };
+  # Firefox moved to ../modules/home/toolkit.nix, beside the other three
+  # browsers, so "no browsers" is a claim you can check by reading one list.
 
   # Plasma is in the closure in every session now, so its dotfiles are managed
   # unconditionally. In a tiling session these are files nothing reads.
@@ -124,58 +110,12 @@ in
     ];
   };
 
-  # Applications. Study mode gets a different list, not a subset — the whole
-  # point of the specialisation is what is absent. (The session toolkit —
-  # terminal, file manager, viewer, editor — comes from wayland-common.nix and
-  # is present either way.)
-  home.packages =
-    with pkgs;
-    if study then
-      [
-        ytfzf
-        yt-dlp
-        mpv
-        pandoc
-        libreoffice-qt-fresh
-      ]
-    else
-      [
-        libreoffice-qt-fresh
-        kdePackages.calligra
-        ansel
-        texmacs
-        sile
-        gimp-with-plugins
-        gimpPlugins.gmic
-        gimpPlugins.resynthesizer
-        krita
-        krita-plugin-gmic
-        inkscape-with-extensions
-        pinta
-        photoflare
-        digikam
-        rawtherapee
-        darktable
-        sly
-        rapidraw
-        graphicsmagick_q16
-        art
-        aaphoto
-        graphite
-        vlc
-        audacity
-        lmms
-        scribus
-        persepolis
-        upscayl
-        tor-browser
-        qutebrowser
-        nushell
-        # Moved out of modules/home/hyprland: they were never Hyprland-specific,
-        # and that module is imported by every session now.
-        pcmanfm-qt
-        thunar
-      ];
+  # Applications moved to ../modules/home/toolkit.nix. What was here was an
+  # `if study then [ … ] else [ … ]` describing itself as "a different list, not
+  # a subset" — and four of the five entries on the study side were already in
+  # environment.systemPackages, so that side named things it did not install and
+  # the other side omitted things it did not remove. The one package the branch
+  # actually controlled was written out in both arms.
 
   home.sessionVariables = {
     TERMINAL = "foot";

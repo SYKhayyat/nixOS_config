@@ -1,7 +1,23 @@
 # modules/system/development.nix
-# System-wide development tools: compilers, languages, nix-ld
+#
+# The parts of the development environment that only the system can provide:
+# a loader for unpatched binaries, and per-directory environments.
+#
+# The compilers and toolchains that used to be in `environment.systemPackages`
+# here are in modules/home/toolkit.nix now. They were not doing anything the
+# system had to do — nix-ld's libraries below are referenced as derivations, not
+# through $PATH, and a build never reads your profile. What putting them in the
+# system closure *did* do was make them unremovable by the `study`
+# specialisation, along with everything else that had drifted into a system
+# list. See toolkit.nix for the rule.
+#
+# Two of them were also duplicates: `nil` and `rust-analyzer` are language
+# servers and modules/home/emacs/default.nix already had them. And `nixpkgs-fmt`
+# is gone rather than moved — `nix fmt` and `just fmt` run nixfmt-rfc-style, so
+# a second Nix formatter on $PATH is a coin-flip about which one reformats the
+# file you are looking at.
 
-{ config, lib, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # ══════════════════════════════════════════════════════════════════
@@ -33,46 +49,6 @@
     libepoxy
     pango
   ]);
-
-  # ══════════════════════════════════════════════════════════════════
-  # COMPILERS AND LANGUAGES
-  # ══════════════════════════════════════════════════════════════════
-
-  environment.systemPackages = with pkgs; [
-    # C/C++
-    gcc
-    gnumake
-    cmake
-
-    # Java
-    jdk
-    maven
-    gradle
-
-    # Go
-    go
-
-    # Rust
-    rustc
-    cargo
-    rust-analyzer
-    clippy
-
-    # Python (with packages)
-    (python3.withPackages (ps: with ps; [
-      python-docx
-      textual
-      pip
-      virtualenv
-    ]))
-
-    # Nix language tools
-    nil
-    nixpkgs-fmt
-
-    # Build tools
-    pkg-config
-  ];
 
   # Accept Android SDK license
   nixpkgs.config.android_sdk.accept_license = true;

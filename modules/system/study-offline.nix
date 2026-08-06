@@ -44,11 +44,23 @@
   services.onedrive.enable = lib.mkForce false;
   services.openssh.enable = lib.mkForce false;
 
-  # `programs.firefox.enable = true` in modules/system/cli-tools.nix is the
-  # NixOS option, which puts firefox in environment.systemPackages — and this
-  # specialisation inherits it. The home-side `mkForce false` never touched it,
-  # so "offline airgap, no browsers" had a browser on $PATH. The firewall means
-  # it could not have reached anything; that is not the feature. The feature is
-  # that the thing you open out of habit is not there.
-  programs.firefox.enable = lib.mkForce false;
+  # ── What is NOT here any more, and why that is the fix ──────────────────
+  #
+  # There used to be a `programs.firefox.enable = lib.mkForce false;` on this
+  # line. It was undoing `programs.firefox.enable = true` in
+  # modules/system/cli-tools.nix, which put firefox into
+  # environment.systemPackages, which this specialisation inherits.
+  #
+  # It worked, and it was the wrong shape, and the proof is that `lynx` sat two
+  # words away on line 31 of that same file and nobody wrote a second mkForce
+  # for it. So "offline airgap, no browsers" shipped with a browser on $PATH.
+  #
+  # A specialisation can only ever *add* — inheriting is the whole mechanism —
+  # so every subtraction it wants has to be spelled as a force, and a list of
+  # forces is a list you have to remember to extend. The packages moved to
+  # modules/home/toolkit.nix instead, where the flag this file sets subtracts
+  # them by construction and browsers are one named group you can read.
+  #
+  # What is left below is the shape a specialisation is actually good at:
+  # turning off *state*. Every line is a service or a radio, not a package.
 }

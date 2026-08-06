@@ -31,6 +31,7 @@ home/
   shaul.nix                   # THE home profile — one file, every session
 modules/
   system/                     # NixOS modules (core, hardware, dev, services, secrets, ...)
+    base-tools.nix            # what the MACHINE installs — the repair set, and nothing else
     profile.nix               # the `shaulos.study` flag the home profile reads
     data.nix                  # OneDrive + the one-time ~/Documents bootstrap
     desktop.nix               # X, SDDM, Plasma 6, audio, printing, fonts
@@ -38,6 +39,7 @@ modules/
     niri.nix  hyprland.nix    # the compositors, four lines each
     study-offline.nix         # the one specialisation
   home/                       # home-manager modules
+    toolkit.nix               # what YOU install — every program you type, and what study removes
     wayland-common.nix        # bar/launcher/notifier/lock/file-manager for any Wayland session
     lock.nix                  # hyprlock + hypridle, both compositors
     palette.nix               # the stylix scheme, rendered per config-file syntax
@@ -74,7 +76,7 @@ switch — log out, pick another.
 
 | Name    | What it changes                                             |
 |---------|-------------------------------------------------------------|
-| `study` | NetworkManager, wireless, Bluetooth, sshd, OneDrive and the data bootstrap off; firewall deny-all; no browsers; the study toolchain instead of the desktop app suite |
+| `study` | NetworkManager, wireless, Bluetooth, sshd, OneDrive and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
 
 Pick it in the systemd-boot menu. It is a specialisation and the sessions are
 not, and the line between them is whether the difference can coexist with the
@@ -91,6 +93,43 @@ specialisation *merges* with the parent's rather than replacing it.
 ten (`configurationLimit`). For a guaranteed TTY on any generation, press `e` at
 the boot menu and append `systemd.unit=multi-user.target`. That is what the old
 `minimal` specialisation was for, minus a whole system closure.
+
+## Where a package goes
+
+A specialisation can only ever **add** — inheriting the parent is the whole
+mechanism. So anything in `environment.systemPackages` is present in `study` and
+there is no expression that removes it, and every subtraction `study` wants has
+to be spelled as a `lib.mkForce` you remembered to write.
+
+That is not a style point. `programs.firefox.enable = true` used to live in
+`modules/system/cli-tools.nix`, and `study-offline.nix` carried a `mkForce
+false` to undo it. `lynx` sat two words away on line 31 of the same file and got
+no such line — so *"offline airgap, no browsers"* shipped with a browser on
+`$PATH`. Fixing the package rather than the drawer leaves the drawer.
+
+So there is a rule now, and the two files that state it are
+`modules/system/base-tools.nix` and `modules/home/toolkit.nix`:
+
+| Where | What belongs there |
+|---|---|
+| `environment.systemPackages` (`base-tools.nix`) | Only what must work when home-manager is **broken, absent, or not yours**: `git`, `vim`, `curl`, `wget`, `htop`, `tree`, `unzip`/`zip`, plus `nh` and `home-manager` — the tools you repair a bad generation with, in a TTY, possibly *because* the home profile is what failed. Plus the spell-check stack, which is argued in the file: `DICPATH` has to be PAM-set to reach GUI apps. |
+| `home.packages` (`toolkit.nix`) | Everything a person types. This is where `study` can reach it. |
+| `home.packages` (the owning module) | A package that exists because one module needs it: the session stack in `wayland-common.nix`, Emacs's shell-outs in `emacs/default.nix`, the shell in `home/common.nix`. The test is *"would you still want it if you uninstalled Emacs?"* — if yes, it is a tool and it belongs in `toolkit.nix`. |
+| nowhere | A program a script calls by store path (`${pkgs.grim}/bin/grim`) is in the closure already. List it only if you also want to type its name. `polkit_gnome` is the clean case: `keys.nix` starts the agent by path, and nobody ever runs it by name. |
+
+**And a package is declared exactly once.** Thirteen were not — `fd`, `ripgrep`,
+`ripgrep-all`, `plocate`, `recoll`, `pandoc`, `fzf`, `jq`, `libsecret`,
+`wl-clipboard`, `networkmanagerapplet`, `nil`, `rust-analyzer` — each in one
+system list and one home list. `fzf`, `bat` and `git` were listed as packages
+*beside* the `programs.*` modules that install them.
+
+`toolkit.nix` splits into two lists and the second one is what `study` removes:
+browsers, anything whose job is fetching over the network, and the creative and
+media suite. **Nothing else** — study keeps the search tools, the file managers,
+the editors, the document toolchain, the compilers and a local media player. The
+airgap is two claims: the firewall means nothing gets out, and the missing
+programs mean you don't reach for them out of habit. Removing `ncdu` serves
+neither.
 
 ## Theming
 
