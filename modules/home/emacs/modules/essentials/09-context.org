@@ -1,0 +1,47 @@
+#+TITLE: ConTeXt Support
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* ConTeXt Configuration
+
+ConTeXt mode (which ships inside AUCTeX), compile and view commands, and the
+file extensions AUCTeX does not claim by default.  The Hebrew preamble and the
+note-class apparatus are in =extras/=.
+
+#+begin_src emacs-lisp
+;;; 09-context.el --- ConTeXt mode configuration -*- lexical-binding: t; -*-
+
+;; ConTeXt mode (built into AUCTeX)
+(with-eval-after-load 'tex
+  (add-to-list 'auto-mode-alist '("\\.mkiv\\'" . ConTeXt-mode))
+  (add-to-list 'auto-mode-alist '("\\.mkxl\\'" . ConTeXt-mode))
+  (add-to-list 'auto-mode-alist '("\\.mkii\\'" . ConTeXt-mode)))
+
+(add-hook 'ConTeXt-mode-hook #'visual-line-mode)
+(add-hook 'ConTeXt-mode-hook #'electric-pair-local-mode)
+
+(defun my/context-compile ()
+  "Compile current ConTeXt file."
+  (interactive)
+  (compile (format "context %s" (shell-quote-argument buffer-file-name))))
+
+(defun my/context-view ()
+  "View compiled PDF."
+  (interactive)
+  (let ((pdf (concat (file-name-sans-extension buffer-file-name) ".pdf")))
+    (if (file-exists-p pdf)
+        (find-file-other-window pdf)
+      (message "PDF not found"))))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; KEYBINDINGS
+;; ═══════════════════════════════════════════════════════════════════════════
+;; AUCTeX's ConTeXt support lives in context.el, which is where ConTeXt-mode-map
+;; is created — hence `with-eval-after-load 'context'.
+(with-eval-after-load 'context
+  (when (boundp 'ConTeXt-mode-map)
+    (define-key ConTeXt-mode-map (kbd "C-c C-c") #'my/context-compile)
+    (define-key ConTeXt-mode-map (kbd "C-c C-v") #'my/context-view)))
+
+(provide '09-context)
+;;; 09-context.el ends here
+#+end_src

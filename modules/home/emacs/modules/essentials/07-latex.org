@@ -1,0 +1,70 @@
+#+TITLE: LaTeX/AUCTeX
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* LaTeX Configuration
+
+A working AUCTeX setup: lualatex, SyncTeX both ways, RefTeX, math mode, and a
+word count that does not depend on a POSIX shell.  Anything Hebrew — the bidi
+preamble, the parallel footnote apparatus — lives in =extras/=, which layers
+onto this rather than being tangled through it.
+
+#+begin_src emacs-lisp
+;;; 07-latex.el --- LaTeX and AUCTeX settings -*- lexical-binding: t; -*-
+
+;; AUCTeX is special: its *package* name is `auctex' but its *feature* is `tex'.
+;; A bare `:ensure auctex' would run `package-install' on EVERY startup —
+;; including on Nix/distro where AUCTeX is already provided — so we only pull it
+;; from MELPA in portable mode, and let `use-package' below use the copy that is
+;; already on the load-path (Nix, or just-installed) via `:ensure nil'.
+(when (bound-and-true-p my/portable-packages)
+  (unless (package-installed-p 'auctex)
+    (ignore-errors (package-install 'auctex))))
+
+(use-package tex
+  :ensure nil
+  :mode ("\\.tex\\'" . LaTeX-mode)
+  :hook ((LaTeX-mode . TeX-source-correlate-mode)
+         (LaTeX-mode . turn-on-reftex)
+         (LaTeX-mode . LaTeX-math-mode)
+         (LaTeX-mode . visual-line-mode)
+         (LaTeX-mode . electric-pair-local-mode))
+  :config
+  (setq TeX-auto-save t
+        TeX-parse-self t
+        TeX-master nil
+        TeX-engine 'luatex
+        TeX-PDF-mode t
+        TeX-view-program-selection '((output-pdf "PDF Tools"))
+        TeX-source-correlate-start-server t
+        reftex-plug-into-AUCTeX t)
+  (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer))
+
+(defun my/latex-word-count ()
+  "Count words in LaTeX buffer."
+  (interactive)
+  ;; The detex|wc pipeline is POSIX-only (redirection, pipe, wc), so only use it
+  ;; when detex exists AND we are not on Windows.  Elsewhere fall back to a
+  ;; portable in-buffer count so the command works on every OS.
+  (if (and (executable-find "detex")
+           (not (eq system-type 'windows-nt)))
+      (let* ((file (buffer-file-name))
+             (result (if file
+                         (shell-command-to-string
+                          (format "detex %s 2>/dev/null | wc -w"
+                                  (shell-quote-argument file)))
+                       (let ((temp-file (make-temp-file "latex-wc" nil ".tex")))
+                         (write-region (point-min) (point-max) temp-file)
+                         (prog1
+                             (shell-command-to-string
+                              (format "detex %s 2>/dev/null | wc -w"
+                                      (shell-quote-argument temp-file)))
+                           (delete-file temp-file))))))
+        (message "Words: %s" (string-trim result)))
+    (message "Words: %d" (count-words (point-min) (point-max)))))
+
+(with-eval-after-load 'latex
+  (define-key LaTeX-mode-map (kbd "C-c C-w") #'my/latex-word-count))
+
+(provide '07-latex)
+;;; 07-latex.el ends here
+#+end_src

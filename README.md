@@ -4,7 +4,7 @@ A single-host NixOS flake for the machine `desktop` (`nixosConfigurations.deskto
 `x86_64-linux`). The base system boots **KDE Plasma**; four boot-time
 **specialisations** swap in alternative desktop sessions, a literate Emacs
 environment, and an offline "study" mode. Theming is driven by
-[stylix](https://github.com/danth/stylix), Plasma by
+[stylix](https://github.com/nix-community/stylix), Plasma by
 [plasma-manager](https://github.com/nix-community/plasma-manager), the user
 environment by [home-manager](https://github.com/nix-community/home-manager),
 and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
@@ -13,6 +13,10 @@ and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
 
 - Nix with **flakes** and `nix-command` enabled
   (`experimental-features = nix-command flakes`).
+- Pinned to **NixOS 26.05 "Yarara"** (`nixos-26.05`, `home-manager`
+  `release-26.05`, `stylix` `release-26.05`). A second `nixpkgs-unstable` input
+  is exposed to modules as the `unstable` arg for per-package bleeding edge.
+- The Nix implementation is **Lix** (`nix.package = pkgs.lixPackageSets.stable.lix`).
 - A NixOS host. The rebuild alias and secrets assume the flake is checked out at
   `/home/shaul/nixOS_config-specializations` (see `myConfig.flakePath` in
   `flake.nix`); change it there if you clone elsewhere.
@@ -61,7 +65,9 @@ just build           # nixos-rebuild build --flake .#desktop  (build only, no ac
 just specialisations # list specialisations available for next boot
 just update          # nix flake update
 just fmt             # nix fmt (nixfmt-rfc-style)
-just check           # nix flake check (statix + deadnix)
+just check           # nix flake check — statix + deadnix, AND the Emacs modules
+just check-emacs     # module consistency only (~1s, no Emacs needed)
+just verify-emacs    # tangle + byte-compile every module against the real packages
 just gc              # nix-collect-garbage --delete-older-than 14d
 just bundle          # dump all *.nix into combined.txt (e.g. to paste)
 ```

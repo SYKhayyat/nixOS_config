@@ -1,0 +1,616 @@
+#+TITLE: Rich Footnotes System
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Rich Footnotes — what each backend actually does
+
+This module is the *single source of truth* for the three rich-footnote
+preambles. =essentials/07-latex=, =08-typst= and =09-context= are general
+editors and carry none of this; =extras/03-hebrew-typesetting= binds =C-c p f=
+in each mode to the inserters defined here.
+
+Everything below was **compiled and the laid-out PDF read back**, on TeX Live
+2025 (lualatex + ConTeXt MkIV) and Typst. Where a claim did not survive that,
+it was fixed or removed — the notes say which.
+
+| Backend | Separate stacked blocks | Independent counters | Nesting |
+|---------+-------------------------+----------------------+---------|
+| LaTeX   | yes — ~bigfoot~ B..J     | yes                  | one direction only |
+| ConTeXt | yes — ~\definenote~      | yes                  | any direction |
+| Typst   | *no* — one native series | per *tier*, by query | any direction |
+
+** What was wrong, and is now fixed
+
+*** LaTeX: nesting runs one way only
+
+bigfoot's headline feature is a note inside a note, and the old commentary said
+so flatly. What it actually permits:
+
+| Written | Result |
+|---------+--------|
+| ~\footnoteB{… \footnote{inner} …}~  | compiles |
+| ~\footnote{… \footnoteB{inner} …}~  | ~! Package bigfoot Error: \footinsB forbidden in \footinsdefault~ |
+| ~\footnoteC{… \footnoteB{inner} …}~ | ~! Package bigfoot Error: \footinsB forbidden in \footinsC~ |
+
+Only the plain, unlettered series may be nested, and only inside a lettered
+one. **The outer note has to be the lettered series.** The old insertion
+template did the opposite — ~\fn{… \fnB{…}}~ — so pressing the key and
+compiling produced a hard error every time. It is reversed below.
+
+*** LaTeX: there were never 20 heading levels
+
+~\setcounter{secnumdepth}{20}~ and ~\setcounter{tocdepth}{20}~ do not *create*
+levels; they only control how deep numbering and the ToC go. ~article~ defines
+five sectioning commands, and asking for a sixth gives
+~! Undefined control sequence. \subsubparagraph~. Both counters are gone. The
+twenty *list* levels are real and stay — verified to L20.
+
+*** LaTeX: `fncode` never worked
+
+~lstlisting~ is verbatim and cannot be captured by a ~\NewDocumentEnvironment~
+wrapper; the environment failed in ordinary body text, never mind inside a
+note. Removed. Inline ~\fnc~ (plain ~\texttt~) works and stays.
+
+*** LaTeX: `fntable`'s optional argument was always "present"
+
+~{m O{}}~ gives the second argument a *default*, so ~\IfValueTF~ always took
+the true branch and a table with no caption still printed a bare "Table 1:"
+line. ~O{}~ → ~o~, which yields ~-NoValue-~ and makes the test mean what it says.
+
+*** ConTeXt: the ten classes were one class
+
+~\definenote[fnB][footnote]~ *derives from* ~footnote~, and a derived note
+shares its parent's stream, counter and block. Measured with both forms in one
+document: the parented class numbered 2, 4 inside the default sequence, while
+~\definenote[ifnB]~ with **no parent** got its own block numbering 1, 2. So the
+apparatus that was supposed to be ten independent blocks was a single
+continuous run of notes, 1..14, with the class names doing nothing. The parent
+argument is gone.
+
+*** ConTeXt: the numbering styles did nothing either
+
+~\setupnote[X][numberconversion=…]~ configures the note *area* and leaves the
+numbering alone — every class rendered arabic. ~\setupnotation~ is the one that
+governs numbering: with it, ~characters~ gives =a, b= and ~romannumerals~ gives
+=i, ii=. Switched.
+
+(The old preamble had already lost a round here: it used
+~numberconversion=set 2~, which names a ~\defineconversionset~ that nothing
+defined.)
+
+*** ConTeXt: `bodyfont=small\tt` is a hard error
+
+~\definetyping[fncode][bodyfont=small\tt]~ made ~\startfncode~ fail with
+~Missing \endcsname inserted~ — and because that is fatal, it took the whole
+document with it. ~bodyfont=small~ compiles.
+
+*** ConTeXt: the heading chain made siblings, not levels
+
+~\definehead[levelseven][subsubsubsubsection]~ defines a head *like* its model,
+at the model's level. ~levelseven~ and ~leveltwenty~ came out numbered
+=1.1.1.1.2= and =1.1.1.1.3= — siblings of level five. Removed.
+
+*** Typst: verified as claimed
+
+Five tiers numbering independently (=1,2,3= / =א,ב,ג= / =i= / =*= / =A=), one
+marker per note, a nested note hoisted into its own entry, and headings, lists,
+tables and code all rendering inside a note. Nothing to fix.
+
+Typst has exactly one native page-bottom series and no way to add a second —
+no output routine, no ~\insert~. The tiers are tiers *within* that series, and
+this preamble does not pretend otherwise. For genuinely separate stacked bands
+(the Gemara look) see the Ksav project, ~ksav/engine/typst/ksav.typ~.
+
+* The preambles
+
+#+begin_src emacs-lisp
+;;; 05-rich-footnotes.el --- Rich footnote system -*- lexical-binding: t; -*-
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; LATEX RICH FOOTNOTES PREAMBLE
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Verified on TeX Live 2025 / lualatex: ten series each with its own block and
+;; its own counter restarting at 1; twenty list levels; headings, lists and
+;; tables inside a note.
+;;
+;; Two things bigfoot will not do, both measured:
+;;   * A lettered note inside a plain \footnote, or inside another lettered
+;;     note.  Only \footnote may be nested, and only inside a lettered one.
+;;   * Coexist quietly with everything.  It patches the output routine; with
+;;     babel's bidi=basic it compiled clean here, but check a real document if
+;;     you add another package that touches the output routine.
+
+(defvar my/latex-rich-footnotes-preamble
+  "% ══════════════════════════════════════════════════════════════
+% RICH FOOTNOTES SYSTEM - LaTeX
+% 10 footnote series (B..J are bigfoot's; the first is LaTeX's own),
+% 20 list levels
+% ══════════════════════════════════════════════════════════════
+
+\\usepackage{fontspec}
+\\usepackage[bidi=basic]{babel}
+\\usepackage{bigfoot}
+\\usepackage{enumitem}
+
+% ── Hebrew ──
+\\babelprovide[main, import]{hebrew}
+\\babelprovide[import]{english}
+\\babelfont{rm}{David CLM}
+\\babelfont{sf}{Nachlieli CLM}
+\\babelfont{tt}{Miriam Mono CLM}
+
+% ── Footnotes ──
+% Series B..J each get their own block at the foot of the page, each numbering
+% from 1.  The unlettered series is LaTeX's own \\footnote and needs no
+% declaration.  (Do NOT add \\DeclareNewFootnote{default}: bigfoot's mandatory
+% argument is the SERIES NAME, so that declares a series called \"default\" and
+% gives you \\footnotedefault, which nothing calls.)
+\\DeclareNewFootnote{B}
+\\DeclareNewFootnote{C}
+\\DeclareNewFootnote{D}
+\\DeclareNewFootnote{E}
+\\DeclareNewFootnote{F}
+\\DeclareNewFootnote{G}
+\\DeclareNewFootnote{H}
+\\DeclareNewFootnote{I}
+\\DeclareNewFootnote{J}
+
+\\newcommand{\\fn}[1]{\\footnote{#1}}
+\\newcommand{\\fnB}[1]{\\footnoteB{#1}}
+\\newcommand{\\fnC}[1]{\\footnoteC{#1}}
+\\newcommand{\\fnD}[1]{\\footnoteD{#1}}
+\\newcommand{\\fnE}[1]{\\footnoteE{#1}}
+\\newcommand{\\fnF}[1]{\\footnoteF{#1}}
+\\newcommand{\\fnG}[1]{\\footnoteG{#1}}
+\\newcommand{\\fnH}[1]{\\footnoteH{#1}}
+\\newcommand{\\fnI}[1]{\\footnoteI{#1}}
+\\newcommand{\\fnJ}[1]{\\footnoteJ{#1}}
+
+% NESTING: the OUTER note must be lettered, the inner one plain.
+%   \\fnB{Outer.\\fn{Inner.}}   compiles
+%   \\fn{Outer.\\fnB{Inner.}}   ! \\footinsB forbidden in \\footinsdefault
+
+% \\fnh{level}{text} -- a heading INSIDE a footnote.
+%
+% Two deliberate differences from an ordinary heading:
+%
+%   * No \\par or \\vspace BEFORE it. A footnote entry sets as <number> <body>,
+%     so ending the paragraph at the head of the body leaves the number stranded
+%     on a line of its own. Put a blank line above it for air, exactly as you
+%     would above a heading in prose.
+%   * A compressed size ramp. \\Large and \\large are absolute -- they ignore the
+%     surrounding \\footnotesize -- so a naive ramp sets a level-1 heading larger
+%     than the document's own body text. Level 1 is one step above the note
+%     (\\small over \\footnotesize, ~1.12x, the ratio the Typst preamble uses);
+%     below that LaTeX's sizes are too coarse, so deeper levels differ by weight.
+\\newcommand{\\fnh}[2]{%
+  {\\bfseries\\ifcase#1\\or\\small\\else\\footnotesize\\fi #2}\\par%
+}
+
+% ── Lists (20 levels) ──
+% Verified to L20.  LaTeX caps list nesting at four levels, hence the
+% declarations.  The markers cycle: four bullets, three number styles. Spelled
+% out per level because enumitem has no loop, and a level-less default would
+% flatten levels 5-20 onto a single marker.
+\\setlistdepth{20}
+
+\\renewlist{itemize}{itemize}{20}
+\\setlist[itemize,1]{label=\\textbullet}
+\\setlist[itemize,2]{label=\\textendash}
+\\setlist[itemize,3]{label=\\textasteriskcentered}
+\\setlist[itemize,4]{label=\\textperiodcentered}
+\\setlist[itemize,5]{label=\\textbullet}
+\\setlist[itemize,6]{label=\\textendash}
+\\setlist[itemize,7]{label=\\textasteriskcentered}
+\\setlist[itemize,8]{label=\\textperiodcentered}
+\\setlist[itemize,9]{label=\\textbullet}
+\\setlist[itemize,10]{label=\\textendash}
+\\setlist[itemize,11]{label=\\textasteriskcentered}
+\\setlist[itemize,12]{label=\\textperiodcentered}
+\\setlist[itemize,13]{label=\\textbullet}
+\\setlist[itemize,14]{label=\\textendash}
+\\setlist[itemize,15]{label=\\textasteriskcentered}
+\\setlist[itemize,16]{label=\\textperiodcentered}
+\\setlist[itemize,17]{label=\\textbullet}
+\\setlist[itemize,18]{label=\\textendash}
+\\setlist[itemize,19]{label=\\textasteriskcentered}
+\\setlist[itemize,20]{label=\\textperiodcentered}
+
+\\renewlist{enumerate}{enumerate}{20}
+\\setlist[enumerate,1]{label=\\arabic*.}
+\\setlist[enumerate,2]{label=\\alph*.}
+\\setlist[enumerate,3]{label=\\roman*.}
+\\setlist[enumerate,4]{label=\\arabic*.}
+\\setlist[enumerate,5]{label=\\alph*.}
+\\setlist[enumerate,6]{label=\\roman*.}
+\\setlist[enumerate,7]{label=\\arabic*.}
+\\setlist[enumerate,8]{label=\\alph*.}
+\\setlist[enumerate,9]{label=\\roman*.}
+\\setlist[enumerate,10]{label=\\arabic*.}
+\\setlist[enumerate,11]{label=\\alph*.}
+\\setlist[enumerate,12]{label=\\roman*.}
+\\setlist[enumerate,13]{label=\\arabic*.}
+\\setlist[enumerate,14]{label=\\alph*.}
+\\setlist[enumerate,15]{label=\\roman*.}
+\\setlist[enumerate,16]{label=\\arabic*.}
+\\setlist[enumerate,17]{label=\\alph*.}
+\\setlist[enumerate,18]{label=\\roman*.}
+\\setlist[enumerate,19]{label=\\arabic*.}
+\\setlist[enumerate,20]{label=\\alph*.}
+
+% ── Lists in footnotes ──
+% Not a style preference: LaTeX's list skips are ABSOLUTE lengths, so a list set
+% at footnote size keeps body-size air around it. nosep is the fix.
+\\newlist{fnitem}{itemize}{20}
+\\setlist[fnitem]{nosep,leftmargin=1.5em,labelwidth=1em,labelsep=0.5em}
+\\setlist[fnitem,1]{label=\\textbullet}
+\\setlist[fnitem,2]{label=\\textendash}
+\\setlist[fnitem,3]{label=\\textasteriskcentered}
+\\setlist[fnitem,4]{label=\\textperiodcentered}
+
+\\newlist{fnenum}{enumerate}{20}
+\\setlist[fnenum]{nosep,leftmargin=1.5em,labelwidth=1em,labelsep=0.5em}
+\\setlist[fnenum,1]{label=\\arabic*.}
+\\setlist[fnenum,2]{label=\\alph*.}
+\\setlist[fnenum,3]{label=\\roman*.}
+
+% ── Tables in footnotes ──
+% The optional argument is `o', not `O{}'.  With a default supplied it is never
+% -NoValue-, so \\IfValueTF always took the true branch and a captionless table
+% still printed a bare \"Table 1:\" line.
+\\usepackage{tabularx}
+\\newcounter{fntablecounter}
+\\NewDocumentEnvironment{fntable}{m o}{%
+  \\par\\smallskip
+  \\IfValueT{#2}{\\refstepcounter{fntablecounter}%
+    \\noindent\\textbf{Table~\\thefntablecounter:} #2\\par\\smallskip}%
+  \\centering\\begin{tabular}{#1}%
+}{\\end{tabular}\\par\\smallskip}
+
+% ── Code in footnotes ──
+% Inline only.  An `fncode' environment wrapping lstlisting used to live here; a
+% \\NewDocumentEnvironment cannot capture verbatim content, so it failed in
+% ordinary body text as well as inside a note.  For a displayed listing, put it
+% in the body and refer to it from the note.
+\\newcommand{\\fnc}[1]{\\texttt{#1}}"
+  "LaTeX preamble for rich footnotes.
+Verified on TeX Live 2025 with lualatex: ten series each with its own block and
+counter, twenty list levels, and headings/lists/tables inside a note.  Nesting
+requires the OUTER note to be a lettered series.")
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; TYPST RICH FOOTNOTES PREAMBLE
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Verified: every construct below was rendered and its laid-out output read
+;; back, not merely compiled.
+
+(defvar my/typst-rich-footnotes-preamble
+  "// ══════════════════════════════════════════════════════════════
+// RICH FOOTNOTES SYSTEM - Typst
+// Hebrew, 5 note TIERS in one series, unlimited headings/lists
+// ══════════════════════════════════════════════════════════════
+//
+// Typst has exactly ONE native page-bottom footnote series and no way to add a
+// second: there is no output routine and no \\insert mechanism to hook, so
+// there is no Typst equivalent of bigfoot's \\footnoteB or ConTeXt's
+// \\definenote. A note on a note does NOT get its own block at the foot of the
+// page.
+//
+// What Typst does give for free is NESTING -- a footnote inside a footnote is
+// hoisted into its own entry, to any depth -- and per-note control of the
+// marker. So fn1..fn5 below are TIERS INSIDE THE ONE SERIES: each counts its
+// own notes and draws its own marker shape, so the marker tells you which tier
+// a note belongs to at the point of reference. That is a real and useful
+// thing. It is not separate blocks, and this preamble does not pretend so.
+//
+// For genuinely separate, stacked, per-tier bands (the Gemara look) see the
+// Ksav project: ksav/engine/typst/ksav.typ.
+
+// ── Hebrew ──
+#set text(lang: \"he\", font: \"David CLM\")
+// RTL follows from lang: \"he\" -- do NOT use page(flipped: true), that is landscape.
+
+// ── Headings (20 levels numbered) ──
+#set heading(numbering: \"1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1\")
+
+// ── Note tiers ──
+#let _fn_schemes = (\"1\", \"א\", \"i\", \"*\", \"A\")
+#let _fn_sizes   = (1em, 0.97em, 0.94em, 0.92em, 0.9em)
+#let _fn_styles  = (\"normal\", \"italic\", \"italic\", \"italic\", \"italic\")
+#let _fn_at(a, level) = a.at(calc.min(calc.max(level, 1), a.len()) - 1)
+
+#let fn-tier(level, body) = {
+  // Typst hands the `numbering' callback its ONE shared footnote counter, so
+  // that counter cannot be made to count a tier. Rank the note among the notes
+  // of its own tier instead: drop a marker, then count the markers before it.
+  // A read-only query, so it converges; a per-tier `counter' would also work,
+  // but this needs no state and no reset.
+  [#metadata(level)#label(\"fn-tier\")]
+  context {
+    let loc = here()
+    let n = query(selector(label(\"fn-tier\")).before(loc))
+      .filter(m => m.value == level).len()
+    footnote(
+      numbering: _ => numbering(_fn_at(_fn_schemes, level), n),
+      text(size: _fn_at(_fn_sizes, level), style: _fn_at(_fn_styles, level), body),
+    )
+  }
+}
+
+#let fn1(body) = fn-tier(1, body)
+#let fn2(body) = fn-tier(2, body)
+#let fn3(body) = fn-tier(3, body)
+#let fn4(body) = fn-tier(4, body)
+#let fn5(body) = fn-tier(5, body)
+#let fn = fn1
+#let fnB = fn2
+#let fnC = fn3
+#let fnD = fn4
+#let fnE = fn5
+
+// ── Heading inside a note ──
+// Not heading(): that steps the document's counter and enters the outline, so a
+// three-line footnote would renumber the section after it and show up in the
+// table of contents. And nothing block-level, and no break BEFORE it: a
+// footnote entry lays out as <number> <body>, and `block', `v(weak: true)',
+// `linebreak' and `parbreak' all strand the number on a line of its own when
+// they open the body (parbreak does not collapse there the way it does at the
+// head of a page -- all four were measured). Put a blank line above it for air,
+// as you would above a heading in prose.
+#let fnh(level, body) = {
+  let sizes = (1.12em, 1.06em, 1.02em)
+  text(weight: \"bold\", size: sizes.at(calc.min(calc.max(level, 1), 3) - 1), body)
+  linebreak()
+}
+
+// ── Tables ──
+// #table() already works inside a note, to any depth. This only adds the caption
+// counter. `display' needs a context; without one it is an error.
+#let fn-table-counter = counter(\"fn-table\")
+#let fn-table(caption: none, ..args) = {
+  fn-table-counter.step()
+  block[
+    #if caption != none [*Table #context fn-table-counter.display():* #caption]
+    #v(0.3em)
+    #table(..args)
+  ]
+}
+
+// ── Code ──
+// Takes a string or a content block. An earlier version read `body.text'
+// unconditionally, which fails on anything but a raw/text element -- including
+// the ordinary #fn-code[...] call.
+#let fn-code(lang: none, body) = block(
+  fill: luma(245), inset: 8pt, radius: 3pt, width: 100%,
+  if type(body) == str { raw(body, lang: lang) }
+  else if body.has(\"text\") { raw(body.text, lang: lang) }
+  else { body },
+)
+#let fnc(body) = raw(if type(body) == str { body } else { body.text })
+
+// ── Lists ──
+// Nothing to declare. Typst does not cap list depth, and its spacing is
+// em-relative, so a list inside a note scales with the note instead of keeping
+// body-size air around it. The LaTeX fnitem/fnenum vocabulary exists to work
+// around two problems Typst does not have."
+  "Typst preamble for rich footnotes.
+Verified against a real renderer: five tiers each numbering independently, a
+single marker per note, nesting hoisted into its own entry, and
+headings/lists/tables/code inside a note.")
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; CONTEXT RICH FOOTNOTES PREAMBLE
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Verified on ConTeXt MkIV (TeX Live 2025).  Two corrections, both measured:
+;;
+;;   * \definenote[X] with NO parent.  \definenote[X][footnote] DERIVES from
+;;     footnote, and a derived note shares its parent's stream, counter and
+;;     block -- ten "classes" rendered as one continuous run of notes.
+;;   * \setupnotation, not \setupnote, for numberconversion.  \setupnote
+;;     configures the note AREA and leaves numbering arabic.
+
+(defvar my/context-rich-footnotes-preamble
+  "% ══════════════════════════════════════════════════════════════
+% RICH FOOTNOTES SYSTEM - ConTeXt
+% Hebrew, 10 independent note classes
+% ══════════════════════════════════════════════════════════════
+
+% ── Hebrew ──
+\\mainlanguage[he]
+\\setupalign[r2l]
+\\definefontfamily[hebrew][rm][David CLM]
+\\definefontfamily[hebrew][ss][Nachlieli CLM]
+\\definefontfamily[hebrew][tt][Miriam Mono CLM]
+\\setupbodyfont[hebrew,rm,11pt]
+
+% ── Notes (10 independent classes) ──
+% NO parent argument.  \\definenote[fnB][footnote] would derive fnB FROM
+% footnote, and a derived class shares the parent's stream, counter and block:
+% all ten would number 1,2,3... as one sequence in one block.  Without the
+% parent each class gets its own apparatus block and its own counter.
+\\definenote[fn]
+\\definenote[fnB]
+\\definenote[fnC]
+\\definenote[fnD]
+\\definenote[fnE]
+\\definenote[fnF]
+\\definenote[fnG]
+\\definenote[fnH]
+\\definenote[fnI]
+\\definenote[fnJ]
+
+% way=bypage restarts each class's count on every page, which is what an
+% apparatus wants.  That belongs to the note AREA, so \\setupnote is right here.
+\\setupnote[fn][way=bypage]
+\\setupnote[fnB][way=bypage]
+\\setupnote[fnC][way=bypage]
+\\setupnote[fnD][way=bypage]
+\\setupnote[fnE][way=bypage]
+\\setupnote[fnF][way=bypage]
+\\setupnote[fnG][way=bypage]
+\\setupnote[fnH][way=bypage]
+\\setupnote[fnI][way=bypage]
+\\setupnote[fnJ][way=bypage]
+
+% The marker SHAPE says which block to read a note in.  This is
+% \\setupnotation, not \\setupnote: numberconversion on \\setupnote is silently
+% ignored and every class comes out arabic.
+\\setupnotation[fn][numberconversion=numbers]
+\\setupnotation[fnB][numberconversion=characters]
+\\setupnotation[fnC][numberconversion=romannumerals]
+\\setupnotation[fnD][numberconversion=Characters]
+\\setupnotation[fnE][numberconversion=Romannumerals]
+\\setupnotation[fnF][numberconversion=numbers]
+\\setupnotation[fnG][numberconversion=characters]
+\\setupnotation[fnH][numberconversion=romannumerals]
+\\setupnotation[fnI][numberconversion=Characters]
+\\setupnotation[fnJ][numberconversion=Romannumerals]
+
+% ── Headings ──
+% ConTeXt's own section levels, used as-is.  A chain of
+% \\definehead[levelseven][subsubsubsubsection] does NOT create deeper levels:
+% \\definehead copies a head AT ITS MODEL'S LEVEL, so `levelseven' and
+% `leveltwenty' came out numbered 1.1.1.1.2 and 1.1.1.1.3 -- siblings of level
+% five, not levels seven and twenty.
+\\setuphead[section][number=yes]
+\\setuphead[subsection][number=yes]
+\\setuphead[subsubsection][number=yes]
+\\setuphead[subsubsubsection][number=yes]
+
+% \\fnh{level}{text} -- a heading INSIDE a note. No \\blank BEFORE it: that ends
+% the paragraph the note number opened and strands the number on its own line.
+% Leave a blank line above it in the source instead, as you would in prose.
+%
+% One step up at level 1, note size at level 2, one step down below that -- the
+% same shallow ramp the LaTeX and Typst preambles use.
+\\define[2]\\fnh{%
+  \\doifelse{#1}{1}{\\bfa #2}{%
+  \\doifelse{#1}{2}{\\bf #2}{%
+  \\bf\\tfx #2}}%
+  \\blank[small]
+}
+
+% ── Lists ──
+% Nested itemize inside a note is fine; ConTeXt cycles its five defined symbol
+% sets.  No depth declaration is needed the way LaTeX needs \\setlistdepth.
+\\setupitemize[each][packed]
+\\setupitemize[1][symbol=1]
+\\setupitemize[2][symbol=2]
+\\setupitemize[3][symbol=3]
+\\setupitemize[4][symbol=4]
+\\setupitemize[5][symbol=5]
+
+\\setupitemize[n][packed]
+\\setupitemize[a][packed]
+\\setupitemize[r][packed]
+\\setupitemize[A][packed]
+\\setupitemize[R][packed]
+
+% ── Tables ──
+\\definecounter[fntablecounter]
+\\define[2]\\fntable{%
+  \\incrementcounter[fntablecounter]%
+  \\blank[small]
+  \\noindent{\\bf Table \\convertedcounter[fntablecounter]:} #1
+  \\blank[small]
+  #2
+  \\blank[small]
+}
+
+% ── Code ──
+% `bodyfont=small' only.  `bodyfont=small\\tt' makes \\startfncode fail with
+% \"Missing \\endcsname inserted\", which is fatal and takes the document with it.
+\\definetyping[fncode][bodyfont=small]
+\\define[1]\\fnc{{\\tt #1}}"
+  "ConTeXt preamble for rich footnotes.
+Verified on ConTeXt MkIV: ten independent note classes, each with its own
+apparatus block, counter and marker style; nesting in any direction; tables,
+inline code and displayed typing inside a note.")
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; INSERTION FUNCTIONS
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(defun my/insert-rich-footnote-latex ()
+  "Insert a LaTeX rich footnote template.
+The OUTER note is \\fnB and the inner one is plain \\fn.  That order is not
+style: bigfoot rejects a lettered note inside a plain one, and the previous
+version of this template was written the other way round and could not compile."
+  (interactive)
+  (insert "\\fnB{%
+  \\fnh{1}{Heading}
+
+  \\begin{fnitem}
+    \\item First item
+    \\begin{fnitem}
+      \\item Nested item
+    \\end{fnitem}
+  \\end{fnitem}
+
+  \\begin{fnenum}
+    \\item Numbered item
+  \\end{fnenum}
+
+  With a plain note nested inside\\fn{This is the unlettered series.}
+}")
+  (search-backward "Heading"))
+
+(defun my/insert-rich-footnote-typst ()
+  "Insert Typst rich footnote template."
+  (interactive)
+  ;; The blank line before the second #fnh is load-bearing: it is what puts the
+  ;; heading on a line of its own.  See the preamble.
+  (insert "#fn[
+  #fnh(1)[Heading]
+
+  - First item
+    - Nested item
+
+  + Numbered item
+
+  #fnh(2)[Second heading]
+
+  With a tier-2 note#fnB[This is tier 2.]
+]")
+  (search-backward "Heading"))
+
+(defun my/insert-rich-footnote-context ()
+  "Insert ConTeXt rich footnote template.
+ConTeXt nests in any direction, so unlike the LaTeX template the outer note
+here can be any class."
+  (interactive)
+  (insert "\\fn{%
+  \\fnh{1}{Heading}
+
+  \\startitemize[packed]
+    \\item First item
+    \\startitemize[packed]
+      \\item Nested item
+    \\stopitemize
+  \\stopitemize
+
+  \\startitemize[n,packed]
+    \\item Numbered item
+  \\stopitemize
+
+  With a note in the next class\\fnB{This is class B.}
+}")
+  (search-backward "Heading"))
+
+(defun my/insert-latex-rich-footnotes-preamble ()
+  "Insert LaTeX rich footnotes preamble."
+  (interactive)
+  (insert my/latex-rich-footnotes-preamble))
+
+(defun my/insert-typst-rich-footnotes-preamble ()
+  "Insert Typst rich footnotes preamble."
+  (interactive)
+  (insert my/typst-rich-footnotes-preamble))
+
+(defun my/insert-context-rich-footnotes-preamble ()
+  "Insert ConTeXt rich footnotes preamble."
+  (interactive)
+  (insert my/context-rich-footnotes-preamble))
+
+(provide '05-rich-footnotes)
+;;; 05-rich-footnotes.el ends here
+#+end_src

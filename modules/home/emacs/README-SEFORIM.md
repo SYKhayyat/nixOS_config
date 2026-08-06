@@ -1,14 +1,37 @@
 # Seforim system — what changed & how to run it
 
-This documents the 14a–14**f** "seforim" modules after the 2026 rewrite. It is
-written to be read by a human *or* a future AI agent maintaining this config.
+This documents the six "seforim" modules — `extras/10-seforim-core` through
+`extras/15-seforim-dream` — after the 2026 rewrite. It is written to be read by
+a human *or* a future AI agent maintaining this config.
 
 > **TL;DR of the current state:** search works on pointed Hebrew; mefarshim
 > linking runs against the Otzaria corpus; a **hybrid** keypress (`o`) jumps from
 > your `.org` library into the line-accurate Otzaria twin; and a **dream layer**
-> (14f) adds bookmarks, a per-book TOC, a non-destructive reader mode, a
+> (15-seforim-dream) adds bookmarks, a per-book TOC, a non-destructive reader mode, a
 > reference-jump index, optional recoll search, and a dashboard. Everything runs
 > on **Windows, Linux and macOS**.
+
+> ### ⚠ It was all dead, and this is how it happened
+>
+> Between the essentials/extras split and 2026-08-06, **five of these six
+> modules did not load at all** — 1,569 of the system's 1,775 lines. Everything
+> above except `10-seforim-core` was inert: no mefarshim linking, no search
+> layer, no study log, no bookmarks, no TOC, no reader mode, no dashboard.
+>
+> The split renumbered every module, and a module's feature symbol *is* its
+> filename. `11`–`15` kept requiring the pre-split names (`14a-seforim-core`
+> and friends). Nothing provided those, so `require` signalled — and `init.el`
+> catches module load errors on purpose, so one broken file can't take the
+> session down. It logged one line to `*Messages*` and carried on. No crash, no
+> failing build. The only symptom was `M-x seforim-mefarshim` not existing.
+>
+> Fixed, and — more to the point — now impossible to reintroduce quietly:
+> `tools/check-modules.sh` fails the build on any `require` that doesn't
+> resolve, and it runs as part of `nix flake check`. See
+> `modules/README.md` → *Renumbering a module*.
+>
+> **If you are reading this after a rename and something here doesn't work,
+> run `just check-emacs` before you debug anything else.**
 
 ## The bugs that were fixed
 
@@ -16,17 +39,17 @@ written to be read by a human *or* a future AI agent maintaining this config.
 |-------------------------------------------|----------------------------------------------------------------------|-----|
 | "Directory picking starts on wrong dir"   | Hard-coded `~/Documents/seforim/`; casing/location mismatch on NixOS | `seforim--default-directory` auto-detects `seforim`/`Seforim`; `seforim--base-dir` falls back to it. |
 | "Directory picking returns error"         | `seforim--choose-dirs` prompt machinery + non-existent path          | Removed that machinery; the 5 commands drive stock Consult in the base dir. |
-| "Searching inside files does not work"    | `seforim-search-rg` ran **plain** ripgrep; niqqud in texts never matched a plain query | `seforim-search-rg`/`-rga` bind a **niqqud-insensitive Consult regexp compiler** (`seforim--niqqud-regexp-compiler`, 14a). Type plain Hebrew, match pointed text. |
+| "Searching inside files does not work"    | `seforim-search-rg` ran **plain** ripgrep; niqqud in texts never matched a plain query | `seforim-search-rg`/`-rga` bind a **niqqud-insensitive Consult regexp compiler** (`seforim--niqqud-regexp-compiler`, 10-seforim-core). Type plain Hebrew, match pointed text. |
 | "Faster" / dead weight                    | ~200 lines of unused async engine using changed Consult internals    | Deleted; the code path is now small and version-stable. |
 
 ## Files
 
-- **14a** core: options, Hebrew numerals, **niqqud compiler**, path auto-detect.
-- **14b** file opening (normal / new tab / external) + study-log state.
-- **14c** the 5 search commands (niqqud-insensitive rg/rga, fd, plocate).
-- **14d** daf jump, study-log browser, niqqud isearch, status, Embark actions.
-- **14e** Otzaria-style mefarshim (commentary) linking **+ the hybrid twin-opener**.
-- **14f** **NEW** — dream extras: bookmarks, TOC sidebar, reader mode,
+- **10-seforim-core** core: options, Hebrew numerals, **niqqud compiler**, path auto-detect.
+- **11-seforim-candidates** file opening (normal / new tab / external) + study-log state.
+- **12-seforim-search** the 5 search commands (niqqud-insensitive rg/rga, fd, plocate).
+- **13-seforim-extras** daf jump, study-log browser, niqqud isearch, status, Embark actions.
+- **14-seforim-mefarshim** Otzaria-style mefarshim (commentary) linking **+ the hybrid twin-opener**.
+- **15-seforim-dream** **NEW** — dream extras: bookmarks, TOC sidebar, reader mode,
   reference jump, recoll, dashboard.
 
 All are pure-Emacs and cross-platform. On Windows note two hard-won rules baked
@@ -37,10 +60,19 @@ regexps, which are unreliable on non-ASCII paths there.
 
 ## Activate it
 
-Nothing to wire up by hand: `init.el`'s **glob loader** loads every `NN-*.el`
-in order, so `14a`→`14f` are picked up automatically (this is exactly the drift
-that used to drop `14e`). Just have the `.org` files present; they tangle on
-first start.
+Nothing to wire up by hand: `init.el`'s **glob loader** loads every `NN-*.el` in
+each group directory in filename order, so everything in `modules/extras/` is
+picked up automatically (this is exactly the drift that used to drop the
+mefarshim module). Just have the `.org` files present; they tangle on first
+start.
+
+These modules all live in **`modules/extras/`** — the personal half of the
+config. `modules/essentials/` is a general Emacs setup that knows nothing about
+any of this, and extras loads after it, so anything here may build on
+essentials but never the other way round. The few places the library reaches
+back into the base config — the dirvish quick-access entry, the ibuffer
+"Seforim" group, `G` in pdf-view — are gathered in
+`extras/16-seforim-integration`.
 
 - `seforim-directory` is auto-detected (`~/Documents/seforim`, any casing).
   Override if needed: `(setq seforim-directory "~/Documents/seforim/")`.
@@ -99,7 +131,7 @@ and reports the link-file count). `M-x seforim-status` shows the active path.
   `line_index_1`, resolves `path_2`→a `.txt` path, reads `line_index_2`, strips
   HTML for display.
 
-### If it finds nothing — assumptions to check (all flagged in 14e's header)
+### If it finds nothing — assumptions to check (all flagged in 14-seforim-mefarshim's header)
 - **A1** links filename = `<book-basename>_links.json`. Verify:
   `(directory-files (seforim--otzaria-links-dir) nil "_links\\.json\\'")`
 - **A2** open book is the `line_index_1` side. If a corpus is stored the other
@@ -119,10 +151,10 @@ After editing/replacing the library, run `M-x seforim-otzaria-clear-cache`.
   here the base buffer stays raw text (so line indices remain valid) and
   commentaries appear cleaned in a popup/side pane — plus an opt-in **reader
   mode** that prettifies the display without touching the text (see below).
-- **Now ported too** (module 14f): bookmarks, per-book TOC, reference search
+- **Now ported too** (module 15-seforim-dream): bookmarks, per-book TOC, reference search
   (`searchRefs`-style), and more.
 
-## Dream extras (module 14f) — hydra `C-c S`
+## Dream extras (module 15-seforim-dream) — hydra `C-c S`
 
 All optional, all off the startup path, each degrading gracefully when its data
 or external tool is absent. State lives in `~/.cache/emacs/seforim/`.

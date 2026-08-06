@@ -70,28 +70,60 @@
 (when (file-exists-p custom-file) (load custom-file nil t))
 
 ;; ---------------------------------------------------------------------------
-;; Locate the modules directory (works deployed OR run in place from the repo).
+;; Locate the module directories (works deployed OR run in place from the repo).
 ;; ---------------------------------------------------------------------------
-(defvar my/modules-dir
+;; The modules are split in two, and the split is the whole architecture:
+;;
+;;   essentials/  a good general Emacs configuration.  Nothing in here knows
+;;                anything about Hebrew, or about a seforim library.  Delete
+;;                `extras/' entirely and this still stands on its own.
+;;   extras/      the personal half: Hebrew, RTL, the seforim system, the rich
+;;                footnote apparatus.  Layers ON TOP of essentials.
+;;
+;; Load order is essentials first, then extras, so the dependency can only ever
+;; point one way.  That is enforced by construction here rather than by
+;; everyone remembering it.
+(defvar my/modules-root
   (let ((sub (expand-file-name "modules/" user-emacs-directory)))
     (if (file-directory-p sub)
-        sub                                   ; deployed: <ued>/modules/NN-*.el
-      user-emacs-directory))                  ; in place: init.el next to NN-*.el
-  "Directory containing the numbered `NN-name.el' modules.")
-(add-to-list 'load-path my/modules-dir)
+        sub                                   ; deployed: <ued>/modules/<group>/
+      user-emacs-directory))                  ; in place: init.el next to them
+  "Directory holding the module group directories.")
+
+(defvar my/module-groups '("essentials" "extras")
+  "Module group directories under `my/modules-root', in load order.")
+
+(defvar my/modules-dirs
+  (let ((dirs (delq nil
+                    (mapcar (lambda (g)
+                              (let ((d (expand-file-name g my/modules-root)))
+                                (and (file-directory-p d) (file-name-as-directory d))))
+                            my/module-groups))))
+    ;; Fall back to a flat layout so an older checkout, or a hand-made deploy
+    ;; that never split, still boots instead of silently loading nothing.
+    (or dirs (list (file-name-as-directory my/modules-root))))
+  "Directories containing the numbered `NN-name.el' modules, in load order.")
+
+;; Kept for anything that still refers to a single directory (e.g. the
+;; auto-tangle-on-save hook and `M-x my/open-modules').
+(defvar my/modules-dir (car my/modules-dirs)
+  "First entry of `my/modules-dirs'.  See that variable.")
+
+(dolist (dir my/modules-dirs) (add-to-list 'load-path dir))
 
 ;; ---------------------------------------------------------------------------
 ;; Auto-tangle: regenerate any .el whose .org source is newer (or missing).
 ;; Only touches org (a startup cost) when something is actually stale.
 ;; ---------------------------------------------------------------------------
 (defun my/tangle-stale-modules ()
-  "Tangle every `*.org' in `my/modules-dir' whose `.el' is missing or older."
+  "Tangle every `*.org' under `my/modules-dirs' whose `.el' is missing or older."
   (let (stale)
-    (dolist (org (directory-files my/modules-dir t "\\.org\\'"))
-      (let ((el (concat (file-name-sans-extension org) ".el")))
-        (when (or (not (file-exists-p el))
-                  (file-newer-than-file-p org el))
-          (push org stale))))
+    (dolist (dir my/modules-dirs)
+      (dolist (org (directory-files dir t "\\.org\\'"))
+        (let ((el (concat (file-name-sans-extension org) ".el")))
+          (when (or (not (file-exists-p el))
+                    (file-newer-than-file-p org el))
+            (push org stale)))))
     (when stale
       (require 'org)
       (require 'ob-tangle)
@@ -117,20 +149,31 @@
 ;;
 ;; This runs before 00-core, so `my/package-usable-p' does not exist yet and
 ;; the checks below are deliberately self-contained.
+;; Gate on the module's NAME, not its number.  Renumbering a module — which the
+;; essentials/extras split did to most of them — must not silently un-gate it,
+;; and a `pcase' on "25-nix-system" fails silently the moment that file becomes
+;; "22-nix-system": the gate stops matching, the module loads everywhere, and
+;; nothing tells you.
+(defun my/module-name (base)
+  "Strip the ordering prefix from BASE: \"22-nix-system\" -> \"nix-system\"."
+  (if (string-match "\\`[0-9]+[a-z]?-\\(.*\\)\\'" base)
+      (match-string 1 base)
+    base))
+
 (defun my/module-enabled-p (base)
   "Return non-nil if module BASE (a filename sans extension) may load here."
-  (pcase base
+  (pcase (my/module-name base)
     ;; Nix/NixOS system helpers: pointless without the Nix tooling present.
-    ("25-nix-system"
+    ("nix-system"
      (and (eq system-type 'gnu/linux)
           (or (executable-find "nixos-rebuild")
               (executable-find "home-manager")
               (executable-find "nix"))))
     ;; vterm needs a compiled module: either one is already on the load-path
     ;; (Nix/distro built it) or we need cmake + a C compiler to build it on
-    ;; first use.  Where it is unavailable, 26-terminal (built-in shells) is
-    ;; used instead -- that module is always loaded, so nothing is lost.
-    ("23-vterm-pro"
+    ;; first use.  Where it is unavailable, the `terminal' module (built-in
+    ;; shells) is used instead -- that one always loads, so nothing is lost.
+    ("vterm"
      (or (locate-file "vterm-module" load-path '(".so" ".dylib" ".dll"))
          (and (executable-find "cmake")
               (or (executable-find "cc")
@@ -139,27 +182,60 @@
     (_ t)))
 
 ;; ---------------------------------------------------------------------------
-;; Load every NN-*.el in filename order.  Zero-padded numbering makes the
-;; lexical sort equal the intended load order, so this stays correct as new
-;; modules are added — no hand-maintained list to forget (which is how 14e
-;; mefarshim used to get dropped).
+;; Load every NN-*.el, group by group, filename order within a group.
+;; Zero-padded numbering makes the lexical sort equal the intended load order,
+;; so this stays correct as new modules are added — no hand-maintained list to
+;; forget (which is how the mefarshim module used to get dropped).
 ;; ---------------------------------------------------------------------------
 (defvar my/load-errors nil "Alist of (module . error-string) from this session.")
-(dolist (file (directory-files my/modules-dir t "\\`[0-9].*\\.el\\'"))
-  (let ((base (file-name-base file)))
-    (when (my/module-enabled-p base)
-      (condition-case err
-          (load (file-name-sans-extension file) nil t)
-        (error
-         (push (cons base (error-message-string err)) my/load-errors)
-         (message "⚠ Error loading %s: %s" base (error-message-string err)))))))
+(dolist (dir my/modules-dirs)
+  (dolist (file (directory-files dir t "\\`[0-9].*\\.el\\'"))
+    (let ((base (file-name-base file)))
+      (when (my/module-enabled-p base)
+        (condition-case err
+            (load (file-name-sans-extension file) nil t)
+          (error
+           (push (cons base (error-message-string err)) my/load-errors)
+           (message "⚠ Error loading %s: %s" base (error-message-string err))))))))
 
+(defun my/load-report ()
+  "Show which modules failed to load this session, and why."
+  (interactive)
+  (if (null my/load-errors)
+      (message "All modules loaded cleanly.")
+    (with-current-buffer (get-buffer-create "*Module load errors*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "%d module(s) failed to load.\n\n" (length my/load-errors)))
+        (dolist (e (reverse my/load-errors))
+          (insert (format "%-28s %s\n" (car e) (cdr e))))
+        (insert "\n\"Cannot open load file\" naming a module means some `require'\n"
+                "points at a module that no longer exists -- usually because it was\n"
+                "renumbered.  Run `tools/check-modules.sh' in the config repo to find\n"
+                "every such reference at once.\n"))
+      (goto-char (point-min))
+      (special-mode))
+    (display-buffer "*Module load errors*")))
+
+;; A failed module is deliberately non-fatal: `condition-case' above keeps one
+;; broken file from taking the whole session down.  But the failure mode that
+;; actually costs you is the quiet one -- a module stops loading and you find
+;; out weeks later because a command you use rarely has ceased to exist.  That
+;; is exactly how the post-split `require' breakage survived: it printed one
+;; line into *Messages*, where it scrolled away unread.
+;;
+;; So: `display-warning' at :error level, which pops the *Warnings* buffer and
+;; stays there.  Cheap, and it is the difference between a bug you notice on
+;; the next restart and one you notice next quarter.
 (when my/load-errors
   (add-hook 'emacs-startup-hook
             (lambda ()
-              (message "⚠ %d module(s) failed to load: %s"
+              (display-warning
+               'my/modules
+               (format "%d module(s) failed to load: %s\n\nM-x my/load-report for details."
                        (length my/load-errors)
-                       (mapconcat #'car (reverse my/load-errors) ", ")))))
+                       (mapconcat #'car (reverse my/load-errors) ", "))
+               :error))))
 
 ;; Emacs server, so `emacsclient' works (EDITOR/VISUAL in the shell).
 (require 'server)

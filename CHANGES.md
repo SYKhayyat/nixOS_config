@@ -5,6 +5,109 @@ made Emacs reproducible, and added laptop hardware + a real study airgap.
 It was authored off-machine, so **nothing here has been `nixos-rebuild`-tested** —
 work through the checklist below on the NixOS box.
 
+---
+
+## 2026-08-06 — the seforim system was dead, and nothing could have told you
+
+Acting on finding 1.1 of `lamdan/shaulos-config-2026-08-06.md`. This is the
+root-cause fix, not the symptom fix.
+
+**The symptom.** Five of the six seforim modules did not load — **1,569 of the
+system's 1,775 lines.** No mefarshim linking, no search layer, no study log, no
+bookmarks, no TOC, no reader mode, no dashboard. Only `10-seforim-core` (which
+requires nothing) survived.
+
+**Why.** A module's feature symbol *is* its filename. The essentials/extras
+split renumbered the tree; `11`–`15` kept requiring the pre-split names
+(`14a-seforim-core` …). Nothing provided those, `require` signalled, and
+`init.el` caught it in `condition-case` — deliberately, so one broken module
+can't take the session down. It logged one line to `*Messages*` and carried on.
+
+**Why nothing caught it — this is the actual finding.** `tools/verify.sh`
+existed the whole time and byte-compiles every module. It ended its pipeline
+with:
+
+```sh
+... | grep -vE "…|Cannot open load file.*no such|…" || true
+```
+
+Three independent reasons it could never have helped: `|| true` pinned the exit
+status at 0; even without it a pipeline reports `grep`'s status, not Emacs's;
+and the filter dropped *the exact message an unresolvable `require` produces*.
+`modules/README.md` claimed "`tools/verify.sh` will tell you if they drift." It
+could not tell you anything. Wiring it into CI as it stood would have produced a
+green check over 1,569 lines of dead elisp.
+
+Meanwhile `nix flake check` ran statix and deadnix over `.nix` files only.
+Nothing in this repo had ever looked at the elisp — which is ~3× the Nix
+configuration by line count.
+
+**What was fixed**
+
+- The 12 stale `require` forms across `11`–`15`. Prose and `#+TITLE`s that
+  referenced modules by *number* now reference them by *name*, since the
+  numbers are the part that rots.
+- Six `extras/*.org` modules were **untracked**: `01-hebrew-completion`,
+  `02-hebrew-org`, `03-hebrew-typesetting`, `06-torah-search`,
+  `16-seforim-integration`, `17-hydras`. A flake copies the *git tree* to the
+  store, so they existed on exactly one machine — and the writable
+  `~/.config/emacs/modules` sync never deletes, so that machine kept a stale
+  copy from an earlier deploy and never noticed. Now tracked.
+
+**What was fixed so it cannot happen again**
+
+- **`tools/check-modules.sh`** (new) — static consistency over the module tree.
+  No Emacs, no packages, no network, ~1 second. Verifies: `provide` matches
+  filename and is unique; explicit `:tangle` target and `;;; name.el ---`
+  header match; **every local `require` resolves to a module that exists**;
+  dependencies point essentials → extras and never back, and only backwards in
+  load order within a group; no orphaned `.el`; no `my/module-enabled-p`
+  capability gate naming a module that isn't there; every `.org` tracked by git.
+- **`tools/verify.sh`** — rewritten so it *can fail*. Emacs's exit status is
+  captured before anything touches the pipeline, `Cannot open load file` is
+  surfaced rather than hidden, and only genuine noise is filtered. It also no
+  longer points `package-user-dir` at a non-existent `~/.emacs.d/elpa` on Nix,
+  where the packages are on the Emacs binary's own load-path.
+- **`nix flake check` now checks the elisp** — two new checks, `emacs-modules`
+  (the static pass) and `emacs-bytecompile` (tangle + byte-compile against the
+  real package set). `just check-emacs` and `just verify-emacs` run them
+  directly.
+- **`emacs-package.nix`** (new) — the Emacs package set, factored out of
+  `default.nix`'s `let`. A verification job that compiles against a *different*
+  package set than the one you run is verifying a lookalike; this makes the
+  flake check build the identical Emacs.
+- **`init.el`** — a failed module now raises `display-warning` at `:error`
+  level, so the *Warnings* buffer pops and stays, instead of one line in
+  `*Messages*` that scrolls away unread. `M-x my/load-report` lists what failed
+  and why, and names `check-modules.sh` when the error looks like this one.
+- **`.gitattributes`** (new) — `eol=lf` for `*.sh`/`*.nix`/`*.el`/`*.org`. Those
+  scripts now execute inside a Nix build, and a CRLF shebang fails with `bad
+  interpreter: /usr/bin/env^M`.
+
+**Known limitation, stated deliberately.** This does *not* decouple module
+identity from load order — renumbering still renames a module and still
+invalidates every reference to it. Doing that properly means changing the
+tangle target of all 40 modules, and it could not be tested from the Windows
+mirror. What changed is that breaking the coupling is now **loud**: a renumber
+that misses a dependant fails `nix flake check` instead of silently deleting a
+subsystem. See `modules/README.md` → *Renumbering a module*.
+
+**Verify on the machine:**
+
+```sh
+just check-emacs     # expect: "check-modules: 40 modules OK"
+just check           # full flake check, now including the two Emacs checks
+just switch
+# then, in Emacs:  M-x my/load-report   → "All modules loaded cleanly."
+#                  M-x seforim-mefarshim  → should exist
+```
+
+`emacs-bytecompile` is new and has never run; if it fails on a module that
+`check-emacs` passes, that is a *real* finding (a syntax error or a `require`
+of a package missing from `emacs-package.nix`), not a false positive.
+
+---
+
 ## Do this on the machine (in order)
 
 1. **Lock the new input** (adds sops-nix):
@@ -22,9 +125,12 @@ work through the checklist below on the NixOS box.
    ```
 4. **Switch**: `just switch`. Then reboot and test each specialisation from the
    systemd-boot menu (niri, hyprland, study, minimal).
-5. **Make Emacs reproducible** — move your literate modules into the repo once:
+5. **Make Emacs reproducible** — move your literate modules into the repo once.
+   The modules are split into two groups, `essentials/` (a general Emacs config)
+   and `extras/` (Hebrew + seforim), and the structure has to be preserved:
    ```sh
-   cp ~/.config/emacs/modules/*.org modules/home/emacs/modules/
+   cp -r ~/.config/emacs/modules/essentials modules/home/emacs/modules/
+   cp -r ~/.config/emacs/modules/extras     modules/home/emacs/modules/
    ```
    (see `modules/home/emacs/modules/README.md`)
 6. **Secrets (optional)** — follow `secrets/README.md` to set up sops-nix, then
@@ -89,6 +195,87 @@ work through the checklist below on the NixOS box.
   functional but messy; left alone to avoid regressing your Plasma look.
 - **`nix-ld` `steam-run.args.multiPkgs` hack**: fragile across nixpkgs bumps but
   currently works — left as-is.
-- **`unstable` special-arg** is a no-op (equals `pkgs`); kept for signature
-  compatibility. A true stable/unstable split would be a separate change.
 - `pkgs.ollama-cpu` — verified this attribute is valid; no change needed.
+
+---
+
+# 26.05 + Lix upgrade (2026-08-02)
+
+Also authored off-machine — **untested**. Work through this on the NixOS box.
+
+## Do this on the machine (in order)
+
+1. **Relock.** Every input URL changed and `flake.lock` was already stale (it
+   predates the sops-nix input, so it was never re-locked after that pass):
+   ```sh
+   just update            # nix flake update
+   ```
+2. **Build, don't switch.** This is a cross-release jump plus a new Nix
+   implementation; the first build is large:
+   ```sh
+   just build
+   ```
+3. **Switch.** The nix-daemon restarts here as it becomes Lix:
+   ```sh
+   just switch
+   ```
+4. **Verify Lix took:**
+   ```sh
+   nix --version          # expect: nix (Lix, like Nix) 2.94.x
+   ```
+5. **Reboot** — you're crossing to a systemd stage-1 initrd and kernel 6.12 →
+   6.18. If the new initrd misbehaves, pick the previous generation at the
+   systemd-boot menu; `configurationLimit = 10` means it's still there.
+6. Re-check the specialisations (`niri`, `hyprland`, `study`, `minimal`) boot —
+   they're the least-exercised paths and plasma-manager/stylix churn lands there.
+
+`nixos-version` will still say "current" — see the last note below.
+
+## What changed
+
+- **nixpkgs `nixos-unstable` → `nixos-26.05`.** The lock was pinned at ~2026-04-30,
+  i.e. just *before* the 26.05 branch point, so this is a genuine upgrade, not a
+  downgrade to stable. 26.05 "Yarara" is supported through 2026-12-31.
+- **home-manager `master` → `release-26.05`**, **stylix `danth/stylix` →
+  `nix-community/stylix#release-26.05`** (stylix moved orgs; its release branch
+  must match nixpkgs + HM or you get option-set mismatches). Stylix now also
+  `follows` our nixpkgs — previously it didn't, so the lock carried a second
+  full nixpkgs (`nixpkgs_2`) just for stylix. One fewer eval, one fewer skew.
+- **plasma-manager stays on `trunk`** — it has no release branches, only `trunk`,
+  which targets home-manager *master*. It `follows` our pinned HM, so if trunk
+  starts using an API that isn't in `release-26.05`, pin it to a rev. This is the
+  single most likely thing to break on a future `just update`.
+- **sops-nix stays on master** (no release branches; tracks nixpkgs, fine on stable).
+- **New `nixpkgs-unstable` input.** The `unstable` special-arg is no longer a
+  no-op alias for `pkgs` — it's a real second nixpkgs, threaded through
+  `specialArgs` into the host config, every specialisation, and home-manager's
+  `extraSpecialArgs`. Use it as `unstable.foo` for the odd package worth chasing.
+- **Lix replaces CppNix**: `nix.package = pkgs.lixPackageSets.stable.lix`
+  (Lix 2.94 in 26.05; `lixPackageSets.latest` is 2.95 if you want it). Lix is a
+  fork of Nix 2.18 — same store layout, same store DB, same flake semantics, so
+  there's no `/nix` migration and nothing gets re-downloaded. The daemon restarts
+  during `switch`; that's the whole migration.
+
+## Checked against the 26.05 backward-incompatibility list — no action needed
+
+- `fileSystems.<name>.fsType` lost its default: both entries in
+  `hardware-configuration.nix` already set it explicitly.
+- systemd stage-1 initrd is now the default. No LUKS and no `/dev/root`
+  references here, so nothing to adjust.
+- `system.rebuild.enableNg` removed (bash `nixos-rebuild` is gone) — never set it.
+- `linux_hardened` / `linux-rt` / `profiles/hardened` removed — none in use.
+- `services.xserver` now *errors* on unknown `videoDrivers` instead of ignoring
+  them — `videoDrivers` isn't set.
+- dbus → dbus-broker by default; `services.dbus.enable` and
+  `services.dbus.packages` are unaffected.
+- `services.openssh.settings.AcceptEnv` now needs a list — not set.
+
+## Deliberately NOT changed
+
+- **`system.stateVersion` / `home.stateVersion` stay at `25.11`.** These are not
+  version numbers to keep current — they declare which release's *stateful*
+  defaults your existing data was created under. Bumping them silently changes
+  service defaults out from under live state. Leave them until you rebuild the
+  machine from scratch.
+- **`system.nixos.version = "current"`** in `core.nix` is why `nixos-version`
+  won't tell you you're on 26.05. Cosmetic, left alone — but that's the reason.

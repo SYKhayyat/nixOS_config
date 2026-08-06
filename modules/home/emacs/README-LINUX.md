@@ -41,8 +41,10 @@ modules/home/emacs/          ← you are here; this is the whole config
 ├── default.nix              the home-manager module (packages + wiring)
 ├── init.el                  the loader — ONE copy, used on every OS
 ├── early-init.el            pre-GUI performance knobs
-├── modules/*.org            the 33 literate modules (source of truth)
-├── tools/                   tangle.sh · verify.sh · deploy.sh
+├── modules/
+│   ├── essentials/*.org     the general config — 25 literate modules
+│   └── extras/*.org         Hebrew + seforim — 14 literate modules
+├── tools/                   tangle.sh · verify.sh · check-modules.sh · deploy.sh
 └── README*.md, EMACS-PRIMER.md
 ```
 
@@ -78,7 +80,7 @@ bash tools/deploy.sh                 # → ~/.config/emacs (backs up what's ther
 emacs                                # first launch installs from MELPA
 ```
 
-`00-core` auto-detects that the packages aren't on the load-path and switches to
+`essentials/00-core` auto-detects that the packages aren't on the load-path and switches to
 portable mode. Force it either way with `EMACS_PACKAGES=1` (MELPA) or `0` (use
 what's installed) if the guess is ever wrong.
 
@@ -97,17 +99,22 @@ table is for other distros.
 |---|---|---|---|---|
 | Search (core) | `ripgrep`, `fd` | `ripgrep fd-find` | `ripgrep fd-find` | `ripgrep fd` |
 | Search inside PDFs | `ripgrep-all` | `cargo install ripgrep_all` | `ripgrep-all` | `ripgrep-all` |
-| PDF viewing (11) | poppler + `M-x pdf-tools-install` | `libpoppler-glib-dev` | `poppler-glib-devel` | `poppler-glib` |
-| Spell check (03) | enchant + a C compiler | `libenchant-2-dev` | `enchant2-devel` | `enchant` |
-| Terminal (23) | cmake + libvterm + cc | `cmake libvterm-dev` | `cmake libvterm-devel` | `cmake libvterm` |
-| Notes (07) | sqlite | `libsqlite3-dev` | `sqlite-devel` | `sqlite` |
-| LaTeX (08) | `latexmk`, `lualatex` | `texlive-full` | `texlive-scheme-full` | `texlive-meta` |
-| Typst (09) | `typst` (+ `tinymist`) | `cargo install typst-cli` | same | `typst` |
-| **Markdown preview (28)** | **`pandoc`** | `pandoc` | `pandoc` | `pandoc` |
-| **AI (21)** | `ollama` for local models | [ollama.com](https://ollama.com) | same | `ollama` |
-| Indexed search (14f) | `recoll` | `recoll` | `recoll` | `recoll` |
+| PDF viewing (`essentials/11-pdf`) | poppler + `M-x pdf-tools-install` | `libpoppler-glib-dev` | `poppler-glib-devel` | `poppler-glib` |
+| Spell check (`essentials/02-completion`) | enchant + a C compiler | `libenchant-2-dev` | `enchant2-devel` | `enchant` |
+| Terminal (`essentials/16-vterm`) | cmake + libvterm + cc | `cmake libvterm-dev` | `cmake libvterm-devel` | `cmake libvterm` |
+| Notes (`essentials/06-org-roam`) | sqlite | `libsqlite3-dev` | `sqlite-devel` | `sqlite` |
+| LaTeX (`essentials/07-latex`) | `latexmk`, `lualatex` | `texlive-full` | `texlive-scheme-full` | `texlive-meta` |
+| Typst (`essentials/08-typst`) | `typst` (+ `tinymist`) | `cargo install typst-cli` | same | `typst` |
+| ConTeXt (`essentials/09-context`) | `context` | `texlive-context` | `texlive-context` | `texlive-context` |
+| **Markdown preview (`essentials/10-markdown`)** | **`pandoc`** | `pandoc` | `pandoc` | `pandoc` |
+| **AI (`essentials/20-local-ai`)** | `ollama` for local models | [ollama.com](https://ollama.com) | same | `ollama` |
+| Indexed search (`extras/15-seforim-dream`) | `recoll` | `recoll` | `recoll` | `recoll` |
+| Hebrew date (`extras/04-hebrew-scholarship`) | `hdate` | `libhdate1` | `hdate` | AUR `libhdate` |
 | Fast file find | `plocate` | `plocate` | `plocate` | `plocate` |
-| Direnv (12) | `direnv` | `direnv` | `direnv` | `direnv` |
+| Direnv (`essentials/12-programming`) | `direnv` | `direnv` | `direnv` | `direnv` |
+
+> Spell checking is **English only** — the Hebrew dictionaries were removed, see
+> the main README §5.
 
 ---
 
@@ -115,32 +122,46 @@ table is for other distros.
 
 **Edit the `.org`, never the `.el`.** The `.el` is generated and will be
 overwritten on the next tangle. Saving a module `.org` re-tangles it
-automatically (`17-utils`), and `init.el` re-tangles anything stale at startup.
+automatically (`essentials/24-utils`), and `init.el` re-tangles anything stale at startup.
 
 ```sh
-bash tools/tangle.sh 28-markdown   # tangle one module by name
+bash tools/tangle.sh 10-markdown   # tangle one module by name (any group)
 bash tools/tangle.sh               # tangle all
-bash tools/verify.sh               # byte-compile everything, report warnings
+bash tools/verify.sh               # byte-compile everything, report errors
+bash tools/check-modules.sh        # module consistency — no Emacs, ~1 second
 ```
 
-To add a module, drop in `29-foo.org` with a matching `:tangle` header. The
-loader globs `NN-*.el` in filename order — there is no list to update.
+To add a module, drop `25-foo.org` into `modules/essentials/` or
+`modules/extras/` with a matching `:tangle` header, and **`git add` it** — a
+flake copies the git tree to the store, so an untracked module silently does not
+exist anywhere but your own machine. The loader globs `NN-*.el` per group in
+filename order — there is no list to update. Pick the group by one question:
+would someone who does not read Hebrew want it?
+
+**If you renumber a module you have renamed it.** Its feature symbol is its
+filename, so every `(require 'NN-name)` pointing at it breaks — and `init.el`
+catches the failure, so nothing crashes and nothing goes red. Run
+`bash tools/check-modules.sh` (or `just check-emacs`) after any rename; it is
+also part of `nix flake check`, so a rebuild will now catch it for you.
 
 On NixOS, after editing: `just switch`. Adding a *package* (not just config)
-means editing the `emacsWithPackages` list in `default.nix` too.
+means editing the package list in `emacs-package.nix` too — it lives in its own
+file so `nix flake check` can build the identical Emacs and byte-compile the
+modules against it.
 
 ---
 
 ## 6. What's Linux-only here
 
-- **`25-nix-system`** — `nixos-rebuild` / `home-manager` / GC helpers. Gated on
+- **`essentials/22-nix-system`** — `nixos-rebuild` / `home-manager` / GC helpers. Gated on
   the Nix tooling actually being present, so it is skipped on Debian rather than
   erroring.
-- **`23-vterm-pro`** — needs a compiled module. Gated on either a prebuilt
-  `vterm-module` or cmake + a C compiler. Where it's unavailable, `26-terminal`
+- **`essentials/16-vterm`** — needs a compiled module. Gated on either a prebuilt
+  `vterm-module` or cmake + a C compiler. Where it's unavailable, `essentials/17-terminal`
   (built-in shells) covers the same ground and always loads.
 - **`~/.recoll/recoll.conf`** — written by `default.nix` on NixOS only; on other
-  distros run `recollindex` yourself if you want `14f`'s indexed search.
+  distros run `recollindex` yourself if you want `extras/15-seforim-dream`'s
+  indexed search.
 - **The eln cache** goes to `~/.cache/emacs/eln-cache` on Linux (via
   `startup-redirect-eln-cache`), keeping generated artefacts out of the config
   directory.
@@ -170,6 +191,6 @@ locale coding is what makes ripgrep match Hebrew.
 **`just switch` fails after a module edit.** Run `just build` for the full error;
 `nix fmt` and `just check` (statix + deadnix) catch most `.nix` mistakes.
 
-**PDF buffers show raw bytes.** `pdf-tools` isn't usable, so `11-pdf` no longer
+**PDF buffers show raw bytes.** `pdf-tools` isn't usable, so `essentials/11-pdf` no longer
 claims `.pdf` in `auto-mode-alist` — install poppler and run `M-x
 pdf-tools-install`.

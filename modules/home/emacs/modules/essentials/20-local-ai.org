@@ -1,0 +1,96 @@
+#+TITLE: Local AI Assistant
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Local AI with Ollama
+
+#+begin_src emacs-lisp
+;;; 20-local-ai.el --- Local AI Research Assistant -*- lexical-binding: t; -*-
+
+(use-package gptel
+  :bind (("C-c g g" . gptel)
+         ("C-c g s" . gptel-send)
+         ("C-c g m" . gptel-menu))
+  :config
+  ;; ── Local backend: Ollama ────────────────────────────────────────────
+  ;; Models are detected from the running Ollama instance rather than
+  ;; hardcoded, so this doesn't advertise models you never pulled (the old
+  ;; list claimed llama3 + mistral whether or not they existed).  Falls back
+  ;; to a sensible default when Ollama isn't running at startup.
+  (defun my/ollama-models ()
+    "Return the models `ollama list' reports, or a fallback."
+    (or (ignore-errors
+          (let ((out (with-output-to-string
+                       (with-current-buffer standard-output
+                         (call-process "ollama" nil t nil "list")))))
+            ;; Skip the header row; first column is NAME.
+            (let (models)
+              (dolist (line (cdr (split-string out "\n" t)))
+                (let ((name (car (split-string line))))
+                  (when (and name (not (string-empty-p name)))
+                    (push (intern name) models))))
+              (nreverse models))))
+        '(llama3)))
+
+  (setq gptel-backend
+        (gptel-make-ollama "Ollama"
+          :host "localhost:11434"
+          :stream t
+          :models (my/ollama-models)))
+
+  ;; Default to Org-mode for AI responses
+  (setq gptel-default-mode 'org-mode))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; HOW TO ADD A CLOUD BACKEND (Claude / OpenAI)
+;; ═══════════════════════════════════════════════════════════════════════════
+;; Ollama above is local, free and offline.  To also reach a hosted model,
+;; register a second backend.  gptel keeps a LIST of backends and lets you
+;; switch between them at runtime with `C-c g m' (gptel-menu) -> `-m'; the
+;; `gptel-backend' set above stays the default.
+;;
+;; ── Step 1: store the key OUTSIDE this file ────────────────────────────────
+;; Never paste a key into a config that lives in git.  Two good options:
+;;
+;;   (a) auth-source (recommended).  Add a line to ~/.authinfo.gpg:
+;;         machine api.anthropic.com login apikey password sk-ant-...
+;;       then use  :key #'gptel-api-key-from-auth-source
+;;       gptel looks the key up by the backend's :host, and the file is
+;;       GPG-encrypted at rest.
+;;
+;;   (b) An environment variable, read at call time (never at load time, so a
+;;       missing key can't break startup):
+;;         :key (lambda () (getenv "ANTHROPIC_API_KEY"))
+;;       On NixOS put it in a sops-nix secret sourced by your shell -- do NOT
+;;       put it in home.sessionVariables, which world-readably lands in the
+;;       nix store.
+;;
+;; ── Step 2: uncomment the backend you want ─────────────────────────────────
+;;
+;; Claude (Anthropic).  Current model IDs, best first:
+;;   claude-opus-4-8    -- most capable; the right default
+;;   claude-sonnet-5    -- cheaper, nearly as strong on most work
+;;   claude-haiku-4-5   -- fastest/cheapest, for simple tasks
+;;
+;; (gptel-make-anthropic "Claude"
+;;   :stream t
+;;   :key #'gptel-api-key-from-auth-source
+;;   :models '(claude-opus-4-8 claude-sonnet-5 claude-haiku-4-5))
+;;
+;; OpenAI:
+;; (gptel-make-openai "OpenAI"
+;;   :host "api.openai.com"
+;;   :stream t
+;;   :key #'gptel-api-key-from-auth-source
+;;   :models '(gpt-4o gpt-4o-mini))
+;;
+;; ── Step 3 (optional): make the cloud backend the default ──────────────────
+;; Replace the `(setq gptel-backend (gptel-make-ollama ...))' above with the
+;; value returned by the constructor -- every `gptel-make-*' returns the
+;; backend object, so you can just wrap it:
+;;   (setq gptel-backend (gptel-make-anthropic "Claude" ...))
+;; Leaving Ollama as the default and switching per-buffer with `C-c g m' is
+;; usually better: no key needed for routine work, no tokens spent by accident.
+
+(provide '20-local-ai)
+;;; 20-local-ai.el ends here
+#+end_src

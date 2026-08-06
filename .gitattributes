@@ -1,0 +1,11 @@
+# The shell scripts under modules/home/emacs/tools/ are executed inside a Nix
+# build (`nix flake check` tangles and verifies the Emacs modules). A CRLF
+# shebang there fails with "bad interpreter: /usr/bin/env^M: no such file or
+# directory", which is a genuinely awful hour to spend. This repo is edited
+# from Windows as well as NixOS, so pin the line endings rather than trusting
+# every checkout's core.autocrlf.
+*.sh    text eol=lf
+*.nix   text eol=lf
+*.el    text eol=lf
+*.org   text eol=lf
+justfile text eol=lf

@@ -1,0 +1,169 @@
+#+TITLE: Hebrew Org
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* RTL footnotes and the Hebrew export class
+
+Two things Org needs before it behaves in Hebrew.
+
+** The RTL footnote marker
+
+An Org footnote definition starts at column zero with ~[fn:label]~. In an RTL
+paragraph the bracket is a neutral character, so bidi resolution puts it on the
+wrong side of the line and the definition reads inside-out. Inserting a RIGHT-TO-LEFT
+MARK (U+200F) at the head of the definition pins the direction.
+~org-footnote-new~ gets advice so new notes are correct as you write, and
+=C-c h f= repairs a file written before that advice existed.
+
+** The export class
+
+~article-hebrew~ sets up babel with ~bidi=basic~ and the CLM font family. It
+also loads =bigfoot= and declares note series B..J, so ~\footnoteB~ …
+~\footnoteJ~ each get their own block at the foot of the page. Verified by
+compiling: ten series, each numbering independently from 1.
+
+Nesting is real but *directional* — the outer note must be the lettered one:
+
+| Written | Result |
+|---------+--------|
+| ~\footnoteB{… \footnote{inner} …}~ | compiles |
+| ~\footnote{… \footnoteB{inner} …}~ | ~! \footinsB forbidden in \footinsdefault~ |
+| ~\footnoteC{… \footnoteB{inner} …}~ | ~! \footinsB forbidden in \footinsC~ |
+
+Which means you cannot get a nested note by dropping raw LaTeX inside an
+ordinary Org footnote — Org exports that as a plain ~\footnote~, and a lettered
+note is forbidden inside it. ~my/org-insert-nested-footnote~ builds the whole
+nest as one snippet, outer-lettered, for exactly this reason.
+
+See [[file:05-rich-footnotes.org][05-rich-footnotes]] for the full apparatus and
+what each backend was measured to do.
+
+#+begin_src emacs-lisp
+;;; 02-hebrew-org.el --- RTL footnotes and Hebrew LaTeX export -*- lexical-binding: t; -*-
+
+;; ── Hebrew tag, capture and roam templates ─────────────────────────────────
+;; essentials/05-org and 06-org-roam keep the general sets; the Hebrew entries
+;; are appended here so the base config carries no tag it has no use for.
+(with-eval-after-load 'org
+  (add-to-list 'org-tag-alist '("hebrew" . ?h) t)
+  (add-to-list 'org-capture-templates
+               '("h" "Hebrew Note" entry
+                 (file+headline "~/Documents/org/inbox.org" "Notes")
+                 "* %?\n  :PROPERTIES:\n  :LANG: hebrew\n  :END:\n  %i")
+               t))
+
+(with-eval-after-load 'org-roam
+  (add-to-list 'org-roam-capture-templates
+               '("h" "hebrew" plain "%?"
+                 :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                                    "#+title: ${title}\n#+date: %U\n#+filetags: hebrew\n\n")
+                 :unnarrowed t)
+               t))
+
+;; ── RTL footnotes ──────────────────────────────────────────────────────────
+(with-eval-after-load 'org
+  (advice-add 'org-footnote-new :after
+              (lambda (&rest _)
+                (when (eq bidi-paragraph-direction 'right-to-left)
+                  (insert ?\x200F)))))
+
+(defun my/org-fix-all-footnotes-rtl ()
+  "Insert a RIGHT-TO-LEFT MARK before every footnote definition in the buffer.
+Repairs a file written before the `org-footnote-new' advice above was in
+place.  Idempotent: a definition that already has the mark is left alone."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (let ((count 0))
+      (while (re-search-forward "^\\(\\[fn:[^]]+\\]\\)" nil t)
+        (unless (looking-at (char-to-string ?\x200F))
+          (insert ?\x200F)
+          (cl-incf count)))
+      (message "Fixed %d footnotes" count))))
+
+(global-set-key (kbd "C-c h f") #'my/org-fix-all-footnotes-rtl)
+
+;; ── Hebrew LaTeX export class ──────────────────────────────────────────────
+;; Org has no nested footnotes of its own: it reads ':' inside a label as
+;; inline-definition syntax, so [fn:1:2] is not "note 1 level 2".
+;;
+;; NESTING DIRECTION MATTERS, and the guidance here used to have it backwards.
+;; This is what bigfoot actually permits, established by compiling all three:
+;;
+;;     \footnoteB{ ... \footnote{inner} ... }   COMPILES
+;;     \footnote{ ... \footnoteB{inner} ... }   ! \footinsB forbidden in
+;;                                                \footinsdefault
+;;     \footnoteC{ ... \footnoteB{inner} ... }  ! \footinsB forbidden in
+;;                                                \footinsC
+;;
+;; So the plain, unlettered series is the only one that may be nested, and only
+;; inside a lettered one.  The OUTER note has to be the lettered series.
+;;
+;; That rules out the obvious Org approach.  An Org footnote exports as a plain
+;; \footnote, so putting @@latex:\footnoteB{...}@@ inside one produces exactly
+;; the forbidden combination -- the file will not compile.  The whole nest has
+;; to go in as ONE raw snippet, with the lettered note on the outside:
+;;
+;;     Text.@@latex:\footnoteB{Outer note.\footnote{Inner note.}}@@
+
+(defun my/org-insert-nested-footnote (series)
+  "Insert a raw-LaTeX nested-footnote snippet for Org export.
+SERIES is 2..10 (B..J) and becomes the OUTER note; the inner note is a plain
+\\footnote.  That order is not a preference -- bigfoot forbids a lettered note
+inside a plain one, so the reverse does not compile.
+
+Point is left in the outer note.  Insert this in the body text, NOT inside an
+ordinary Org footnote definition."
+  (interactive "nOuter footnote series (2-10, B..J): ")
+  (let* ((s (max 2 (min 10 series)))
+         (cmd (format "footnote%c" (+ ?A (1- s)))))
+    (insert (format "@@latex:\\%s{\\footnote{}}@@" cmd))
+    (search-backward "{\\footnote")
+    (forward-char 1)))
+
+(with-eval-after-load 'ox-latex
+  ;; bigfoot and the bidi babel options are needed by `article-hebrew' below.
+  ;; essentials/05-org keeps `org-latex-packages-alist' to fontspec alone, so
+  ;; a non-Hebrew document is not made to load bidi machinery it never uses.
+  (dolist (pkg '(("bidi=basic" "babel" t)
+                 ("" "bigfoot" t)
+                 ("" "enumitem" t)))
+    (add-to-list 'org-latex-packages-alist pkg t))
+
+  (add-to-list 'org-latex-classes
+               '("article-hebrew"
+                 "\\documentclass[11pt]{article}
+[NO-DEFAULT-PACKAGES]
+[PACKAGES]
+
+% ── Hebrew ──
+\\babelprovide[main, import]{hebrew}
+\\babelprovide[import]{english}
+\\babelfont{rm}{David CLM}
+\\babelfont{sf}{Nachlieli CLM}
+\\babelfont{tt}{Miriam Mono CLM}
+
+% ── Footnote series ──
+% B..J are bigfoot's; the unlettered series is LaTeX's own \\footnote and needs
+% no declaration.  (An earlier version also said \\DeclareNewFootnote{default},
+% whose mandatory argument is the SERIES NAME -- so it declared a series called
+% \"default\" and gave you \\footnotedefault, which nothing ever called.)
+\\DeclareNewFootnote{B}
+\\DeclareNewFootnote{C}
+\\DeclareNewFootnote{D}
+\\DeclareNewFootnote{E}
+\\DeclareNewFootnote{F}
+\\DeclareNewFootnote{G}
+\\DeclareNewFootnote{H}
+\\DeclareNewFootnote{I}
+\\DeclareNewFootnote{J}
+
+[EXTRA]"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+
+(provide '02-hebrew-org)
+;;; 02-hebrew-org.el ends here
+#+end_src

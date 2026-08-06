@@ -1,7 +1,12 @@
 { config, lib, pkgs, ... }:
 
 let
-  hunspellWithDicts = pkgs.hunspell.withDicts (d: [ d.en_US d.he_IL ]);
+  # English only.  The Hebrew dictionaries (hunspell he_IL, aspell he) were
+  # dropped along with Hebrew spell checking in the Emacs config: unvowelled
+  # Hebrew with optional ktiv male/chaser spellings is not something these
+  # dictionaries model, so every other word came back flagged and the feature
+  # was noise rather than help.
+  hunspellWithDicts = pkgs.hunspell.withDicts (d: [ d.en_US ]);
 in
 {
   environment.systemPackages = with pkgs; [
@@ -11,7 +16,7 @@ in
     # FILE SEARCH (Unabridged)
     fd ripgrep ripgrep-all fzf fzy plocate recoll
     fsearch kdePackages.kfind television docfd skim ugrep tre
-    (pkgs.aspellWithDicts (d: [ d.en d.he d.en-computers ]))
+    (pkgs.aspellWithDicts (d: [ d.en d.en-computers ]))
 
     # FILE MANAGEMENT
     nnn ranger mc fdupes ncdu peazip

@@ -1,0 +1,129 @@
+#+TITLE: 12 Seforim Search – Filename & full-text search
+#+PROPERTY: header-args:emacs-lisp :tangle 12-seforim-search.el
+
+Search commands built on stock Consult.  Full-text search binds a
+niqqud-insensitive regexp compiler (from =seforim-core=) so you type *plain* Hebrew and
+still match pointed text — this is the fix for "searching inside files does not
+work".  =rg= covers the =.org= library; =rga= (ripgrep-all) additionally reads
+inside PDFs/EPUBs/DOCX.  A prefix arg (=C-u=) makes any command prompt for a
+different directory.
+
+#+BEGIN_SRC emacs-lisp
+;;; 12-seforim-search.el --- Seforim: filename & niqqud-aware full-text search  -*- lexical-binding: t; -*-
+
+(require '10-seforim-core)
+(require '11-seforim-candidates)
+;; `consult' is loaded lazily by `seforim--with-niqqud' / the search commands,
+;; not at startup.  Declare the consult vars we dynamically rebind as special
+;; so the byte-compiler treats our `let' bindings as dynamic (consult is
+;; require'd before any of them is actually used).
+(defvar consult--regexp-compiler)
+(defvar consult-async-refresh-delay)
+(defvar consult-ripgrep-args)
+(defvar consult-fd-args)
+
+;; ---------------------------------------------------------------------------
+;; Helpers
+;; ---------------------------------------------------------------------------
+
+(defun seforim--call-in-dir (consult-cmd)
+  "Call CONSULT-CMD with `default-directory' at the library base.
+With a prefix argument, let Consult prompt for the directory instead."
+  (if current-prefix-arg
+      (call-interactively consult-cmd)
+    (let ((default-directory (seforim--base-dir)))
+      (call-interactively consult-cmd))))
+
+(defmacro seforim--with-niqqud (&rest body)
+  "Run BODY with the niqqud-insensitive Consult compiler active.
+Honours `seforim-niqqud-ignore'; a no-op when it is nil."
+  (declare (indent 0))
+  ;; Load consult first so its special vars exist before we bind them.
+  `(progn
+     (require 'consult)
+     (let ((consult--regexp-compiler
+            (if seforim-niqqud-ignore
+                #'seforim--niqqud-regexp-compiler
+              (default-value 'consult--regexp-compiler)))
+           (consult-async-refresh-delay seforim-consult-idle-delay))
+       ,@body)))
+
+;; ---------------------------------------------------------------------------
+;; 1. plocate — system-wide filename search
+;; ---------------------------------------------------------------------------
+
+(defun seforim-find-plocate ()
+  "Filename search with plocate (system-wide, live, async)."
+  (interactive)
+  (unless (executable-find "plocate") (user-error "plocate not found"))
+  (let ((out (ignore-errors (shell-command-to-string "plocate --limit 1 /"))))
+    (when (and out (string-empty-p (string-trim out)))
+      (message "Warning: plocate database empty. Run 'sudo updatedb'.")))
+  (call-interactively #'consult-locate))
+
+;; ---------------------------------------------------------------------------
+;; 2. fd — exact filename search within the library
+;; ---------------------------------------------------------------------------
+
+(defun seforim-find-fd ()
+  "Exact filename search with fd inside the library.
+With a prefix argument, prompt for the directory.
+Filenames carry no niqqud, so no niqqud handling is needed here."
+  (interactive)
+  (unless (executable-find "fd") (user-error "fd not found"))
+  (seforim--call-in-dir #'consult-fd))
+
+;; ---------------------------------------------------------------------------
+;; 3. fd fuzzy — glob-based fuzzy filename search
+;; ---------------------------------------------------------------------------
+
+(defun seforim-find-fuzzy ()
+  "Fuzzy, live filename search (fd + Orderless) inside the library.
+Matches across the full path, so \"shab kam\" finds
+.../Shabbat/Kama.org.  With a prefix argument, prompt for the directory."
+  (interactive)
+  (unless (executable-find "fd") (user-error "fd not found"))
+  (require 'consult)          ; ensure `consult-fd-args' is special before we bind it
+  (let* ((dir (if current-prefix-arg
+                  (read-directory-name "Search in: " (seforim--base-dir))
+                (seforim--base-dir)))
+         (consult-fd-args
+          (list "fd" "--type" "f" "--hidden" "--no-ignore"
+                "--color" "never" "--full-path")))
+    (consult-fd dir)))
+
+;; ---------------------------------------------------------------------------
+;; 4. rg — niqqud-insensitive full-text search (the .org library)
+;; ---------------------------------------------------------------------------
+
+(defun seforim-search-rg ()
+  "Full-text search with ripgrep inside the library.
+Ignores Hebrew niqqud when `seforim-niqqud-ignore' is non-nil, so a
+plain query matches pointed text.  Prefix arg prompts for a directory."
+  (interactive)
+  (unless (executable-find "rg") (user-error "rg not found"))
+  (seforim--with-niqqud
+    (seforim--call-in-dir #'consult-ripgrep)))
+
+;; ---------------------------------------------------------------------------
+;; 5. rga — deep full-text search, including PDFs/EPUBs/DOCX
+;; ---------------------------------------------------------------------------
+
+(defun seforim-search-rga ()
+  "Deep full-text search with rga (ripgrep-all): also reads PDFs.
+Reuses Consult's ripgrep front-end but swaps the binary to `rga', so
+niqqud handling and result navigation behave exactly like `seforim-search-rg'."
+  (interactive)
+  (unless (executable-find "rga")
+    (user-error "rga (ripgrep-all) not found; install it for PDF search"))
+  (require 'consult)          ; ensure `consult-ripgrep-args' is special before we bind it
+  (let ((consult-ripgrep-args
+         (if (listp consult-ripgrep-args)
+             (cons "rga" (cdr consult-ripgrep-args))
+           (replace-regexp-in-string "\\`rg\\b" "rga" consult-ripgrep-args))))
+    (seforim--with-niqqud
+      (seforim--call-in-dir #'consult-ripgrep))))
+
+(provide '12-seforim-search)
+;;; 12-seforim-search.el ends here
+#+END_SRC

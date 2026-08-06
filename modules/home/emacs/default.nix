@@ -1,28 +1,10 @@
 { config, lib, pkgs, myConfig, ... }:
 
 let
-  emacs = pkgs.emacs30-pgtk or pkgs.emacs30 or pkgs.emacs29-pgtk;
-  emacsWithPackages = (pkgs.emacsPackagesFor emacs).emacsWithPackages (epkgs: with epkgs; [
-    use-package dash s f seq cl-lib diminish
-    doom-themes doom-modeline nerd-icons all-the-icons all-the-icons-dired pulsar shrink-path
-    vertico orderless marginalia consult embark embark-consult corfu anzu deadgrep engine-mode
-    undo-tree avy ace-window multiple-cursors expand-region move-text crux visual-regexp wgrep
-    rainbow-delimiters goto-last-change beginend
-    projectile consult-projectile dirvish
-    org org-modern org-download org-roam org-roam-ui ox-pandoc citar citar-org-roam citeproc
-    vterm pdf-tools jinx gptel
-    magit git-gutter git-timemachine eglot eglot-java treesit-grammars.with-all-grammars
-    treesit-auto rust-mode cargo nix-mode markdown-mode typst-ts-mode yasnippet
-    yasnippet-snippets editorconfig envrc helpful which-key
-    gcmh hydra restart-emacs visual-fill-column
-    valign focus olivetti
-    centaur-tabs
-    # typst-preview is an *Emacs* package, so it belongs on the Emacs
-    # load-path — not in `home.packages`, where it was previously listed and
-    # therefore could never be `require`d.  It talks to `tinymist preview`
-    # over a websocket, hence the explicit websocket dependency.
-    typst-preview websocket
-  ]);
+  # The package set lives in its own file so `nix flake check' can build the
+  # identical Emacs and byte-compile the modules against it.  See the header
+  # comment there for why that matters.
+  emacsWithPackages = import ./emacs-package.nix { inherit pkgs; };
 
   seforimPath = myConfig.seforimPath;
   homeDir = config.home.homeDirectory;
@@ -97,13 +79,23 @@ in
 
     # Sync repo-managed org modules into the writable modules dir (only when
     # newer), so runtime tangling can write .el alongside them.
+    #
+    # The modules live in TWO group directories -- essentials/ and extras/ --
+    # and the group structure is reproduced here, because init.el loads group
+    # by group to guarantee essentials is in place before extras layers on it.
+    # A flat glob over modules-src/*.org would now match nothing at all.
     if [ -d "${homeDir}/.config/emacs/modules-src" ]; then
-      for org in "${homeDir}/.config/emacs/modules-src"/*.org; do
-        [ -e "$org" ] || continue
-        dest="${homeDir}/.config/emacs/modules/$(basename "$org")"
-        if [ ! -f "$dest" ] || [ "$org" -nt "$dest" ]; then
-          $DRY_RUN_CMD install -m 0644 "$org" "$dest"
-        fi
+      for src in "${homeDir}/.config/emacs/modules-src"/*/; do
+        [ -d "$src" ] || continue
+        group=$(basename "$src")
+        mkdir -p "${homeDir}/.config/emacs/modules/$group"
+        for org in "$src"*.org; do
+          [ -e "$org" ] || continue
+          dest="${homeDir}/.config/emacs/modules/$group/$(basename "$org")"
+          if [ ! -f "$dest" ] || [ "$org" -nt "$dest" ]; then
+            $DRY_RUN_CMD install -m 0644 "$org" "$dest"
+          fi
+        done
       done
     fi
 

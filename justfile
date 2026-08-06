@@ -29,9 +29,21 @@ update:
 fmt:
     nix fmt
 
-# Lint: statix (anti-patterns) + deadnix (dead code)
+# Full check: statix + deadnix over the .nix, plus the Emacs module checks
 check:
     nix flake check
+
+# Emacs module consistency only — no Emacs, no build, runs in about a second.
+# Catches unresolvable `require's, provide/filename drift, and .org files you
+# forgot to `git add` (which vanish from the Nix store build without a word).
+check-emacs:
+    @bash modules/home/emacs/tools/check-modules.sh
+
+# Tangle every .org module, then byte-compile the result. Slower, and needs the
+# system Emacs — this is what catches syntax errors and missing packages.
+verify-emacs:
+    @bash modules/home/emacs/tools/tangle.sh
+    @bash modules/home/emacs/tools/verify.sh
 
 # Garbage-collect generations older than 14 days
 gc:

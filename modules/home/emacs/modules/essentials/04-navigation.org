@@ -1,0 +1,108 @@
+#+TITLE: Navigation
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* Navigation Tools
+
+#+begin_src emacs-lisp
+;;; 04-navigation.el --- Avy, Ace-window, Winner, Tab-bar -*- lexical-binding: t; -*-
+
+(use-package avy
+  :bind (("M-j" . avy-goto-char-timer)
+         ("M-g j" . avy-goto-line)
+         ("M-g w" . avy-goto-word-1))
+  :config
+  (setq avy-timeout-seconds 0.3
+        avy-background t))
+
+(use-package ace-window
+  :bind ("M-o" . ace-window)
+  :config
+  (setq aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l)
+        aw-scope 'frame))
+
+(use-package winner
+  :ensure nil
+  :demand t
+  :config
+  (winner-mode 1)
+  :bind (("C-c <left>" . winner-undo)
+         ("C-c <right>" . winner-redo)))
+
+(use-package tab-bar
+  :ensure nil
+  :config
+  (setq tab-bar-show 1
+        tab-bar-close-button-show nil
+        tab-bar-new-tab-choice "*scratch*"
+        tab-bar-tab-hints t
+        tab-bar-format '(tab-bar-format-tabs tab-bar-separator))
+  (tab-bar-mode 1)
+  :bind (("C-<tab>" . tab-bar-switch-to-next-tab)
+         ("C-S-<tab>" . tab-bar-switch-to-prev-tab)
+         ("C-x t n" . tab-bar-new-tab)
+         ("C-x t k" . tab-bar-close-tab)
+         ("C-x t r" . tab-bar-rename-tab)))
+
+;; Buffer management
+(defun my/kill-current-buffer ()
+  "Kill current buffer."
+  (interactive)
+  (kill-buffer (current-buffer)))
+
+(defun my/kill-other-buffers ()
+  "Kill all other buffers."
+  (interactive)
+  (let ((kept 0) (killed 0))
+    (dolist (buf (buffer-list))
+      (let ((name (buffer-name buf)))
+        (cond
+         ((eq buf (current-buffer)) (cl-incf kept))
+         ((string-prefix-p " " name) (cl-incf kept))
+         ((string-prefix-p "*" name) (cl-incf kept))
+         (t (kill-buffer buf) (cl-incf killed)))))
+    (message "Killed %d, kept %d" killed kept)))
+
+(defun my/revert-buffer-no-confirm ()
+  "Revert buffer without confirmation."
+  (interactive)
+  (revert-buffer t t)
+  (message "Reverted"))
+
+(global-set-key (kbd "C-x K") #'my/kill-current-buffer)
+(global-set-key (kbd "C-c k") #'my/kill-other-buffers)
+(global-set-key (kbd "C-c R") #'my/revert-buffer-no-confirm)
+
+;; Extension point: an extras module pushes its own groups here.  The group list
+;; is assembled in the mode hook rather than at load time, so it does not matter
+;; whether the module that adds a group loaded before or after this one.
+(defvar my/ibuffer-extra-groups nil
+  "Extra `ibuffer' filter groups, prepended to the default set.
+Each element has the same shape as an entry in `ibuffer-saved-filter-groups',
+e.g. (\"Seforim\" (filename . \"seforim\")).  Prepended, so a more specific
+group wins over the general ones below.")
+
+(defun my/ibuffer-build-groups ()
+  "Install the default filter group, including anything in `my/ibuffer-extra-groups'."
+  (setq ibuffer-saved-filter-groups
+        `(("default"
+           ,@my/ibuffer-extra-groups
+           ("Org" (mode . org-mode))
+           ("LaTeX" (or (mode . latex-mode) (mode . LaTeX-mode)))
+           ("Typst" (mode . typst-ts-mode))
+           ("Roam" (filename . "roam"))
+           ("Dired" (mode . dired-mode))
+           ("PDF" (mode . pdf-view-mode))
+           ("Magit" (name . "^magit"))
+           ("Help" (or (mode . help-mode) (mode . helpful-mode)))
+           ("Emacs" (or (name . "^\\*scratch\\*$") (name . "^\\*Messages\\*$"))))))
+  (ibuffer-switch-to-saved-filter-groups "default"))
+
+(use-package ibuffer
+  :ensure nil
+  :bind ("C-x C-b" . ibuffer)
+  :config
+  (add-hook 'ibuffer-mode-hook #'my/ibuffer-build-groups))
+
+(provide '04-navigation)
+;;; 04-navigation.el ends here
+#+end_src

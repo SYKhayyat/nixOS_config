@@ -38,6 +38,13 @@
     LC_TIME = myConfig.locale;
   };
 
+  # ── Lix instead of CppNix ────────────────────────────────────────────────
+  # Lix is a drop-in fork of Nix 2.18: same store, same store DB, same flake
+  # semantics — so no /nix migration and no re-download. `stable` is what the
+  # Lix project recommends for a release NixOS; nixpkgs 26.05 points it at
+  # Lix 2.94 "Açaí na tigela" (`lixPackageSets.latest` is 2.95 if you'd rather).
+  nix.package = pkgs.lixPackageSets.stable.lix;
+
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     trusted-users = [ "root" myConfig.username ];

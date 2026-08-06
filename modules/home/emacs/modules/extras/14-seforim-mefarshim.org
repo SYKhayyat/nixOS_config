@@ -1,0 +1,526 @@
+#+TITLE: 14 Seforim Mefarshim – Otzaria-style commentary linking
+#+PROPERTY: header-args:emacs-lisp :tangle 14-seforim-mefarshim.el
+
+* What this is
+
+An Emacs re-implementation of [[https://github.com/Sivan22/otzaria][Otzaria]]'s
+commentary-linking, so that while reading a base text (a pasuk, a line of
+gemara, a mishnah) you can jump to — or view side-by-side — every mefaresh that
+comments on that exact spot.
+
+It reads Otzaria's *own data files* (the downloadable
+[[https://github.com/Sivan22/otzaria-library][otzaria-library]]), which are plain
+=.txt= + =.json=.  It does **not** depend on the Otzaria app.
+
+This is a separate corpus from your personal =~/Documents/seforim= =.org= library:
+your org files have no link data, so segment-level mefarshim linking is only
+possible on the Otzaria corpus.  Point `seforim-otzaria-directory' at it.
+
+See the long header comment in the tangled =.el= for the exact on-disk format,
+every assumption made, and how to verify/adjust each one.  All of it is spelled
+out for a future maintainer.
+
+#+BEGIN_SRC emacs-lisp
+;;; 14-seforim-mefarshim.el --- Otzaria-style mefarshim linking  -*- lexical-binding: t; -*-
+
+;; ===========================================================================
+;;                        READ THIS BEFORE EDITING
+;; ===========================================================================
+;; GOAL: while reading a base sefer, list/open the commentaries (mefarshim) that
+;; comment on the current line, exactly the way the Otzaria app does.
+;;
+;; ---- OTZARIA ON-DISK FORMAT (verified from the Otzaria source, 2026) --------
+;; `seforim-otzaria-directory' (the "library path") contains three siblings:
+;;
+;;   <library>/אוצריא/   -> the texts.  Nested category folders down to one
+;;                          .txt file per book, e.g.
+;;                          אוצריא/תנך/תורה/בראשית.txt
+;;                          Each file is UTF-8, contains light HTML markup
+;;                          (<h1>/<h2> headings, <big>, <b>, <span> ...), and
+;;                          ** one addressable segment per line **.  Segment id
+;;                          = 1-based line number.  Tanakh text carries full
+;;                          niqqud + te'amim.
+;;
+;;   <library>/links/    -> the commentary index.  One file per book, named
+;;                          "<book-title>_links.json".  It is a JSON ARRAY of
+;;                          objects.  Example object:
+;;                            {
+;;                              "line_index_1": 160.0,
+;;                              "path_2": "אוצריא\\תלמוד\\בבלי\\...\\מכות",
+;;                              "line_index_2": 292.0,
+;;                              "heRef_2": "מכות י:, ה,",
+;;                              "Conection Type": null
+;;                            }
+;;                          Field meanings:
+;;                            line_index_1 = line number in THIS book (the one
+;;                                           the json file is named after).
+;;                            path_2       = relative path of the OTHER book,
+;;                                           backslash-separated, rooted at
+;;                                           "אוצריא\...", WITHOUT the .txt.
+;;                            line_index_2 = line number inside that other book.
+;;                            heRef_2      = human-readable ref for display.
+;;                            "Conection Type" = link kind (often null; note the
+;;                                           misspelling — that is the real key).
+;;                          Numbers are JSON floats (160.0) -> we truncate to int.
+;;
+;;   <library>/index/    -> Otzaria's Tantivy search index. We IGNORE it; we
+;;                          search with rg/rga from =seforim-search= instead.
+;;
+;; ---- ASSUMPTIONS (verify these against the real data if something breaks) ----
+;; A1. The json file for a book is <basename-without-.txt>_links.json in links/.
+;;     -> If lookups find nothing, check the exact filename with:
+;;        (directory-files (seforim--otzaria-links-dir) nil "_links\\.json\\'")
+;; A2. The currently-open book is the "book 1" side: its link file lists links
+;;     whose line_index_1 is a line in it, pointing out to path_2/line_index_2.
+;;     Opening a base text this way yields its commentaries; opening a commentary
+;;     yields what it comments on.  If a given corpus stores the relation the
+;;     other way, swap _1 and _2 in `seforim--otzaria-targets-at-point'.
+;; A3. `line-number-at-pos' in the raw .txt buffer equals Otzaria's line index.
+;;     This holds as long as the file is opened unmodified (we never reflow the
+;;     base buffer — we only clean text for the *popup*, so indices stay valid).
+;; A4. path_2 is relative to <library> (the dir that CONTAINS אוצריא/). We also
+;;     handle the case where the user pointed the option straight at the אוצריא/
+;;     texts folder (see `seforim--otzaria-root').
+;;
+;; ---- WHAT TO CHANGE IF THE STRUCTURE IS DIFFERENT ---------------------------
+;; * Different links/ location or naming  -> `seforim--otzaria-links-file'.
+;; * Different path_2 rooting             -> `seforim--otzaria-resolve-path'.
+;; * Base/commentary direction reversed   -> `seforim--otzaria-targets-at-point'.
+;; * Want niqqud stripped in the popup     -> pass nil for KEEP-NIQQUD in
+;;                                            `seforim--otzaria-clean' calls.
+;; ===========================================================================
+
+(require '10-seforim-core)   ; niqqud helpers, seforim--strip-niqqud, paths
+(require '11-seforim-candidates)
+(require 'subr-x)
+(require 'cl-lib)
+;; consult is loaded lazily (only `seforim-otzaria-search' uses it); declare
+;; its special var so our dynamic `let' compiles cleanly.
+(defvar consult--regexp-compiler)
+
+;; ---------------------------------------------------------------------------
+;; Configuration + directory auto-detection
+;; ---------------------------------------------------------------------------
+
+(defun seforim--otzaria-valid-p (dir)
+  "Non-nil if DIR looks like an Otzaria library (has links/ or אוצריא/)."
+  (and dir (file-directory-p dir)
+       (or (file-directory-p (expand-file-name "links" dir))
+           (file-directory-p (expand-file-name "אוצריא" dir)))))
+
+(defun seforim--otzaria-default-directory ()
+  "Best guess for the Otzaria library path across platforms.
+Returns the first candidate that actually looks like an Otzaria library."
+  (seq-find #'seforim--otzaria-valid-p
+            (list "C:/אוצריא"
+                  (expand-file-name "~/אוצריא")
+                  (expand-file-name "~/Documents/אוצריא")
+                  (expand-file-name "~/Documents/otzaria")
+                  (expand-file-name "~/Documents/Otzaria")
+                  (expand-file-name "~/.local/share/otzaria")
+                  ;; common download locations (the release unpacks as
+                  ;; otzaria_latest/ containing links/ + אוצריא/):
+                  (expand-file-name "~/Downloads/otzaria_latest")
+                  (expand-file-name "~/Downloads/otzaria")
+                  (expand-file-name "~/Downloads/Otzaria")
+                  ;; maybe you dropped it inside your seforim library:
+                  (ignore-errors (expand-file-name "אוצריא" (seforim--base-dir))))))
+
+(defcustom seforim-otzaria-directory (seforim--otzaria-default-directory)
+  "Path to the Otzaria library (the folder containing `links/' and `אוצריא/').
+Download it from https://github.com/Sivan22/otzaria-library/releases and set
+this if auto-detection did not find it."
+  :type '(choice (const :tag "Not set" nil) directory)
+  :group 'seforim)
+
+(defcustom seforim-otzaria-strip-niqqud-in-popup nil
+  "If non-nil, strip niqqud from commentary text shown in the popup.
+Default nil: keep the vowel points, they are usually wanted for reading."
+  :type 'boolean
+  :group 'seforim)
+
+;; ---------------------------------------------------------------------------
+;; Path helpers
+;; ---------------------------------------------------------------------------
+
+(defun seforim--otzaria-root ()
+  "Return the library root: the directory containing `links/' and `אוצריא/'.
+If the user pointed `seforim-otzaria-directory' straight at the אוצריא/
+texts folder, step up to its parent so path_2 (which starts with אוצריא\\)
+resolves correctly."
+  (let ((d (and seforim-otzaria-directory
+                (file-name-as-directory (expand-file-name seforim-otzaria-directory)))))
+    (when d
+      (if (string= (file-name-nondirectory (directory-file-name d)) "אוצריא")
+          (file-name-as-directory (directory-file-name (file-name-directory (directory-file-name d))))
+        d))))
+
+(defun seforim--otzaria-links-dir ()
+  "Absolute path to the Otzaria links/ directory, or nil."
+  (let ((r (seforim--otzaria-root)))
+    (when r (expand-file-name "links/" r))))
+
+(defun seforim--otzaria-texts-dir ()
+  "Absolute path to the Otzaria אוצריא/ texts directory, or nil."
+  (let ((r (seforim--otzaria-root)))
+    (when r (expand-file-name "אוצריא/" r))))
+
+(defun seforim--otzaria-links-file (title)
+  "Return the links json file for book TITLE, or nil if it does not exist.
+TITLE is a book filename without extension.  See assumption A1."
+  (let* ((dir (seforim--otzaria-links-dir))
+         (f (and dir (expand-file-name (concat title "_links.json") dir))))
+    (when (and f (file-readable-p f)) f)))
+
+(defun seforim--otzaria-resolve-path (path2)
+  "Turn a links.json PATH2 value into an absolute .txt file path.
+PATH2 looks like \"אוצריא\\תלמוד\\...\\מכות\" (backslashes, no extension)."
+  (when (and path2 (stringp path2) (not (string-empty-p path2)))
+    (let* ((slash (replace-regexp-in-string "\\\\" "/" path2))
+           (abs   (expand-file-name slash (seforim--otzaria-root))))
+      (if (string-suffix-p ".txt" abs) abs (concat abs ".txt")))))
+
+;; ---------------------------------------------------------------------------
+;; JSON loading (native json-parse-buffer when available, json.el fallback)
+;; ---------------------------------------------------------------------------
+
+(defvar seforim--otzaria-links-cache (make-hash-table :test 'equal)
+  "Cache mapping a links-json path to its parsed list of alists.")
+
+(defun seforim--otzaria-parse-json-file (file)
+  "Parse FILE (a JSON array of objects) into a list of alists (symbol keys)."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (if (fboundp 'json-parse-buffer)
+        (json-parse-buffer :object-type 'alist :array-type 'list
+                           :null-object nil :false-object nil)
+      (require 'json)
+      (let ((json-object-type 'alist)
+            (json-array-type 'list)
+            (json-key-type 'symbol)
+            (json-null nil)
+            (json-false nil))
+        (json-read)))))
+
+(defun seforim--otzaria-load-links (title)
+  "Load and cache the parsed links for book TITLE (list of alists), or nil."
+  (let ((file (seforim--otzaria-links-file title)))
+    (when file
+      (or (gethash file seforim--otzaria-links-cache)
+          (puthash file
+                   (ignore-errors (seforim--otzaria-parse-json-file file))
+                   seforim--otzaria-links-cache)))))
+
+(defvar seforim--otzaria-books-cache nil
+  "Cached list of (DISPLAY-TITLE . ABSOLUTE-TXT-PATH) for every Otzaria book.")
+
+(defun seforim-otzaria-clear-cache ()
+  "Forget cached links and the book list (call after replacing the library)."
+  (interactive)
+  (clrhash seforim--otzaria-links-cache)
+  (setq seforim--otzaria-books-cache nil)
+  (message "Otzaria caches cleared"))
+
+;; ---------------------------------------------------------------------------
+;; Book list (for the org<->otzaria "twin" bridge and pickers)
+;; ---------------------------------------------------------------------------
+
+(defun seforim--otzaria-all-books ()
+  "Return (and cache) a list of (TITLE . ABS-TXT-PATH) for every Otzaria book.
+Pure-Emacs scan: portable and reliable with the corpus's Hebrew paths, where
+passing a non-ASCII directory to `fd'/`rg' as an argument is unreliable on
+Windows.  Filtering uses `string-suffix-p' rather than a `\\='-anchored regexp,
+which also proved unreliable on some Hebrew filenames.  Cached, so the one-time
+scan over the tree is paid once per session."
+  (or seforim--otzaria-books-cache
+      (let ((dir (seforim--otzaria-texts-dir)))
+        (when (and dir (file-directory-p dir))
+          (setq seforim--otzaria-books-cache
+                (mapcar (lambda (f) (cons (file-name-base f) f))
+                        (seq-filter (lambda (f) (string-suffix-p ".txt" f))
+                                    (directory-files-recursively dir "\\.txt"))))))))
+
+(defun seforim--otzaria-books-matching (title)
+  "Absolute paths of Otzaria books whose title matches TITLE.
+Matching is niqqud-insensitive (Otzaria filenames often carry niqqud while
+your org titles do not): exact stripped match first, then substring."
+  (let ((needle (seforim--strip-niqqud (string-trim (or title "")))))
+    (when (and needle (not (string-empty-p needle)))
+      (let (exact partial)
+        (dolist (cell (seforim--otzaria-all-books))
+          (let ((base (seforim--strip-niqqud (car cell))))
+            (cond ((string= base needle) (push (cdr cell) exact))
+                  ((string-match-p (regexp-quote needle) base)
+                   (push (cdr cell) partial)))))
+        (nreverse (or exact partial))))))
+
+(defun seforim--otzaria-pick-book (&optional initial)
+  "Pick any Otzaria book by title (completing-read), return its abs path.
+INITIAL pre-seeds the query.  Matching against the display titles is what
+makes niqqud-insensitive `orderless'/`consult' completion do the work."
+  (let* ((books (seforim--otzaria-all-books))
+         (table (mapcar (lambda (c) (cons (car c) (cdr c))) books))
+         (sel   (completing-read "Otzaria book: " table nil t initial)))
+    (cdr (assoc sel table))))
+
+;; ---------------------------------------------------------------------------
+;; Small utilities
+;; ---------------------------------------------------------------------------
+
+(defun seforim--otzaria-int (v)
+  "Coerce a JSON number V (float like 160.0, or int, or nil) to an int, or nil."
+  (cond ((integerp v) v)
+        ((numberp v) (truncate v))
+        ((and (stringp v) (string-match-p "\\`[0-9.]+\\'" v)) (truncate (string-to-number v)))
+        (t nil)))
+
+(defun seforim--otzaria-clean (str &optional keep-niqqud)
+  "Strip HTML tags/entities from STR for display.
+Unless KEEP-NIQQUD, also strip niqqud (respecting the popup option)."
+  (when str
+    (let ((s str))
+      (setq s (replace-regexp-in-string "<[^>]*>" "" s))         ; tags
+      (setq s (replace-regexp-in-string "&[a-zA-Z#0-9]+;" "" s)) ; entities
+      (when (and (not keep-niqqud) seforim-otzaria-strip-niqqud-in-popup)
+        (setq s (seforim--strip-niqqud s)))
+      (string-trim s))))
+
+(defun seforim--otzaria-file-line (file n)
+  "Return line N (1-based) of FILE as a string, or nil."
+  (when (and file (file-readable-p file) (integerp n) (> n 0))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (forward-line (1- n))
+      (buffer-substring-no-properties (line-beginning-position) (line-end-position)))))
+
+;; ---------------------------------------------------------------------------
+;; The core: find the mefarshim linked to the current line
+;; ---------------------------------------------------------------------------
+
+(defun seforim--otzaria-targets-at-point ()
+  "Return the links anchored at the current line of the current book.
+Each element is a plist (:ref REF :file ABS-TXT :line N :snippet TEXT).
+Returns nil if the buffer is not an Otzaria book or nothing is linked here.
+
+See assumption A2: we treat the open book as the line_index_1 side.  If a
+corpus stores it reversed, swap _1/_2 below."
+  (let* ((file  (buffer-file-name))
+         (title (and file (file-name-base file)))
+         (line  (line-number-at-pos (point) t))
+         (links (and title (seforim--otzaria-load-links title)))
+         targets)
+    (dolist (lk links)
+      (when (= (or (seforim--otzaria-int (alist-get 'line_index_1 lk)) -1) line)
+        (let* ((path2 (alist-get 'path_2 lk))
+               (l2    (seforim--otzaria-int (alist-get 'line_index_2 lk)))
+               (tfile (seforim--otzaria-resolve-path path2))
+               (ref   (or (and (alist-get 'heRef_2 lk)
+                               (string-trim (alist-get 'heRef_2 lk)))
+                          (and path2 (file-name-nondirectory
+                                      (replace-regexp-in-string "\\\\" "/" path2)))
+                          "?")))
+          (when (and tfile l2)
+            (push (list :ref ref :file tfile :line l2
+                        :snippet (seforim--otzaria-clean
+                                  (seforim--otzaria-file-line tfile l2) t))
+                  targets)))))
+    (nreverse targets)))
+
+(defun seforim--otzaria-assert-ready ()
+  "Signal a helpful `user-error' if the Otzaria library is not configured."
+  (unless (and seforim-otzaria-directory (seforim--otzaria-root)
+               (file-directory-p (or (seforim--otzaria-links-dir) "")))
+    (user-error
+     "Otzaria library not found. Set `seforim-otzaria-directory' to the folder that contains links/ and אוצריא/ (see https://github.com/Sivan22/otzaria-library/releases)")))
+
+;; ---------------------------------------------------------------------------
+;; Interactive commands
+;; ---------------------------------------------------------------------------
+
+;;;###autoload
+(defun seforim-mefarshim (&optional arg)
+  "Jump to a mefaresh linked to the current line.
+Prompts with the human refs (heRef_2) of everything linked here and opens
+the chosen target at its line.  With prefix ARG, open it in a new tab."
+  (interactive "P")
+  (seforim--otzaria-assert-ready)
+  (let ((targets (seforim--otzaria-targets-at-point)))
+    (if (null targets)
+        (message "No mefarshim linked to this line (line %d of %s)"
+                 (line-number-at-pos (point) t)
+                 (if (buffer-file-name) (file-name-base (buffer-file-name)) "buffer"))
+      (let* ((choices (mapcar (lambda (tg)
+                                (cons (format "%s   %s"
+                                              (plist-get tg :ref)
+                                              (truncate-string-to-width
+                                               (or (plist-get tg :snippet) "") 60 nil nil "…"))
+                                      tg))
+                              targets))
+             (sel (completing-read "Mefaresh: " choices nil t))
+             (tg  (cdr (assoc sel choices))))
+        (when tg
+          (let ((seforim--new-tab-flag (and arg t)))
+            (seforim--open-file (plist-get tg :file) (plist-get tg :line))))))))
+
+;;;###autoload
+(defun seforim-mefarshim-show ()
+  "Show ALL mefarshim on the current line in a side window.
+Read-only; each entry's ref is a button that opens the source at its line.
+This is the closest thing to Otzaria's split commentary pane."
+  (interactive)
+  (seforim--otzaria-assert-ready)
+  (let ((targets (seforim--otzaria-targets-at-point))
+        (srcline (line-number-at-pos (point) t))
+        (srcname (if (buffer-file-name) (file-name-base (buffer-file-name)) "buffer")))
+    (let ((buf (get-buffer-create "*Mefarshim*")))
+      (with-current-buffer buf
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (setq-local bidi-paragraph-direction 'right-to-left)
+          (insert (format "מפרשים על %s (שורה %d)\n" srcname srcline))
+          (insert (make-string 40 ?─) "\n\n")
+          (if (null targets)
+              (insert "אין מפרשים מקושרים לשורה זו.\n")
+            (dolist (tg targets)
+              (let ((ref (plist-get tg :ref))
+                    (f   (plist-get tg :file))
+                    (l   (plist-get tg :line))
+                    (snip (plist-get tg :snippet)))
+                (insert-text-button
+                 (concat "▸ " ref)
+                 'action (lambda (_) (seforim--open-file f l))
+                 'follow-link t
+                 'help-echo (format "%s : %d" f l))
+                (insert "\n")
+                (when (and snip (not (string-empty-p snip)))
+                  (insert "   " snip "\n"))
+                (insert "\n"))))
+          (goto-char (point-min))
+          (view-mode 1)))
+      (display-buffer-in-side-window buf '((side . right) (window-width . 0.4))))))
+
+;; ---- Optional: auto-following commentary pane (opt-in) --------------------
+;; When enabled in a base-text buffer, the *Mefarshim* side window refreshes
+;; whenever you move to a new line.  Toggle with `seforim-mefarshim-follow-mode'.
+(defvar-local seforim--otzaria-last-line nil
+  "Last line for which the follow pane was refreshed.")
+
+(defun seforim--otzaria-follow-refresh ()
+  "Refresh the *Mefarshim* pane if point moved to a new line."
+  (let ((l (line-number-at-pos (point) t)))
+    (unless (eql l seforim--otzaria-last-line)
+      (setq seforim--otzaria-last-line l)
+      (when (get-buffer-window "*Mefarshim*")
+        (save-selected-window (seforim-mefarshim-show))))))
+
+;;;###autoload
+(define-minor-mode seforim-mefarshim-follow-mode
+  "Keep the *Mefarshim* side pane in sync with point in this base text."
+  :lighter " Mefr→"
+  (if seforim-mefarshim-follow-mode
+      (progn (seforim-mefarshim-show)
+             (add-hook 'post-command-hook #'seforim--otzaria-follow-refresh nil t))
+    (remove-hook 'post-command-hook #'seforim--otzaria-follow-refresh t)))
+
+;; ---------------------------------------------------------------------------
+;; Browsing / opening the Otzaria corpus
+;; ---------------------------------------------------------------------------
+
+;;;###autoload
+(defun seforim-otzaria-find-book ()
+  "Live filename search inside the Otzaria texts tree (fd), then open."
+  (interactive)
+  (seforim--otzaria-assert-ready)
+  (unless (executable-find "fd") (user-error "fd not found"))
+  (let ((default-directory (seforim--otzaria-texts-dir)))
+    (consult-fd (seforim--otzaria-texts-dir))))
+
+;;;###autoload
+(defun seforim-otzaria-search ()
+  "Niqqud-insensitive full-text search across the Otzaria corpus (rg)."
+  (interactive)
+  (seforim--otzaria-assert-ready)
+  (unless (executable-find "rg") (user-error "rg not found"))
+  (require 'consult)
+  (let ((default-directory (seforim--otzaria-texts-dir))
+        (consult--regexp-compiler
+         (if seforim-niqqud-ignore
+             #'seforim--niqqud-regexp-compiler
+           (default-value 'consult--regexp-compiler))))
+    (consult-ripgrep (seforim--otzaria-texts-dir))))
+
+;;;###autoload
+(defun seforim-otzaria-browse ()
+  "Open the Otzaria texts directory in Dired."
+  (interactive)
+  (seforim--otzaria-assert-ready)
+  (dired (seforim--otzaria-texts-dir)))
+
+;;;###autoload
+(defun seforim-open-in-otzaria (&optional arg)
+  "Open the Otzaria .txt \"twin\" of the CURRENT book, for exact mefarshim.
+This is the bridge for the hybrid workflow: you read and search your curated
+.org library, and when you want commentaries you jump into the matching
+Otzaria book (where line = segment id, so \\[seforim-mefarshim] /
+\\[seforim-mefarshim-show] link line-accurately against 5k+ link files).
+
+The twin is matched by title (this file's base name), niqqud-insensitively.
+If several match, you pick; if none match, you get a picker seeded with the
+title.  With prefix ARG, open the twin in a new tab.  A reader mode (see
+`seforim-otzaria-reader-mode', if loaded) prettifies the raw text."
+  (interactive "P")
+  (seforim--otzaria-assert-ready)
+  (let* ((title  (if (buffer-file-name) (file-name-base (buffer-file-name)) ""))
+         (matches (seforim--otzaria-books-matching title))
+         (target
+          (pcase (length matches)
+            (0 (or (seforim--otzaria-pick-book title)
+                   (user-error "No Otzaria book chosen")))
+            (1 (car matches))
+            (_ (let ((table (mapcar (lambda (f) (cons (seforim--otzaria-clean
+                                                       (file-name-base f) t)
+                                                      f))
+                                    matches)))
+                 (cdr (assoc (completing-read
+                              (format "%d Otzaria matches for %S: "
+                                      (length matches) title)
+                              table nil t)
+                             table)))))))
+    (when target
+      (let ((seforim--new-tab-flag (and arg t)))
+        (seforim--open-file target 1))
+      (message "Otzaria twin open — %s lists mefarshim on the current line"
+               (substitute-command-keys "\\[seforim-mefarshim]")))))
+
+;;;###autoload
+(defun seforim-set-otzaria-directory (dir)
+  "Set `seforim-otzaria-directory' to DIR for this session and clear caches.
+Interactively prompts for the folder that contains `links/' and `אוצריא/'.
+To make it permanent, add to your init:
+  (setq seforim-otzaria-directory \"...\")
+or use \\[customize-variable] on `seforim-otzaria-directory'."
+  (interactive
+   (list (read-directory-name
+          "Otzaria library (folder with links/ and אוצריא/): "
+          (or seforim-otzaria-directory
+              (expand-file-name "~/Downloads/")))))
+  (setq dir (file-name-as-directory (expand-file-name dir)))
+  (unless (seforim--otzaria-valid-p dir)
+    (unless (yes-or-no-p
+             (format "%s has no links/ or אוצריא/ subfolder. Use it anyway? " dir))
+      (user-error "Aborted")))
+  (setq seforim-otzaria-directory dir)
+  (seforim-otzaria-clear-cache)
+  (message "seforim-otzaria-directory = %s%s" dir
+           (if (seforim--otzaria-links-dir)
+               (format "  (%d link files)"
+                       (length (ignore-errors
+                                 (directory-files (seforim--otzaria-links-dir)
+                                                  nil "_links\\.json\\'"))))
+             "  (WARNING: links/ not found)")))
+
+(provide '14-seforim-mefarshim)
+;;; 14-seforim-mefarshim.el ends here
+#+END_SRC

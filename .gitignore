@@ -12,6 +12,13 @@ result-*
 # One-off dumps (regenerated with `just bundle`)
 combined.txt
 
+# Tangled module output. The .org files are the source of truth; committing the
+# generated .el is how a stale artifact ends up shadowing its source.
+# Scoped to the module groups on purpose — init.el and early-init.el are
+# hand-written loaders and ARE tracked.
+modules/home/emacs/modules/*/*.el
+modules/home/emacs/modules/*/*.elc
+
 # Secrets that must never be committed in plaintext
 # (sops-managed *.enc.yaml / *.sops.yaml ARE safe to commit)
 secrets/*.plain

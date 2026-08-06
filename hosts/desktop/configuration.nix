@@ -1,4 +1,4 @@
-{ config, lib, pkgs, myConfig, ... }:
+{ config, lib, pkgs, unstable, myConfig, ... }:
 
 let
   mkSpecialization = import ../../lib/mk-specialization.nix;
@@ -26,9 +26,8 @@ in
     useUserPackages = true;
     backupCommand = "true";
     extraSpecialArgs = {
-      inherit myConfig;
+      inherit myConfig unstable;
       desktopEnvironment = "plasma";
-      unstable = pkgs;
     };
     users.${myConfig.username} = {
       imports = [ homeDesktopPath ];
@@ -37,7 +36,7 @@ in
 
   specialisation = {
     minimal = mkSpecialization {
-      inherit lib pkgs myConfig;
+      inherit lib pkgs myConfig unstable;
       extraModules = [
         ../../modules/system/minimal.nix
       ];
@@ -45,7 +44,7 @@ in
     };
 
     niri = mkSpecialization {
-      inherit lib pkgs myConfig;
+      inherit lib pkgs myConfig unstable;
       desktopEnvironment = "niri";
       extraModules = [
         ../../modules/system/niri.nix
@@ -54,7 +53,7 @@ in
     };
 
     hyprland = mkSpecialization {
-      inherit lib pkgs myConfig;
+      inherit lib pkgs myConfig unstable;
       desktopEnvironment = "hyprland";
       extraModules = [
         ../../modules/system/desktop.nix
@@ -63,8 +62,8 @@ in
       homeDesktopPath = homeDesktopPath;
     };
 
-        study = mkSpecialization {
-      inherit lib pkgs myConfig;
+    study = mkSpecialization {
+      inherit lib pkgs myConfig unstable;
       desktopEnvironment = "hyprland";
       extraModules = [
         ../../modules/system/hyprland.nix

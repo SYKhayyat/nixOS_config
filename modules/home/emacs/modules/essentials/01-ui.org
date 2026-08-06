@@ -1,0 +1,152 @@
+#+TITLE: User Interface
+#+PROPERTY: header-args:emacs-lisp :tangle yes
+
+* User Interface Settings
+
+#+begin_src emacs-lisp
+;;; 01-ui.el --- User interface settings -*- lexical-binding: t; -*-
+
+;; Startup
+(setq inhibit-startup-message t
+      initial-scratch-message nil
+      ring-bell-function 'ignore)
+
+;; Remove UI bars
+(scroll-bar-mode -1)
+(tool-bar-mode -1)
+(tooltip-mode -1)
+(menu-bar-mode -1)
+(set-fringe-mode 10)
+
+;; Line numbers
+(setq display-line-numbers-type 'relative
+      display-line-numbers-width 3)
+
+(add-hook 'prog-mode-hook #'display-line-numbers-mode)
+(add-hook 'text-mode-hook #'display-line-numbers-mode)
+(add-hook 'conf-mode-hook #'display-line-numbers-mode)
+
+(dolist (mode '(org-mode-hook term-mode-hook shell-mode-hook
+                eshell-mode-hook vterm-mode-hook pdf-view-mode-hook))
+  (add-hook mode (lambda () (display-line-numbers-mode 0))))
+
+;; Visual aids
+(global-hl-line-mode 1)
+(show-paren-mode 1)
+(setq show-paren-delay 0)
+(column-number-mode 1)
+(fset 'yes-or-no-p 'y-or-n-p)
+(save-place-mode 1)
+(global-auto-revert-mode 1)
+(setq global-auto-revert-non-file-buffers t)
+
+;; Scrolling
+(setq scroll-conservatively 101
+      scroll-margin 3
+      scroll-preserve-screen-position t)
+
+;; Frame
+(add-to-list 'default-frame-alist '(height . 35))
+;; Files and backups
+(setq make-backup-files nil
+      auto-save-default nil
+      create-lockfiles nil)
+
+;; Encoding
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+
+;; Recent files
+(use-package recentf
+  :ensure nil
+  :config
+  (setq recentf-max-saved-items 200
+        recentf-max-menu-items 15
+        recentf-auto-cleanup 'never)
+  (add-to-list 'recentf-exclude "\\.?cache")
+  (add-to-list 'recentf-exclude ".*\\.elc$")
+  (add-to-list 'recentf-exclude "/nix/store/")
+  (recentf-mode 1))
+
+;; Save history
+(use-package savehist
+  :ensure nil
+  :config
+  (setq history-length 1000
+        savehist-additional-variables
+        '(search-ring regexp-search-ring kill-ring compile-command))
+  (savehist-mode 1))
+
+;; Dired extras
+(with-eval-after-load 'dired
+  (require 'dired-x))
+
+;; Theme
+(use-package doom-themes
+  :demand t
+  :config
+  (setq doom-themes-enable-bold t
+        doom-themes-enable-italic t)
+  (load-theme 'doom-one t))
+
+(use-package nerd-icons :demand t)
+
+;; Mode Line
+(use-package doom-modeline
+  :demand t
+  :after nerd-icons
+  :config
+  (setq doom-modeline-height 28
+        doom-modeline-buffer-encoding t
+        doom-modeline-input-method t
+        doom-modeline-minor-modes nil
+        doom-modeline-buffer-file-name-style 'truncate-upto-project)
+  (doom-modeline-mode 1))
+
+;; Icons
+(use-package all-the-icons
+  :if (display-graphic-p))
+
+(use-package all-the-icons-dired
+  :after all-the-icons
+  :hook (dired-mode . all-the-icons-dired-mode)
+  :config
+  (setq all-the-icons-dired-monochrome nil))
+
+;; Pulse line
+(use-package pulsar
+  :demand t
+  :config
+  (setq pulsar-pulse t
+        pulsar-delay 0.04
+        pulsar-iterations 8
+        pulsar-face 'pulsar-magenta)
+  (pulsar-global-mode 1)
+  (add-hook 'next-error-hook #'pulsar-pulse-line))
+
+;; Fonts
+;; Script-specific fontsets belong to whoever needs that script: `my/pick-font'
+;; is exported so an extras module can pick a face for its own charset without
+;; this file having to know which scripts you read.
+(defun my/pick-font (families)
+  "Return the first family in FAMILIES that is actually installed, or nil."
+  (seq-find (lambda (f) (member f (font-family-list))) families))
+
+(when (display-graphic-p)
+  ;; Pick the first AVAILABLE family so a missing font never errors and every
+  ;; OS gets a sane face (NixOS/Linux, Windows, macOS).
+  (let ((mono (my/pick-font '("JetBrains Mono" "Cascadia Code" "Iosevka"
+                              "DejaVu Sans Mono" "Consolas" "Menlo" "Courier New"))))
+    (when mono
+      (set-face-attribute 'default nil :family mono :height 90 :weight 'regular)))
+  (when (fboundp 'set-fontset-font)
+    (set-fontset-font t 'unicode (font-spec :family "DejaVu Sans") nil 'append))
+  (set-face-attribute 'minibuffer-prompt nil :height 80)
+  (set-face-attribute 'mode-line nil :height 80)
+  (set-face-attribute 'mode-line-inactive nil :height 80))
+
+(provide '01-ui)
+;;; 01-ui.el ends here
+#+end_src
