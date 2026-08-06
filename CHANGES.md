@@ -7,6 +7,186 @@ work through the checklist below on the NixOS box.
 
 ---
 
+## 2026-08-06 (h) — the look had six definitions, and the one that derives it was switched off
+
+The README has said this for a while:
+
+> There is one place that decides how this machine looks: `stylix` in
+> `modules/system/core.nix`. Everything else derives from it.
+
+It was true of the colours and the fonts, because `modules/home/palette.nix` was
+built to make it true. It was false of everything else — and one of the six
+places has been stopping `nixos-rebuild` from evaluating at all since the 26.05
+bump.
+
+### The Qt theme, written out four times to avoid the nine lines that compute it
+
+Stylix's NixOS Qt target is this:
+
+```nix
+qt.platformTheme = if plasma6.enable && !(gnome.enable || lxqt.enable)
+                   then "kde" else …;
+qt.style         = { kde = "breeze"; gnome = …; qtct = "kvantum"; }
+                   .${config.qt.platformTheme};
+qt.enable        = true;
+```
+
+`plasma6.enable` is unconditionally true on this machine, so that computes
+`"kde"` and `"breeze"`. Here is what the repo had instead:
+
+| Where | What |
+|---|---|
+| `modules/system/desktop.nix` | `stylix.targets.qt.enable = false` — the target, off |
+| `modules/system/core.nix` | `qt.enable = lib.mkForce true; platformTheme = "kde"; style = "breeze";` — its output, by hand |
+| `modules/system/core.nix` | `QT_STYLE_OVERRIDE`/`QT_QPA_PLATFORMTHEME` in `environment.sessionVariables`, both `mkForce` — a second transcription |
+| `home/shaul.nix` | the same two variables again, in `home.sessionVariables`, also both `mkForce` — a third |
+
+**None of the three `mkForce`s overrides anything.** `services.desktopManager.plasma6`
+already sets `qt.enable = true` twenty lines away, and two definitions of `true`
+never conflicted. The two variables are exported by nixpkgs' own `qt` module
+(`nixos/modules/config/qt.nix`) from `qt.style` and `qt.platformTheme`, into
+`environment.variables` — a *different option*, which a `mkForce` in
+`environment.sessionVariables` cannot override. It can only outrank it in the
+session, which is the actual damage: the hand-written pair wins, so changing
+`qt.style` could never change what a Qt app sees.
+
+That is the `palette.nix` lesson exactly — a value copied by hand out of the
+thing that computes it, kept in force by an operator that hides the copy — and
+it cost eleven lines of config to say what zero lines say correctly.
+
+### `gtk.gtk4.theme = null` is an evaluation error
+
+`home/common.nix` carried `gtk.gtk4.theme = null;`, commented *"FIX: Silence GTK4
+warning"*. The warning was real: home-manager 26.05 changed that option's default
+from `config.gtk.theme` to `null`, and a profile on `stateVersion = "25.11"` gets
+a deprecation warning until it says which one it wants.
+
+It stopped being the right answer when stylix's GTK target started setting the
+same option — `gtk.gtk4.theme = config.gtk.theme`, ordinary priority. The option's
+type is `nullOr`, and `nullOr`'s merge function does not pick a winner:
+
+```
+The option `gtk.gtk4.theme' is defined both null and not null
+```
+
+That is a `throw`, not a warning. `nixos-rebuild` never reaches the build. It has
+been latent since the 26.05 upgrade, which was authored off-machine like
+everything else here and has never been evaluated — so this is the first thing
+`just check` will hit, and now it won't.
+
+Deleted rather than forced to `null`: with stylix defining the option, the
+deprecation default is never reached, so the warning stays gone — and GTK 4 apps
+get the same adw-gtk3 that GTK 3 apps already had, instead of being the one
+toolkit left unthemed.
+
+### The cursor: three statements, two sizes, and a theme that no longer exists
+
+`stylix.cursor` was never set, so the four surfaces that need a pointer each
+answered for themselves:
+
+| Where | What it said |
+|---|---|
+| `core.nix` | `XCURSOR_SIZE = "24"` |
+| `home/shaul.nix` (plasma-manager) | theme `Breeze_Snow`, size 24 |
+| `niri/config.kdl` | `cursor { xcursor-size 12 }`, no theme |
+| `hyprland.conf` | nothing at all |
+
+So the pointer changed size when you changed session. And the only statement that
+named a *theme* named one that does not exist: KDE's breeze repo installs
+`share/icons/breeze_cursors` and `share/icons/Breeze_Light` — `Breeze_Snow` was
+the Plasma 5 spelling and is gone on the 6.5 branch nixpkgs 26.05 builds. Plasma
+falls back silently when a cursor theme is missing, which is why nobody found
+out.
+
+`stylix.cursor` is now set once. Stylix's home-manager side turns it into
+`home.pointerCursor` (GTK, X11, `~/.local/share/icons`), and `palette.nix` hands
+the same name and size to plasma-manager, to niri's KDL and to `hyprland.conf`.
+`XCURSOR_SIZE` is gone: it was a fifth statement that only some of those four
+ever read.
+
+### And the font list repeated what stylix installs
+
+Stylix's font-packages target sets `fonts.packages` to the four families named in
+`stylix.fonts`. `desktop.nix` listed three of them again — `noto-fonts`,
+`noto-fonts-color-emoji`, `nerd-fonts.jetbrains-mono` — plus `jetbrains-mono`
+beside the Nerd Font patch of the same typeface. That is the rule from
+`base-tools.nix` (*a package is declared in exactly one list*) broken in the one
+list that pass never looked at. Harmless until you change
+`stylix.fonts.monospace`, at which point the list keeps installing the family you
+stopped using.
+
+### What changed
+
+```
+NEW modules/system/appearance.nix   stylix (scheme, image, fonts, cursor), the
+                                    font list, OSFONTDIR, the scaling variables
+modules/system/core.nix             → the machine: Nix, boot, network, locale,
+                                      the user. Reformatted; it was the drawer.
+modules/system/desktop.nix          → X, SDDM, Plasma, audio, printing, Flatpak
+modules/system/wayland.nix          + NIXOS_OZONE_WL, MOZ_ENABLE_WAYLAND,
+                                      QT_WAYLAND_RECONNECT (a session fact that
+                                      had been filed under "the machine")
+modules/system/hardware.nix         + hardware.graphics.enable (it is hardware)
+modules/home/palette.nix            + .cursor
+home/shaul.nix                      Plasma cursor derived; the duplicate QT_*
+                                    and GDK_* variables deleted; the two stylix
+                                    targets that stay off now argued
+home/common.nix                     the gtk4 line deleted
+niri/, hyprland/                    cursor from the palette
+```
+
+Two `core.nix` duplicates fell out of the split and are worth naming:
+`services.displayManager.sddm` was declared in **both** `core.nix` and
+`desktop.nix` (both `enable = true`, so the module system merged them and said
+nothing), and it now lives once, in the graphical stack.
+
+### Riders — the last two ranked Lamdan findings
+
+- **3.1, `unstable`.** The `nixpkgs-unstable` input, the second full nixpkgs
+  evaluation it was imported into, and the `unstable` special-arg threaded
+  through `specialArgs` and `extraSpecialArgs` are gone. A repo-wide grep for
+  `unstable.` found the input URL and the comment explaining how to use it, and
+  nothing else. Re-adding it is four lines, on the day a package needs it.
+- **3.4, `system.nixos.version = "current"`.** Deleted. It did nothing for the
+  boot menu — `system.nixos.label = "ShaulOS"` already replaces the whole suffix
+  — and made `nixos-version` and `/etc/os-release` report the string `current`
+  instead of the release you are on. Cosmetic right up until a rebuild goes wrong
+  and that is the command you reach for.
+
+That closes the Lamdan ranked table. What is left from it is one paragraph of
+3.4 smalls (`services.onedrive` is enabled and nothing has ever given it
+credentials; `spotlight` keeps toggle state in `/tmp` and stays desynced until
+reboot if it ever drifts) and the two questions the report could not answer from
+the repo — whether this box is a laptop or a desktop, and what you are building
+next.
+
+**Noted, not changed:** `networking.firewall` opens TCP 22, 1714 and 1764. The
+last two are the *endpoints* of KDE Connect's 1714-1764 range, so pairing works
+only if both ends happen to pick them; `programs.kdeconnect.enable = true` opens
+the range itself. Whether you want phone pairing at all is a decision, and this
+pass does not get to make it.
+
+**⚠ Not evaluated**, like everything else here — but note that the gtk4 finding
+means the *previous* state did not evaluate either. Expect `just check` to be
+the first honest signal this tree has had since the 26.05 bump.
+
+**On the machine, in order**
+
+```sh
+just update      # flake.lock predates sops-nix AND emacs-config; it must be relocked
+just check       # statix + deadnix + the emacs-config input
+just build
+just switch
+```
+
+Then, one per finding above: `echo $QT_QPA_PLATFORMTHEME` should say `kde` in a
+Plasma session; a GTK 4 app (nautilus, or any libadwaita thing) should not look
+like the odd one out; and the pointer should be the same size in Plasma, niri and
+Hyprland — which is the one you can check in ten seconds by logging in three
+times.
+
+---
+
 ## 2026-08-06 (g) — every package lived in the system closure, so the airgap could not remove one
 
 `study` is the only specialisation left, and the README's claim for it is
@@ -801,8 +981,12 @@ The byte-compile check is new and has never run. If it fails on a module that
 - ~~**Three overlapping sync tools**: `services.onedrive` + `onedriver` package +
   rclone file-sync. Pick the ones you actually use.~~ — **done 2026-08-06 (d)**:
   one module (`modules/system/data.nix`), `onedriver` deleted.
-- **QT vs Stylix theming fight** (many `mkForce breeze`/`kde` in core + desktop):
-  functional but messy; left alone to avoid regressing your Plasma look.
+- ~~**QT vs Stylix theming fight** (many `mkForce breeze`/`kde` in core + desktop):
+  functional but messy; left alone to avoid regressing your Plasma look.~~ —
+  **done 2026-08-06 (h)**: it was not functional-but-messy. The stylix target
+  that computes `kde`/`breeze` was switched off and its answer hand-copied four
+  times, and one line of the same fight (`gtk.gtk4.theme = null`) was an
+  evaluation error. `modules/system/appearance.nix` states it once.
 - **`nix-ld` `steam-run.args.multiPkgs` hack**: fragile across nixpkgs bumps but
   currently works — left as-is.
 - `pkgs.ollama-cpu` — verified this attribute is valid; no change needed.

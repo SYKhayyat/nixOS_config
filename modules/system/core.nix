@@ -1,29 +1,105 @@
-{ config, lib, pkgs, myConfig, ... }:
+# modules/system/core.nix
+#
+# The machine: Nix itself, the boot loader, the network, time and language, the
+# user account. Facts that would still be facts if this box never drew a pixel.
+#
+# It used to be the drawer. There was no rule about where a system-level setting
+# goes, so the answer defaulted to "core.nix" the same way every package once
+# defaulted to `environment.systemPackages` — and the same thing happened: the
+# things that landed here stopped being findable, and then stopped agreeing with
+# the modules that also declared them. Three examples, all now fixed by moving
+# rather than by patching:
+#
+#   * the whole appearance stack — stylix, `qt`, five scaling variables and a
+#     hand-written Qt theme fighting the target that computes it — is in
+#     ./appearance.nix, which is a file you can read as an answer to one
+#     question.
+#   * `services.displayManager.sddm` was declared here *and* in ./desktop.nix.
+#     Both said `enable = true`, so nothing ever complained; the greeter is part
+#     of the graphical stack and now lives there once.
+#   * `hardware.graphics.enable` is hardware, and ./hardware.nix is where the
+#     rest of the hardware is.
+{
+  pkgs,
+  myConfig,
+  ...
+}:
 
 {
-   nix.extraOptions = "!include /etc/nix/tokens.conf";
+  # ── Nix ──────────────────────────────────────────────────────────────────
+  # `!include` is the non-failing form: the config evaluates and runs cleanly
+  # with /etc/nix/tokens.conf absent, and picks the GitHub token up the moment
+  # sops writes it. See ./secrets.nix.
+  nix.extraOptions = "!include /etc/nix/tokens.conf";
 
-  hardware.graphics = {
-  enable = true;
-};
+  # Lix is a drop-in fork of Nix 2.18: same store, same store DB, same flake
+  # semantics — so no /nix migration and no re-download. `stable` is what the
+  # Lix project recommends for a release NixOS; nixpkgs 26.05 points it at
+  # Lix 2.94 "Açaí na tigela" (`lixPackageSets.latest` is 2.95 if you'd rather).
+  nix.package = pkgs.lixPackageSets.stable.lix;
 
-  programs.zsh.enable = true;
+  nix.settings = {
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
+    trusted-users = [
+      "root"
+      myConfig.username
+    ];
+  };
 
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+
+  nixpkgs.config.allowUnfree = true;
+
+  # ── Boot ─────────────────────────────────────────────────────────────────
+  # Ten generations in the menu. That is also the rollback story for a wedged
+  # desktop — it is why there is no `minimal` specialisation any more, and if
+  # you want a guaranteed TTY, press `e` here and append
+  # `systemd.unit=multi-user.target`.
   boot.loader.systemd-boot = {
     enable = true;
     configurationLimit = 10;
   };
   boot.loader.efi.canTouchEfiVariables = true;
 
+  # The boot-menu label. `system.nixos.version = "current"` used to sit beside
+  # it, which did nothing for the menu — `label` already replaces the whole
+  # suffix — and made `nixos-version` and /etc/os-release report the string
+  # "current" instead of the release you are on. Cosmetic right up until a
+  # rebuild goes wrong and that is the command you reach for. (Lamdan 3.4.)
+  system.nixos.label = "ShaulOS";
+
+  # ── Network ──────────────────────────────────────────────────────────────
   networking.hostName = myConfig.hostname;
   networking.networkmanager.enable = true;
 
+  # 22 is sshd, below. 1714 and 1764 are the two *endpoints* of KDE Connect's
+  # port range — it uses all of 1714-1764 and picks freely within it — so this
+  # opens two ports out of fifty-one and pairing works only if both ends happen
+  # to land on them. Left as found rather than guessed at: whether you want
+  # phone pairing at all is a decision, and a cleanup pass does not get to make
+  # it. If you do: `programs.kdeconnect.enable = true` opens the range itself
+  # and these two lines can go.
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = [ 22 1714 1764 ];
-    allowedUDPPorts = [ 1714 1764 ];
+    allowedTCPPorts = [
+      22
+      1714
+      1764
+    ];
+    allowedUDPPorts = [
+      1714
+      1764
+    ];
   };
 
+  # ── Time and language ────────────────────────────────────────────────────
   time.timeZone = myConfig.timezone;
   i18n.defaultLocale = myConfig.locale;
   i18n.extraLocaleSettings = {
@@ -38,79 +114,33 @@
     LC_TIME = myConfig.locale;
   };
 
-  # ── Lix instead of CppNix ────────────────────────────────────────────────
-  # Lix is a drop-in fork of Nix 2.18: same store, same store DB, same flake
-  # semantics — so no /nix migration and no re-download. `stable` is what the
-  # Lix project recommends for a release NixOS; nixpkgs 26.05 points it at
-  # Lix 2.94 "Açaí na tigela" (`lixPackageSets.latest` is 2.95 if you'd rather).
-  nix.package = pkgs.lixPackageSets.stable.lix;
-
-  nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-    trusted-users = [ "root" myConfig.username ];
-  };
-  nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 14d";
-  };
-  nixpkgs.config.allowUnfree = true;
-
-  system.nixos.label = "ShaulOS";
-  system.nixos.version = "current";
+  # ── Services and security that are not about the desktop ─────────────────
+  programs.zsh.enable = true;
 
   security.rtkit.enable = true;
   security.polkit.enable = true;
+  # An empty PAM stanza is the whole requirement: hyprlock needs a PAM service
+  # of its own name to authenticate against, and the default rules are correct.
+  security.pam.services.hyprlock = { };
+
   services.openssh.enable = true;
   services.dbus.enable = true;
 
-  security.pam.services.hyprlock = {};
-
-  services.displayManager.sddm = {
-    enable = true;
-    wayland.enable = true;
-  };
-
-  environment.sessionVariables = {
-    QT_AUTO_SCREEN_SCALE_FACTOR = "0";
-    QT_SCALE_FACTOR = "1";
-    QT_WAYLAND_RECONNECT = "1";
-    QT_STYLE_OVERRIDE = lib.mkForce "breeze";
-    QT_QPA_PLATFORMTHEME = lib.mkForce "kde";
-    GDK_SCALE = "1";
-    GDK_DPI_SCALE = "1";
-    _JAVA_OPTIONS = "-Dsun.java2d.uiScale=1";
-    NIXOS_OZONE_WL = "1";
-    MOZ_ENABLE_WAYLAND = "1";
-    XCURSOR_SIZE = "24";
-  };
-
-  qt = {
-    enable = lib.mkForce true;
-    platformTheme = "kde";
-    style = "breeze";
-  };
-
-  stylix = {
-    enable = true;
-    base16Scheme = "${pkgs.base16-schemes}/share/themes/tokyo-night-dark.yaml";
-    image = ../../wallpaper.jpg;
-    polarity = "dark";
-    fonts = {
-      monospace = { package = pkgs.nerd-fonts.jetbrains-mono; name = "JetBrainsMono Nerd Font"; };
-      sansSerif = { package = pkgs.noto-fonts; name = "Noto Sans"; };
-      serif = { package = pkgs.noto-fonts; name = "Noto Serif"; };
-      emoji = { package = pkgs.noto-fonts-color-emoji; name = "Noto Color Emoji"; };
-    };
-    targets.gtk.enable = true;
-  };
-
+  # ── The user ─────────────────────────────────────────────────────────────
   users.users.${myConfig.username} = {
     isNormalUser = true;
     description = myConfig.fullName;
-    extraGroups = [ "wheel" "networkmanager" "video" "input" ];
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+      "video"
+      "input"
+    ];
     shell = pkgs.zsh;
   };
 
+  # Not a version to keep current: it declares which release's *stateful*
+  # defaults the data on this disk was created under. Leave it until you rebuild
+  # the machine from scratch.
   system.stateVersion = "25.11";
 }

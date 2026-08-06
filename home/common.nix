@@ -27,8 +27,27 @@ in
 
   programs.home-manager.enable = true;
 
-  # FIX: Silence GTK4 warning
-  gtk.gtk4.theme = null;
+  # There was a `gtk.gtk4.theme = null;` here, commented "FIX: Silence GTK4
+  # warning". The warning was real: home-manager 26.05 changed the default of
+  # that option from `config.gtk.theme` to `null`, and on a profile with
+  # `stateVersion = "25.11"` it warns until you say which one you want. Setting
+  # it explicitly was the right answer to that.
+  #
+  # It stopped being the right answer when stylix started setting the same
+  # option. Stylix's GTK target does `gtk.gtk4.theme = config.gtk.theme` at
+  # ordinary priority, this said `null` at ordinary priority, and the option's
+  # type is `nullOr` — whose merge function does not pick a winner, it throws:
+  #
+  #     The option `gtk.gtk4.theme' is defined both null and not null
+  #
+  # That is an evaluation error, not a warning: `nixos-rebuild` never gets as
+  # far as building. It has been latent since the 26.05 bump, which was authored
+  # off-machine like everything else here and has never been evaluated.
+  #
+  # Deleting the line rather than forcing it to `null`: with stylix defining the
+  # option the deprecation default is never reached, so the warning stays gone,
+  # and GTK 4 apps get the same adw-gtk3 that GTK 3 apps already had instead of
+  # being the one toolkit left unthemed.
 
   home.activation.force-clean-git-files = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
     for file in ".gtkrc-2.0" ".bashrc"; do

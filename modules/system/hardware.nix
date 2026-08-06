@@ -6,6 +6,12 @@
   # ── Firmware (Wi-Fi/Bluetooth blobs, Intel microcode via hardware-config) ──
   hardware.enableRedistributableFirmware = true;
 
+  # ── Graphics ────────────────────────────────────────────────────────────
+  # Mesa and the 32-bit/VA-API plumbing every Wayland session needs. It was in
+  # core.nix, which is where settings went when there was no rule about where
+  # settings go; this is the hardware file.
+  hardware.graphics.enable = true;
+
   # ── Bluetooth ──────────────────────────────────────────────────────────
   hardware.bluetooth = {
     enable = true;

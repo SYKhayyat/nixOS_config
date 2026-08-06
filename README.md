@@ -14,8 +14,9 @@ and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
 - Nix with **flakes** and `nix-command` enabled
   (`experimental-features = nix-command flakes`).
 - Pinned to **NixOS 26.05 "Yarara"** (`nixos-26.05`, `home-manager`
-  `release-26.05`, `stylix` `release-26.05`). A second `nixpkgs-unstable` input
-  is exposed to modules as the `unstable` arg for per-package bleeding edge.
+  `release-26.05`, `stylix` `release-26.05`). One nixpkgs — a second
+  `nixpkgs-unstable` input used to be threaded in as the `unstable` arg for
+  per-package bleeding edge, and had zero call sites in the whole repo.
 - The Nix implementation is **Lix** (`nix.package = pkgs.lixPackageSets.stable.lix`).
 - A NixOS host. The rebuild alias and secrets assume the flake is checked out at
   `/home/shaul/nixOS_config-specializations` (see `myConfig.flakePath` in
@@ -31,10 +32,12 @@ home/
   shaul.nix                   # THE home profile — one file, every session
 modules/
   system/                     # NixOS modules (core, hardware, dev, services, secrets, ...)
+    core.nix                  # the machine: Nix, boot, network, locale, the user
+    appearance.nix            # the ONE statement of how this machine looks
     base-tools.nix            # what the MACHINE installs — the repair set, and nothing else
     profile.nix               # the `shaulos.study` flag the home profile reads
     data.nix                  # OneDrive + the one-time ~/Documents bootstrap
-    desktop.nix               # X, SDDM, Plasma 6, audio, printing, fonts
+    desktop.nix               # X, SDDM, Plasma 6, audio, printing, Flatpak
     wayland.nix               # everything a Wayland session needs that isn't a compositor
     niri.nix  hyprland.nix    # the compositors, four lines each
     study-offline.nix         # the one specialisation
@@ -133,19 +136,31 @@ neither.
 
 ## Theming
 
-There is one place that decides how this machine looks: `stylix` in
-`modules/system/core.nix` — the base16 scheme, the wallpaper, the four font
-families. Everything else derives from it.
+There is one place that decides how this machine looks:
+**`modules/system/appearance.nix`** — the base16 scheme, the wallpaper, the four
+font families, the cursor. Everything else derives from it.
+
+That sentence used to be in this README with `core.nix` in it, and it was only
+two-thirds true. The colours and fonts derived; the Qt theme was written out by
+hand in `core.nix` *and* in `home/shaul.nix`, three of those statements under
+`lib.mkForce`, while `desktop.nix` switched off the stylix target that computes
+exactly the same answer from `plasma6.enable`. The cursor was stated three times
+in three places, in two different sizes, under a theme name Plasma 6 no longer
+ships.
 
 ```
-modules/system/core.nix          stylix.base16Scheme  +  stylix.fonts.*
+modules/system/appearance.nix    stylix.base16Scheme + stylix.fonts + stylix.cursor
         │
-        ├── stylix's own targets ──── GTK, foot, waybar base, firefox, …
+        ├── stylix's own targets ──── GTK, foot, waybar base, firefox,
+        │                             Qt (→ qt.style/qt.platformTheme → the
+        │                             QT_* variables), the pointer
+        │                             (→ home.pointerCursor)
         │
         └── modules/home/palette.nix ── config.shaulos.palette
-                                            ├── .css   "#rrggbb"      → waybar, niri KDL
-                                            ├── .hypr  "rgb(rrggbb)"  → hyprland.conf, hyprlock.conf
-                                            └── .font  mono/sans/sizes → waybar, hyprlock, Plasma
+                                            ├── .css    "#rrggbb"       → waybar, niri KDL
+                                            ├── .hypr   "rgb(rrggbb)"   → hyprland.conf, hyprlock.conf
+                                            ├── .font   mono/sans/sizes → waybar, hyprlock, Plasma
+                                            └── .cursor name/size       → Plasma, niri KDL, hyprland.conf
 ```
 
 **To re-theme, change `stylix.base16Scheme` and rebuild.** Nothing else needs
@@ -160,11 +175,34 @@ exactly there: `hyprlock.conf` was getting `rgb(#7aa2f7)`, and hyprlang's
 `rgb()` takes six *bare* hex characters, so every coloured line in it was a
 parse error.
 
+**Qt is not stated anywhere.** Stylix's NixOS Qt target reads `plasma6.enable`
+and computes `qt.platformTheme = "kde"` and `qt.style = "breeze"`; nixpkgs' own
+`qt` module then exports `QT_QPA_PLATFORMTHEME` and `QT_STYLE_OVERRIDE` from
+those two. Four hand-written lines and three `mkForce`s were replaced by
+switching the target back on. The *home-manager* Qt target stays off, and that
+is not the same decision: unlike the NixOS one it has no desktop detection, so
+it defaults to `qtct` → Kvantum, which is a coherent look that is not the Breeze
+that Plasma renders.
+
+**The cursor comes from `stylix.cursor`.** Stylix turns it into
+`home.pointerCursor` (GTK, X11, `~/.local/share/icons`), and `palette.nix` hands
+the same name and size to plasma-manager, to niri's KDL and to `hyprland.conf`.
+Before, those three disagreed — 24, 12 and unset — and the one that named a
+theme named `Breeze_Snow`, which KDE renamed to `Breeze_Light` for Plasma 6, so
+Plasma had been silently falling back to the default pointer.
+
 Two deliberate exceptions, both stated in the files that make them: waybar's
 `font-size: 12px` (glyph sizing, not UI scale) and Plasma's toolbar font (one
 point below `stylix.fonts.sizes.applications`, which is Plasma's own
 convention). `stylix.targets.kde` is off — Plasma's fonts are written by
 plasma-manager, but they are *built* from `stylix.fonts` rather than restated.
+
+**Where a font goes.** Same rule as packages: exactly one list. Stylix's
+font-packages target already puts the four families named in `stylix.fonts` into
+`fonts.packages`, so `appearance.nix` lists only what nothing else installs —
+`noto-fonts`, `noto-fonts-color-emoji` and `nerd-fonts.jetbrains-mono` were in
+both, which is invisible until the day you change `stylix.fonts.monospace` and
+the old family keeps being installed.
 
 ## Keys
 

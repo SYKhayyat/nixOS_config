@@ -25,7 +25,7 @@
 #
 # `study` stays, because it is the one case where the difference cannot coexist
 # at runtime: the radios are off and the firewall denies everything.
-{ pkgs, unstable, myConfig, ... }:
+{ pkgs, myConfig, ... }:
 
 {
   imports = [
@@ -37,7 +37,8 @@
     ../../modules/system/development.nix
     ../../modules/system/data.nix # OneDrive + the first-boot data bootstrap
     ../../modules/system/services.nix
-    ../../modules/system/desktop.nix # X, SDDM, Plasma 6, audio, printing, fonts
+    ../../modules/system/appearance.nix # the ONE statement of how this looks
+    ../../modules/system/desktop.nix # X, SDDM, Plasma 6, audio, printing
     ../../modules/system/niri.nix # + wayland.nix
     ../../modules/system/hyprland.nix # + wayland.nix (same path, imported once)
     ../../modules/system/secrets.nix
@@ -69,7 +70,11 @@
     useGlobalPkgs = true;
     useUserPackages = true;
     backupCommand = "true";
-    extraSpecialArgs = { inherit myConfig unstable; };
+    # `unstable` used to be threaded through here as well — a second full
+    # nixpkgs evaluation, reachable from every home module, with zero call sites
+    # in the entire repo (Lamdan 3.1). It is gone from flake.nix; re-adding it is
+    # the same four lines, on the day you have a package that needs it.
+    extraSpecialArgs = { inherit myConfig; };
     users.${myConfig.username}.imports = [ ../../home/shaul.nix ];
   };
 

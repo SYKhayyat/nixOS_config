@@ -24,12 +24,11 @@
 # package set and is the one place the flag subtracts from.
 {
   config,
-  lib,
   ...
 }:
 
 let
-  inherit (config.shaulos.palette) font;
+  inherit (config.shaulos.palette) font cursor;
 
   # Plasma stores a font as `family,size,-1,5,weight,italic,underline,strikeout,
   # fixed,0`. Building the string means the family and the size come from
@@ -51,10 +50,24 @@ in
     ../modules/home/hyprland
   ];
 
+  # ── The two stylix targets that stay off, and why ────────────────────────
+  #
   # `targets.kde` is off, so stylix does not theme Plasma and plasma-manager
   # writes the fonts below itself. That is a decision; the four hardcoded font
   # strings it used to write were not. Deriving them keeps one source of truth
   # for the family and size without turning the KDE target back on.
+  #
+  # `targets.qt` is off *here* and on at the system level, which looks
+  # inconsistent and is not. They are different modules with different logic:
+  # stylix's NixOS Qt target reads `plasma6.enable` and computes
+  # `platformTheme = "kde"` / `style = "breeze"`, which is exactly this machine
+  # (see ../modules/system/appearance.nix, where the hand-written copy of that
+  # answer used to live). The home-manager one has no desktop detection at all —
+  # its `platform` option simply defaults to `"qtct"`, from which it picks
+  # `style.name = "kvantum"`, installs a Kvantum theme built from the base16
+  # scheme and writes qt5ct/qt6ct settings files. That is a coherent look; it is
+  # just not Breeze, and Breeze is what Plasma renders. Turning this one on
+  # would have Qt apps disagree with the desktop they sit in.
   stylix.targets.kde.enable = false;
   stylix.targets.qt.enable = false;
   stylix.fonts.sizes.applications = 9;
@@ -88,9 +101,14 @@ in
       lookAndFeel = "org.kde.breeze.desktop";
       theme = "breeze-dark";
       iconTheme = "breeze-dark";
+      # Was `theme = "Breeze_Snow"; size = 24;`. Both hand-written, and the
+      # theme name was wrong: KDE renamed that cursor set to `Breeze_Light` in
+      # Plasma 6 and ships no `Breeze_Snow`, so Plasma has been falling back to
+      # the default pointer. Now from `stylix.cursor`, which niri and Hyprland
+      # read too — the three of them used to disagree about the size as well.
       cursor = {
-        theme = "Breeze_Snow";
-        size = 24;
+        theme = cursor.name;
+        inherit (cursor) size;
       };
     };
 
@@ -117,11 +135,13 @@ in
   # the other side omitted things it did not remove. The one package the branch
   # actually controlled was written out in both arms.
 
+  # `QT_STYLE_OVERRIDE`, `QT_QPA_PLATFORMTHEME`, `GDK_SCALE` and `GDK_DPI_SCALE`
+  # used to be here as well, all four also set at the system level and the first
+  # two under `lib.mkForce` in both places. Those are the third and fourth
+  # transcriptions of a value nixpkgs' own `qt` module exports from `qt.style`
+  # and `qt.platformTheme` — see ../modules/system/appearance.nix. One statement
+  # of a fact, in the layer that owns it; this layer owns none of those four.
   home.sessionVariables = {
     TERMINAL = "foot";
-    QT_STYLE_OVERRIDE = lib.mkForce "breeze";
-    QT_QPA_PLATFORMTHEME = lib.mkForce "kde";
-    GDK_SCALE = "1";
-    GDK_DPI_SCALE = "1";
   };
 }

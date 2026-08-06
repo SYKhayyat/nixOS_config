@@ -1,28 +1,43 @@
-{ config, lib, pkgs, ... }:
+# modules/system/desktop.nix
+#
+# The graphical stack that is not a compositor: the X server (for XWayland and
+# the handful of X-only apps), the greeter, Plasma, sound, printing, Flatpak.
+#
+# What it no longer carries: sixteen font packages, `stylix.targets.qt.enable =
+# false` and `OSFONTDIR`. Those are all answers to "how does this machine look",
+# and that question has one file now — ./appearance.nix. The stylix line in
+# particular was doing real damage from in here: it disabled the target that
+# computes the Qt theme from `plasma6.enable`, four lines below the module that
+# sets `plasma6.enable`, while ./core.nix wrote the target's output out by hand.
+{ ... }:
 
 {
-  # ══════════════════════════════════════════════════════════════════
-  # DISPLAY SERVER
-  # ══════════════════════════════════════════════════════════════════
-
+  # ── Display server ───────────────────────────────────────────────────────
   services.xserver.enable = true;
   services.xserver.xkb = {
     layout = "us,il";
     options = "grp:lctrl_lalt_toggle,caps:escape";
   };
 
-  # ══════════════════════════════════════════════════════════════════
-  # KDE PLASMA 6
-  # ══════════════════════════════════════════════════════════════════
+  # ── Greeter ──────────────────────────────────────────────────────────────
+  # Was declared here *and* in ./core.nix — both saying `enable = true`, so the
+  # module system merged two identical definitions and never said a word. It is
+  # part of the graphical stack, so it is here, once. This is the greeter that
+  # lists Plasma, Niri (uwsm) and Hyprland (uwsm); there are no compositor
+  # specialisations any more, and this is where they went.
+  services.displayManager.sddm = {
+    enable = true;
+    wayland.enable = true;
+  };
 
-  services.displayManager.sddm.enable = true;
+  # ── Plasma 6 ─────────────────────────────────────────────────────────────
+  # Present in every session, not only the Plasma one — one closure serves all
+  # three. That is also what makes the Qt theming derivable: stylix keys on
+  # `plasma6.enable`, and it is unconditionally true here.
   services.desktopManager.plasma6.enable = true;
 
-  # ══════════════════════════════════════════════════════════════════
-  # AUDIO (PipeWire)
-  # ══════════════════════════════════════════════════════════════════
-
-  services.pulseaudio.enable = false;  # Disable PulseAudio (using PipeWire)
+  # ── Audio ────────────────────────────────────────────────────────────────
+  services.pulseaudio.enable = false; # PipeWire replaces it
 
   services.pipewire = {
     enable = true;
@@ -31,48 +46,13 @@
     pulse.enable = true;
   };
 
-  # ══════════════════════════════════════════════════════════════════
-  # PRINTING
-  # ══════════════════════════════════════════════════════════════════
-
+  # ── Printing ─────────────────────────────────────────────────────────────
   services.printing.enable = true;
 
-  # ══════════════════════════════════════════════════════════════════
-  # FLATPAK (apps outside nixpkgs; portals configured per-session)
-  # Add the remote once: flatpak remote-add --if-not-exists flathub \
-  #   https://dl.flathub.org/repo/flathub.flatpakrepo
-  # ══════════════════════════════════════════════════════════════════
-
+  # ── Flatpak ──────────────────────────────────────────────────────────────
+  # For apps outside nixpkgs. Portals are configured in
+  # hosts/desktop/configuration.nix. Add the remote once:
+  #   flatpak remote-add --if-not-exists flathub \
+  #     https://dl.flathub.org/repo/flathub.flatpakrepo
   services.flatpak.enable = true;
-
-  # ══════════════════════════════════════════════════════════════════
-  # FONTS
-  # ══════════════════════════════════════════════════════════════════
-
-  fonts.fontDir.enable = true;
-
-  fonts.packages = with pkgs; [
-    culmus
-    noto-fonts
-    noto-fonts-cjk-sans
-    noto-fonts-color-emoji
-    liberation_ttf
-    dejavu_fonts
-    jetbrains-mono
-    fira-code
-    fira-code-symbols
-    source-code-pro
-    source-serif
-    source-sans
-    libertinus
-    emacs-all-the-icons-fonts
-    nerd-fonts.symbols-only
-    nerd-fonts.jetbrains-mono
-  ];
-
-  stylix.targets.qt.enable = false;
-
-  environment.variables = {
-    OSFONTDIR = "/run/current-system/sw/share/X11/fonts";
-  };
 }

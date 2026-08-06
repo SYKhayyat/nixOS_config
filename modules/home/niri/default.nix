@@ -20,7 +20,7 @@
 { config, pkgs, lib, ... }:
 
 let
-  inherit (config.shaulos.palette) css;
+  inherit (config.shaulos.palette) css cursor;
   inherit (config.shaulos.keys) keyboard session startup;
   render = config.shaulos.keys.niri;
 
@@ -290,8 +290,13 @@ in
         scale 1.0
     }
 
+    // From ../palette.nix, i.e. from `stylix.cursor`. This said
+    // `xcursor-size 12` with no theme, while the system said 24 and Plasma said
+    // 24 — so the pointer changed size when you changed session, and the only
+    // one of the three that named a theme named one Plasma 6 no longer ships.
     cursor {
-        xcursor-size 12
+        xcursor-theme "${cursor.name}"
+        xcursor-size ${toString cursor.size}
     }
 
     layout {

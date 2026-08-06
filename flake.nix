@@ -5,9 +5,16 @@
     # ── NixOS 26.05 "Yarara" — current stable, supported through 2026-12-31.
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
 
-    # Bleeding edge, exposed to home modules as the `unstable` arg so a single
-    # package can run ahead without dragging the whole system with it.
-    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    # There was a second `nixpkgs-unstable` input here, imported into a full
+    # second nixpkgs and threaded through `specialArgs` into the host config and
+    # `extraSpecialArgs` into every home-manager module, so that any of them
+    # could say `unstable.some-package`. A repo-wide grep for `unstable.` found
+    # the input URL and the comment explaining how to use it, and nothing else
+    # (Lamdan 3.1). That is a second fetch, a second lock entry and a second full
+    # evaluation on every rebuild, bought for zero call sites — the same shape as
+    # the `lxqt` branches in the old specialisation factory, which were also a
+    # hedge nobody had ever needed. Re-adding it is four lines, on the day a
+    # package actually needs to run ahead of stable.
 
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
@@ -60,16 +67,10 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, home-manager, stylix, plasma-manager, sops-nix, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, stylix, plasma-manager, sops-nix, ... }@inputs:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-      # Threaded through specialArgs as `unstable`. Use it for the handful of
-      # packages worth chasing upstream on: `unstable.some-package`.
-      unstable = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
       };
@@ -96,7 +97,7 @@
     {
       nixosConfigurations.desktop = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit inputs myConfig unstable; };
+        specialArgs = { inherit inputs myConfig; };
         modules = [
           ./hosts/desktop/configuration.nix
           home-manager.nixosModules.home-manager

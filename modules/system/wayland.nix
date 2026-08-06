@@ -46,4 +46,19 @@
   # can do that.
 
   fonts.fontconfig.enable = true;
+
+  # Run natively on Wayland rather than through XWayland. These three were in
+  # core.nix beside the scaling and Qt-theme variables, which is how a fact
+  # about *this* — a Wayland session — came to be filed under "the machine".
+  # The scaling half went to ./appearance.nix; this half is the session's.
+  #
+  # Every session on this box is Wayland (SDDM runs with `wayland.enable`), so
+  # although this module is imported by the two compositor modules it applies to
+  # the Plasma session too — which is what you want, and what makes it safe to
+  # state once here rather than per compositor.
+  environment.sessionVariables = {
+    NIXOS_OZONE_WL = "1"; # Chromium/Electron
+    MOZ_ENABLE_WAYLAND = "1"; # Firefox
+    QT_WAYLAND_RECONNECT = "1"; # survive a compositor restart
+  };
 }

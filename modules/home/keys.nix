@@ -439,7 +439,7 @@ let
 
     * Colours
 
-      Derived from =stylix.base16Scheme= in =modules/system/core.nix= by
+      Derived from =stylix.base16Scheme= in =modules/system/appearance.nix= by
       =modules/home/palette.nix=. Change the scheme there and this table, both
       compositors' borders, the bar and the lock screen all move together.
 

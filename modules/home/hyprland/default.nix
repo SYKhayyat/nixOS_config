@@ -20,7 +20,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  inherit (config.shaulos.palette) hypr;
+  inherit (config.shaulos.palette) hypr cursor;
   inherit (config.shaulos.keys) keyboard session startup;
   render = config.shaulos.keys.hypr;
 
@@ -278,6 +278,13 @@ in
     # 1366x768@60 here meant plugging in an external display behaved differently
     # in the two sessions, for no reason anyone chose.
     monitor = , preferred, auto, 1
+
+    # The cursor, from ../palette.nix — i.e. from `stylix.cursor`, the same
+    # source Plasma and niri now read. This file used to say nothing about the
+    # cursor at all, which meant the Hyprland session got whatever the default
+    # was while niri drew a 12 px one and Plasma a 24 px one.
+    env = XCURSOR_THEME,${cursor.name}
+    env = XCURSOR_SIZE,${toString cursor.size}
 
     # Autostart. The shared list is in ../keys.nix and the niri session runs the
     # same one; only the two lines above it are Hyprland's own.

@@ -13,7 +13,9 @@
 # the old colours. Silently, because nothing connects them.
 #
 # There is one definition now: `config.lib.stylix.colors`, which stylix
-# computes from the scheme named in modules/system/core.nix.
+# computes from the scheme named in modules/system/appearance.nix. (That file
+# was core.nix when this comment was first written, and the move is the point:
+# the theme is a question, and it now has a file rather than a corner.)
 #
 # ── The half nobody was watching: format ──────────────────────────────────
 #
@@ -68,10 +70,16 @@ in
                interpolate it bare, do not put it inside another `rgb(…)`.
       `font` — `mono` / `sans` names and the `sizes` set, so a module writing a
                config file that names a font does not name it a second time.
+      `cursor` — `name` / `size` / `package`, from `stylix.cursor`. Plasma, niri
+               and Hyprland each need this in their own spelling and each used
+               to guess: the size was 24, 24 and 12 respectively, and the only
+               one that named a *theme* named `Breeze_Snow`, which Plasma 6
+               renamed to `Breeze_Light` and therefore silently ignored.
 
-      Read this; never hand-write a colour or a font name in a consuming module.
-      Both halves of that rule have been broken before, and the format half is
-      the one that broke silently.
+      Read this; never hand-write a colour, a font name or a cursor in a
+      consuming module. All three halves of that rule have been broken before,
+      and the two that broke silently — the `rgb(#…)` parse error and the
+      renamed cursor theme — are the reason the rule exists.
     '';
   };
 
@@ -83,6 +91,13 @@ in
       mono = config.stylix.fonts.monospace.name;
       sans = config.stylix.fonts.sansSerif.name;
       inherit (config.stylix.fonts) sizes;
+    };
+
+    # `stylix.cursor` is set in ../system/appearance.nix and copied into
+    # home-manager by stylix's own integration, so this is the same value the
+    # system saw — not a home-side restatement of it.
+    cursor = {
+      inherit (config.stylix.cursor) name size package;
     };
   };
 }
