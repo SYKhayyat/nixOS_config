@@ -17,7 +17,12 @@
 # Border colours come from ../palette.nix, which derives them from the stylix
 # scheme. niri's KDL takes the same `#rrggbb` spelling CSS does, which is why
 # this file and waybar.nix read the same `css` view.
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   inherit (config.shaulos.palette) css cursor;
@@ -33,7 +38,10 @@ let
       group = "Workspaces";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = toString n;
       cmd = "move-window-to-workspace ${toString n}";
       desc = "Move window to workspace ${toString n}";
@@ -51,14 +59,21 @@ let
       group = "Session";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "C";
       cmd = "close-window";
       desc = "Close the focused window";
       group = "Session";
     }
     {
-      mods = [ "Mod" "Shift" "Alt" ];
+      mods = [
+        "Mod"
+        "Shift"
+        "Alt"
+      ];
       key = "Q";
       cmd = "quit";
       desc = "Quit niri immediately (emergency)";
@@ -87,28 +102,40 @@ let
       group = "Focus";
     }
     {
-      mods = [ "Mod" "Ctrl" ];
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
       key = "K";
       cmd = "focus-window-top";
       desc = "Focus the top window in the column";
       group = "Focus";
     }
     {
-      mods = [ "Mod" "Ctrl" ];
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
       key = "J";
       cmd = "focus-window-bottom";
       desc = "Focus the bottom window in the column";
       group = "Focus";
     }
     {
-      mods = [ "Mod" "Ctrl" ];
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
       key = "H";
       cmd = "focus-monitor-left";
       desc = "Focus the monitor to the left";
       group = "Focus";
     }
     {
-      mods = [ "Mod" "Ctrl" ];
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
       key = "L";
       cmd = "focus-monitor-right";
       desc = "Focus the monitor to the right";
@@ -116,14 +143,20 @@ let
     }
 
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "H";
       cmd = "move-column-left";
       desc = "Move the column left";
       group = "Arrange";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "L";
       cmd = "move-column-right";
       desc = "Move the column right";
@@ -158,7 +191,10 @@ let
       group = "Arrange";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "Space";
       cmd = "toggle-window-floating";
       desc = "Toggle floating / tiled";
@@ -187,14 +223,20 @@ let
       group = "Size";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "F";
       cmd = "fullscreen-window";
       desc = "Fullscreen the window";
       group = "Size";
     }
     {
-      mods = [ "Mod" "Ctrl" ];
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
       key = "F";
       cmd = "expand-column-to-available-width";
       desc = "Expand the column into the free space";
@@ -230,14 +272,20 @@ let
       group = "Workspaces";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "K";
       cmd = "move-window-to-workspace-up";
       desc = "Move the window to the workspace above";
       group = "Workspaces";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "J";
       cmd = "move-window-to-workspace-down";
       desc = "Move the window to the workspace below";

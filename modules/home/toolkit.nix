@@ -90,7 +90,7 @@
 let
   # Set by modules/system/study-offline.nix inside the `study` specialisation.
   # See modules/system/profile.nix for why it is a flag and not a second import.
-  study = osConfig.shaulos.study;
+  inherit (osConfig.shaulos) study;
 
   # Present in every session, `study` included.
   #
@@ -131,7 +131,25 @@ let
 
     # ── Documents ─────────────────────────────────────────────────────────
     pandoc # also Org export and the Markdown preview — see ./emacs/default.nix
-    poppler
+    # `poppler` was listed here too, and the pair did not merely duplicate — it
+    # made the home profile impossible to build:
+    #
+    #   pkgs.buildEnv error: two given paths contain a conflicting subpath:
+    #     .../poppler-utils-26.06.0/lib/libpoppler-cpp.so.3
+    #     .../poppler-glib-26.06.0/lib/libpoppler-cpp.so.3
+    #
+    # `pkgs.poppler` is poppler-glib, and it ships **no binaries at all** — it
+    # is the library, and a library in a *user profile* is a thing you cannot
+    # type and nothing links against at runtime. `poppler-utils` is the half
+    # that carries the thirteen commands (`pdftotext`, `pdfinfo`, `pdfimages`,
+    # `pdftoppm`, …), which is what rule 3 at the top of this file is about, and
+    # both halves ship the same `libpoppler-cpp.so.3`.
+    #
+    # So this line was not costing a duplicate. It was costing the thirteen
+    # tools, plus every other package in this list, because `home-manager-path`
+    # is one buildEnv and one collision fails the lot. That is the difference
+    # between the eval gate and the build gate, in one line: this evaluates
+    # perfectly and has never once produced a profile.
     poppler-utils
     antiword
     catdoc

@@ -37,6 +37,24 @@ let
   # `|| true` because a missing action must not wedge the idle daemon: failing
   # to blank the panel is a nuisance, an idle daemon that dies is a machine
   # that never locks again.
+  # The compositor is asked for its own name, not looked up in the process
+  # table. See the long note in ./scripts.nix: `pgrep -x Hyprland` cannot match
+  # on NixOS, because nixpkgs wraps the binary and the kernel takes `comm` from
+  # the executable (`.Hyprland-wrapp`, truncated at 15 chars) rather than from
+  # the argv[0] that `exec -a` rewrites. niri is unwrapped, so that half worked
+  # and this half never did.
+  #
+  # The cost here was the quietest of the set: the 10-minute listener below
+  # called `session-dpms off`, this matched neither branch, and the panel simply
+  # stayed lit all night under Hyprland. Nothing failed, nothing was logged, and
+  # the only symptom is a battery that is flatter in the morning than it should
+  # be — which is not a symptom anyone traces back to a `pgrep`.
+  #
+  # `NIRI_SOCKET` and `HYPRLAND_INSTANCE_SIGNATURE` are exported by the
+  # compositors themselves and are what `niri msg` and `hyprctl` already read to
+  # find their sockets, so if the variable is absent the IPC call could not have
+  # worked anyway. hypridle is started by each compositor's own autostart list
+  # (../home/keys.nix), so it and its children have the session environment.
   sessionDpms = pkgs.writeShellScriptBin "session-dpms" ''
     case "''${1:-}" in
       on | off) ;;
@@ -46,9 +64,9 @@ let
         ;;
     esac
 
-    if ${pkgs.procps}/bin/pgrep -x niri > /dev/null; then
+    if [ -n "''${NIRI_SOCKET:-}" ] || ${pkgs.procps}/bin/pgrep -x niri > /dev/null; then
       niri msg action "power-$1-monitors" || true
-    elif ${pkgs.procps}/bin/pgrep -x Hyprland > /dev/null; then
+    elif [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || ${pkgs.procps}/bin/pgrep -f '/bin/Hyprland' > /dev/null; then
       hyprctl dispatch dpms "$1" || true
     fi
   '';

@@ -67,7 +67,16 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, stylix, plasma-manager, sops-nix, ... }@inputs:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      home-manager,
+      stylix,
+      plasma-manager,
+      sops-nix,
+      ...
+    }@inputs:
     let
       system = "x86_64-linux";
       inherit (nixpkgs) lib;
@@ -83,7 +92,16 @@
         homeDir = "/home/shaul";
         # Where this flake is checked out on the target machine. Used by the
         # `nrs` rebuild alias so it works regardless of the folder name.
-        flakePath = "/home/shaul/nixOS_config-specializations";
+        #
+        # This said `/home/shaul/nixOS_config-specializations`, which is the
+        # name of the *branch*, not of any directory that has ever existed on
+        # this machine — the checkout is `/home/shaul/nixos-config`. So all
+        # three aliases that exist to work "regardless of the current
+        # directory" resolved to a path with no flake in it and failed from
+        # everywhere, including the one directory where plain `nixos-rebuild
+        # --flake .` would have worked. The justfile never noticed because it
+        # uses `.#{{host}}` and is therefore only ever run from the checkout.
+        flakePath = "/home/shaul/nixos-config";
         timezone = "America/New_York";
         locale = "en_US.UTF-8";
         seforimPath = "/home/shaul/Documents/seforim";
@@ -161,8 +179,36 @@
         ];
       };
 
-      # `nix fmt` — format every .nix file with the RFC-style formatter.
-      formatter.${system} = pkgs.nixfmt-rfc-style;
+      # `nix fmt` — format every .nix file in the tree, RFC 166 style.
+      #
+      # This was `pkgs.nixfmt-rfc-style`, and there are two separate things
+      # wrong with that, one cosmetic and one that meant `just fmt` did nothing.
+      #
+      # The cosmetic half: RFC 166 won and became the only style nixfmt
+      # implements, so nixpkgs collapsed the two attributes. `nixfmt-rfc-style`
+      # is now an alias that prints "nixfmt-rfc-style is now the same as
+      # pkgs.nixfmt which should be used instead" on every evaluation touching
+      # it — including `nix fmt` and `nix develop`.
+      #
+      # The half that mattered: a bare formatter binary is no longer a working
+      # `formatter` output. `nix fmt` runs it with the paths you passed and you
+      # normally pass none, and nixfmt 1.4 with no file arguments reads *stdin*:
+      #
+      #     $ just fmt
+      #     Warning: Bare invocation of nixfmt is deprecated. Use 'nixfmt -'…
+      #     <stdin>:1:1: unexpected end of input
+      #
+      # — exit 0, nothing formatted, and a warning that reads like a style note
+      # rather than "this command did not run". Spelling it `nix fmt .` gets a
+      # different deprecation ("Passing directories … is deprecated and will be
+      # unsupported soon. Please use the `pkgs.nixfmt-tree` wrapper instead").
+      #
+      # `nixfmt-tree` is that wrapper: nixfmt behind treefmt, which walks the
+      # tree, respects .gitignore, and does the right thing when invoked with no
+      # arguments — i.e. it is a `formatter` output, where nixfmt alone is a
+      # formatter *program*. Same style, same result, and `just fmt` formats the
+      # repo again.
+      formatter.${system} = pkgs.nixfmt-tree;
 
       # `nix flake check` — everything that can be verified without a machine
       # to switch, and every one of these is now run by .github/workflows/
@@ -219,13 +265,13 @@
         # Building it also builds the `study` specialisation: the toplevel
         # derivation links its children into $out/specialisation/<name>, which
         # is exactly what tools/check-closure.sh then reads.
-        toplevel = self.nixosConfigurations.desktop.config.system.build.toplevel;
+        inherit (self.nixosConfigurations.desktop.config.system.build) toplevel;
       };
 
       # `nix develop` — tools for hacking on this flake.
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
-          nixfmt-rfc-style
+          nixfmt # see `formatter` above: nixfmt-rfc-style is now an alias
           statix
           deadnix
           nil

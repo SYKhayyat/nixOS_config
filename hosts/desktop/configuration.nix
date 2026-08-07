@@ -69,7 +69,29 @@
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
-    backupCommand = "true";
+
+    # This was `backupCommand = "true"`, and it is worth spelling out because it
+    # reads like a boolean and is not one. The option takes a *command* to run
+    # on each existing file that home-manager is about to replace, instead of
+    # aborting the activation. `true` is the shell builtin that succeeds and
+    # does nothing — so every colliding dotfile in $HOME was "backed up" by
+    # doing nothing to it, and then overwritten. No copy, no warning, no
+    # non-zero exit. The one activation in the machine's life that meets your
+    # pre-Nix dotfiles is the one that silently destroys them.
+    #
+    # That also contradicted this repo's own stated position one directory over:
+    # modules/home/emacs/default.nix goes to the trouble of *moving*
+    # ~/.config/emacs/modules to modules.pre-flake-input rather than deleting
+    # it, and argues at length that a hand-edit in there could be the only copy.
+    # The same argument applies to every other file in $HOME, and this option
+    # was the global answer that said otherwise.
+    #
+    # `backupFileExtension` keeps the file — `foo` becomes `foo.hm-bak` — and
+    # is the option the collision is actually asking about. Activation still
+    # does not abort. `overwriteBackup` is deliberately left off: a second
+    # collision should stop and make you look, rather than eat the backup the
+    # first one made.
+    backupFileExtension = "hm-bak";
     # `unstable` used to be threaded through here as well — a second full
     # nixpkgs evaluation, reachable from every home module, with zero call sites
     # in the entire repo (Lamdan 3.1). It is gone from flake.nix; re-adding it is

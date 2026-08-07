@@ -17,7 +17,12 @@
 # `#rrggbb` literals for the same two colours — one theme, three transcriptions,
 # and the transcription hyprlock got was a parse error. Two formats now, both
 # generated.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   inherit (config.shaulos.palette) hypr cursor;
@@ -36,7 +41,10 @@ let
       # Was movetoworkspace for 1-3 and movetoworkspacesilent for 4-5, which
       # meant the window followed you to three of them and not to the other two.
       # Nobody chose that; the guide beside this file did not even record it.
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = toString n;
       cmd = "movetoworkspace, ${toString n}";
       desc = "Move window to workspace ${toString n}";
@@ -46,7 +54,10 @@ let
 
   binds = [
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "C";
       cmd = "killactive";
       desc = "Close the focused window";
@@ -55,7 +66,11 @@ let
     {
       # niri has had this since it was written; Hyprland had no way out at all
       # short of the session menu.
-      mods = [ "Mod" "Shift" "Alt" ];
+      mods = [
+        "Mod"
+        "Shift"
+        "Alt"
+      ];
       key = "Q";
       cmd = "exit";
       desc = "Quit Hyprland immediately (emergency)";
@@ -106,14 +121,20 @@ let
       group = "Arrange";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "J";
       cmd = "layoutmsg, swapnext";
       desc = "Swap with the next window in the stack";
       group = "Arrange";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "K";
       cmd = "layoutmsg, swapprev";
       desc = "Swap with the previous window in the stack";
@@ -134,7 +155,10 @@ let
       group = "Arrange";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "Space";
       cmd = "togglefloating";
       desc = "Toggle floating / tiled";
@@ -155,7 +179,10 @@ let
       group = "Arrange";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "Tab";
       cmd = "changegroupactive, b";
       desc = "Previous tab in the group";
@@ -172,28 +199,40 @@ let
     {
       # Documented as Super+Ctrl for as long as the cheat-sheet existed. It has
       # always been Alt.
-      mods = [ "Mod" "Alt" ];
+      mods = [
+        "Mod"
+        "Alt"
+      ];
       key = "H";
       cmd = "resizeactive, -20 0";
       desc = "Shrink horizontally";
       group = "Size";
     }
     {
-      mods = [ "Mod" "Alt" ];
+      mods = [
+        "Mod"
+        "Alt"
+      ];
       key = "L";
       cmd = "resizeactive, 20 0";
       desc = "Grow horizontally";
       group = "Size";
     }
     {
-      mods = [ "Mod" "Alt" ];
+      mods = [
+        "Mod"
+        "Alt"
+      ];
       key = "K";
       cmd = "resizeactive, 0 -20";
       desc = "Shrink vertically";
       group = "Size";
     }
     {
-      mods = [ "Mod" "Alt" ];
+      mods = [
+        "Mod"
+        "Alt"
+      ];
       key = "J";
       cmd = "resizeactive, 0 20";
       desc = "Grow vertically";
@@ -208,7 +247,10 @@ let
       group = "Workspaces";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "S";
       cmd = "movetoworkspace, special";
       desc = "Stash the window on the special workspace";
@@ -216,7 +258,10 @@ let
     }
 
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "R";
       cmd = "exec, hyprctl keyword general:layout $(hyprctl getoption general:layout | grep -q master && echo dwindle || echo master)";
       desc = "Toggle master / dwindle layout";
@@ -226,7 +271,10 @@ let
       # The only dwindle bind that has ever existed. The cheat-sheet listed
       # three others — Super+V, Super+Shift+V, Super+Shift+H — and the config
       # has never had any of them.
-      mods = [ "Mod" "Ctrl" ];
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
       key = "Backslash";
       cmd = "layoutmsg, togglesplit";
       desc = "Flip the dwindle split direction";
@@ -240,12 +288,18 @@ let
   ownStartup = [
     {
       name = "uwsm";
-      argv = [ "uwsm" "finalize" ];
+      argv = [
+        "uwsm"
+        "finalize"
+      ];
       desc = "Hand the session over to systemd";
     }
     {
       name = "dbus";
-      argv = [ "${pkgs.dbus}/bin/dbus-update-activation-environment" "--all" ];
+      argv = [
+        "${pkgs.dbus}/bin/dbus-update-activation-environment"
+        "--all"
+      ];
       desc = "Export the session environment to D-Bus";
     }
   ];

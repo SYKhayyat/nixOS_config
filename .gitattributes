@@ -15,3 +15,8 @@ justfile text eol=lf
 # where `nix build \<CR>` and `fi<CR>` fail in ways that read like nix bugs.
 *.yml   text eol=lf
 *.yaml  text eol=lf
+
+# statix.toml is read inside the `statix` check's build sandbox. TOML tolerates
+# CRLF, but the file is config for a gate whose whole job is to be trustworthy,
+# and the list above is only useful if new file types join it.
+*.toml  text eol=lf

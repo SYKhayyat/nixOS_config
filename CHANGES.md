@@ -5,10 +5,21 @@ made Emacs reproducible, and added laptop hardware + a real study airgap.
 It was authored off-machine, so **nothing here has been `nixos-rebuild`-tested** —
 work through the checklist below on the NixOS box.
 
-As of entry (o) that sentence has a machine standing behind half of it: CI now
-evaluates the module system, builds the closure and interrogates the result on
-every push. What it still cannot tell you is whether the system *switches*. The
-checklist stays.
+As of entry (o) that sentence had a machine standing behind half of it — on
+paper. CI evaluates the module system, builds the closure and interrogates the
+result on every push, and **none of those gates had ever run green**: the lock
+pinned four of six inputs, so `nix flake check` failed before reaching a check,
+and `statix check .` exited 1 on the tree regardless.
+
+As of entry (p) it is true. That pass was run on the NixOS box rather than
+written about: the lock is complete, both lint gates exit 0, the module system
+and the `study` specialisation evaluate, the closure builds, and the findings
+that no evaluator can reach — binaries named inside strings, compositor verbs
+that do not exist, `pgrep` patterns that cannot match — were checked against the
+real binaries in the real store.
+
+What CI still cannot tell you is whether the system *switches*. The checklist
+stays.
 
 ## Status of `lamdan/shaulos-config-2026-08-06.md`
 
@@ -37,6 +48,225 @@ checklist stays.
   is the first file that has to stop being a singleton, and it says so at the top.
 - Secure boot (lanzaboote) and the `nix-ld`/`steam-run.args.multiPkgs` hack, both
   flagged under *Deliberately NOT changed* below. Neither is a Lamdan finding.
+
+---
+
+## 2026-08-07 (p) — the first pass with a NixOS machine under it
+
+Every entry above this one was authored on Windows, and each says so. This one
+was not: it was run against `nixos-26.05` on the laptop, with `nix eval`, `nix
+build`, `statix`, `deadnix`, `niri validate`, and — for the findings that no
+evaluator can reach — the actual binaries out of the actual store paths.
+
+That distinction is the entry. Entry (o) built the CI that would have caught
+this class of thing, and (o)'s own gates had never been green, so what it
+proved was nothing.
+
+### The lock still pinned four of six
+
+(o) opens by saying `flake.lock` accounts for four of six inputs and that "the
+repo as committed does not evaluate". It is written in the past tense. It was
+still true: the lock in the tree pinned `nixpkgs` at **`nixos-unstable`**, not
+`nixos-26.05`; `stylix` at **`danth/stylix`**, not `nix-community`;
+`home-manager` at no branch at all; and it had no entry for `sops-nix` or
+`emacs-config`. `nix flake check` did not fail a gate — it failed to start.
+
+Re-locked. All six inputs, on the branches `flake.nix` names. **With that one
+file fixed the whole configuration evaluates**, which is the first time that has
+been true of this repo, and everything below is what was found behind it.
+
+### `statix check .` exited 1, so the `lint` gate could not go green
+
+34 findings, in eleven files, and 33 of them were `repeated_keys` — W20's
+objection to `services.a = …; services.b = …;`, i.e. to the house style of
+nixpkgs itself, including in `hardware-configuration.nix`, which is generated
+and cannot be edited to satisfy it. A gate that fires on generated code teaches
+you to pass `--ignore`.
+
+`statix.toml` now disables that one lint and argues why; the other nineteen stay
+on, and the four genuine findings they made are fixed in the tree. `statix` and
+`deadnix` both exit 0.
+
+### The class the evaluator cannot see: names inside strings
+
+Nix checks that `pkgs.foo` exists. It does not check that
+`${pkgs.foo}/bin/bar` does, because that is a string. Four bugs lived there,
+none of which any amount of `nix eval` would ever have found:
+
+- **The wallpaper never loaded, in either session.** nixpkgs 26.05 renamed
+  `swww` to `awww`. `pkgs.swww` is an alias that still evaluates — it prints a
+  rename warning and hands back the awww derivation — but the binaries are
+  `awww` and `awww-daemon`. So `${pkgs.swww}/bin/swww-daemon` was a store path
+  that does not exist, and the `until ${pkgs.swww}/bin/swww query` that follows
+  it could never succeed: both compositors spawned a shell at login that spun a
+  half-second loop for the life of the session with no wallpaper on screen.
+- **`pgrep -x Hyprland` cannot match, and never could.** `pgrep -x` matches
+  `comm`, which Linux takes from the basename of the *executable*, truncated to
+  15 characters. nixpkgs wraps Hyprland, so the process is `.Hyprland-wrapped`
+  and comm is `.Hyprland-wrapp`; `exec -a` rewrites argv[0] so that every human
+  check — `ps`, the process list — agrees it is called Hyprland. niri is not
+  wrapped, which is why one branch of the same `if` worked and the asymmetry
+  was invisible. Under Hyprland: `spotlight` and `teleport` refused with "this
+  session is plasma", both scratchpad keys spawned a *new* terminal on every
+  press instead of focusing the existing one, and `session-dpms` matched
+  nothing, so the 10-minute listener never blanked the panel — a bug whose only
+  symptom is a flatter battery in the morning. Detection now reads
+  `NIRI_SOCKET` / `HYPRLAND_INSTANCE_SIGNATURE`, which the compositors export
+  for exactly this and which `niri msg` and `hyprctl` already depend on.
+- **waybar is wrapped too**, so `spotlight`'s `pkill -x waybar` killed nothing
+  and its `pgrep -x waybar` then found nothing and started a second bar. The
+  two halves failed in opposite directions and added up: every spotlight round
+  trip left another waybar running.
+- **`plasma-wipe` had never run to completion.** `killall` is psmisc, which
+  nothing here installs, so the line failed with "command not found" and
+  `|| true` swallowed it — leaving the wipe to run against a live Plasma that
+  rewrote its config on exit, which is the one thing the script exists to
+  prevent. Its argument order was also not `killall`'s syntax, and matching
+  those two processes by name does not work on NixOS for the reason above.
+
+### Verbs that do not exist
+
+Checked against the real `niri msg action` and `hyprctl` on this machine:
+
+- `niri msg action focus-window` takes `--id` **and nothing else**. Both
+  scratchpad toggles called it with `--app-id` / `--title`, so under niri the
+  scratchpad opened once and the key did nothing ever after — the spawn branch
+  is the one that works, so it read like a missing hide half rather than an
+  error.
+- `niri msg action set-window-opacity` is not an action at all.
+- `hyprctl dispatch setprop …` puts a top-level hyprctl command behind the
+  dispatcher; `setprop` is `dispatch`'s sibling. And `opaque` forces a window
+  *fully opaque* — the opposite of swallowing it — while `toggle` is not a
+  value. `swallow` was wrong in every line that touched a compositor; only
+  `"$@"` ever ran. It now restores from a `trap`, so an interrupted command
+  cannot leave the terminal stuck invisible.
+
+### `just switch` ended the session under niri and Hyprland, and only there
+
+Reported from the chair as "it reboots when it rebuilds", in the two tiling
+sessions and never in Plasma. It is neither a reboot nor a crash — the
+graphical session is torn down and `display-manager.service`, which is
+`Restart=always`, brings SDDM straight back.
+
+Three facts, and the bug is entirely in how they compose:
+
+1. **`switch-to-configuration` restarts *user* units**, not only system ones —
+   it builds `units_to_stop` / `units_to_restart` for the per-user manager and
+   drives them over D-Bus before running home-manager activation.
+2. **Under uwsm the compositor is a user unit.** `programs.uwsm` ships its units
+   via `systemd.packages`, so they land in `/etc/systemd/user` and NixOS owns
+   them — `wayland-wm@Hyprland.service` *is* the running Hyprland. Plasma is not
+   a user unit at all; SDDM execs `startplasma-wayland` into a session scope
+   switch-to-configuration never looks at. That is the entire asymmetry.
+3. **Restarting one of them ends the session rather than the unit.** Four carry
+   `OnSuccess=`/`OnFailure=wayland-session-shutdown.target` at
+   `replace-irreversibly`, `wayland-wm@.service` has
+   `PropagatesStopTo=graphical-session.target`, and `wayland-session@.target`
+   has `BindsTo=graphical-session.target`. `wayland-wm-env@.service` is the
+   worst: `RefuseManualStop=yes`, so the restart request *fails* and the failure
+   fires the same irreversible teardown, with `ExecStopPost=uwsm aux cleanup-env`
+   erasing the session environment on the way past.
+
+The trigger is the unit *files* changing — i.e. whenever the uwsm store path
+moves, which is `just update` rather than every rebuild. That is why it read as
+intermittent.
+
+Fixed with the measure NixOS already applies to itself for the same reason
+(`systemd.services.systemd-user-sessions.restartIfChanged = false; # Restart
+kills all active sessions.`): a drop-in setting `X-RestartIfChanged=false` on
+those four units, so a switch leaves a running session alone and the new units
+apply at the next login — the only moment a compositor's unit definition can
+honestly change. One drop-in covers **both** compositors, because uwsm names the
+instance after the binary and both are instances of the same template
+(`wayland-wm@Hyprland` / `wayland-wm@niri`, confirmed with `uwsm start -n -o`
+against each `binPath`).
+
+Written as `systemd.user.units` with verbatim `text` rather than the obvious
+`systemd.user.services.<n>.restartIfChanged = false`, and that is not style.
+systemd-lib builds every generated service's environment as
+`cfg.globalEnvironment // def.environment`, so the high-level spelling also
+emits `Environment="PATH=…"` — five entries — plus LOCALE_ARCHIVE and TZDIR.
+`wayland-wm@.service` takes its real environment from
+`EnvironmentFile=-%t/uwsm/env_session.conf`, and systemd applies `Environment=`
+*over* `EnvironmentFile=`, so that spelling would have fixed the rebuild by
+handing the compositor — and everything any keybind spawns — a five-entry PATH.
+Verified by reading the generated drop-in both ways.
+
+### Three references to a program nothing installed
+
+`pavucontrol` is waybar's `on-click` for the volume module and has a float rule
+in both compositor configs. No list installed it. Clicking the bar did nothing.
+
+### `backupCommand = "true"` reads like a boolean and is not one
+
+It takes a *command* to run on each existing file home-manager is about to
+replace. `true` is the shell builtin that succeeds and does nothing — so every
+colliding dotfile in `$HOME` was "backed up" by doing nothing to it and then
+overwritten, with no copy and no warning. The one activation in the machine's
+life that meets your pre-Nix dotfiles is the one that silently destroyed them.
+
+That also contradicted this repo's own position one directory over:
+`modules/home/emacs/default.nix` goes to the trouble of *moving*
+`~/.config/emacs/modules` aside and argues that a hand-edit in there could be
+the only copy. `backupFileExtension = "hm-bak"` keeps the file. The hand-rolled
+`force-clean-git-files` activation went with it — it `rm -f`'d two paths in the
+entry scheduled immediately *before* the mechanism that would have kept them.
+
+### Smaller, and all of them real
+
+- `myConfig.flakePath` was `/home/shaul/nixOS_config-specializations` — the name
+  of the *branch*, not of any directory that has ever existed. `nrs`, `nrt` and
+  `nfu` exist to work regardless of the current directory and resolved to a path
+  with no flake in it, from everywhere. `just` uses `.#desktop` and is only run
+  from the checkout, which is exactly why nothing caught it.
+- yazi's video opener called `vlc`, which is in `offInStudy`. It was the one
+  binding in this config that broke precisely when you booted the
+  specialisation. It calls `mpv` — the "one local media player" study is
+  documented to keep — like every other opener already called something in
+  `always`.
+- `toggle-scratchpad-emacs` shelled out to `${pkgs.emacs}`: plain X11 emacs-30.2
+  from nixpkgs, not the `emacs-pgtk-with-packages` the daemon runs. A second
+  entire Emacs in the home closure to run one `emacsclient`, against a server it
+  is only compatible with by coincidence of version.
+- The uwsm entry started `${pkgs.hyprland}/bin/Hyprland`, the raw store binary.
+  NixOS's Hyprland module builds `security.wrappers.Hyprland` with
+  `cap_sys_nice+ep` because Hyprland asks for SCHED_RR at startup, and a store
+  path cannot carry file capabilities. So the two Hyprland entries in the same
+  greeter menu did not start the same thing. It is `/run/wrappers/bin/Hyprland`.
+  niri's `binPath` now comes off `programs.niri.package` rather than a second
+  statement of which niri this machine runs.
+- `noaspell` in `recoll.conf` was indented four columns past its neighbours, and
+  indentation is how that format spells a *continuation of the previous value*.
+- **`just fmt` formatted nothing.** A bare formatter binary is no longer a
+  working `formatter` output: `nix fmt` runs it with the paths you passed, you
+  normally pass none, and nixfmt 1.4 with no file arguments reads *stdin* — so
+  the recipe printed `<stdin>:1:1: unexpected end of input`, exited 0, and left
+  the tree alone. Fourteen files were unformatted, which is how long that had
+  been going on. `formatter` is `pkgs.nixfmt-tree` now (nixfmt behind treefmt),
+  which walks the tree when invoked with no arguments, and the whole repo is
+  formatted. `pkgs.nixfmt-rfc-style` was separately an alias that warns on
+  every evaluation touching it, dev shell included.
+- `just fmt` was also the one recipe missing `--no-update-lock-file`, which is
+  the single rule stated at the top of the justfile. `nix fmt` resolves the
+  flake.
+- `programs.yazi.shellWrapperName` warned on every rebuild; stated explicitly,
+  keeping `yy`.
+- `screenshot-edit` treated cancelling the region select — Escape, the common
+  path — as a capture, running `grim -g ""` into a session with no terminal to
+  see the error, after `mkdir -p` had already created `~/Pictures/Screenshots`.
+- `volctl` had no default case, so any typo exited 0 having done nothing.
+
+### What is verified, and what still is not
+
+`nix flake check` passes: `statix`, `deadnix`, the emacs-config build, and the
+toplevel closure. The `study` specialisation evaluates. The generated
+`niri/config.kdl` passes `niri validate`. Every `${pkgs.X}/bin/Y` in the tree
+was resolved against the built store path. `tools/check-closure.sh` was run
+against the real artifact rather than trusted.
+
+Unchanged: CI still cannot tell you whether the system *switches*. The greeter,
+activation, and everything that only happens on real hardware are still yours,
+and the checklist at the bottom of this file still stands.
 
 ---
 

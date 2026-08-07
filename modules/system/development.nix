@@ -26,29 +26,31 @@
   # ══════════════════════════════════════════════════════════════════
 
   programs.nix-ld.enable = true;
-  programs.nix-ld.libraries = (pkgs.steam-run.args.multiPkgs pkgs) ++ (with pkgs; [
-    # Core libraries for Java AWT/Swing (Updated to non-deprecated names)
-    freetype
-    fontconfig
-    libX11
-    libXext
-    libXrender
-    libXtst
-    libXi
+  programs.nix-ld.libraries =
+    (pkgs.steam-run.args.multiPkgs pkgs)
+    ++ (with pkgs; [
+      # Core libraries for Java AWT/Swing (Updated to non-deprecated names)
+      freetype
+      fontconfig
+      libX11
+      libXext
+      libXrender
+      libXtst
+      libXi
 
-    # Additional UI libraries
-    libGL
-    zlib
-    stdenv.cc.cc
-    gtk3
-    atk
-    cairo
-    gdk-pixbuf
-    glib
-    harfbuzz
-    libepoxy
-    pango
-  ]);
+      # Additional UI libraries
+      libGL
+      zlib
+      stdenv.cc.cc
+      gtk3
+      atk
+      cairo
+      gdk-pixbuf
+      glib
+      harfbuzz
+      libepoxy
+      pango
+    ]);
 
   # Accept Android SDK license
   nixpkgs.config.android_sdk.accept_license = true;

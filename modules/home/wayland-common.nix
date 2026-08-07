@@ -58,7 +58,17 @@
     # so they belong to the session, not to a compositor.
     mako
     fuzzel
-    swww
+    # `swww` in nixpkgs 26.05 is a renamed-to-`awww` alias: it evaluates, warns,
+    # and installs a package whose binaries are `awww`/`awww-daemon`. Spelled
+    # under the old name this line put a package on $PATH under which the name
+    # `swww` does not exist. ../home/keys.nix names the same attribute for the
+    # startup command; see the note there.
+    awww
+
+    # waybar's volume module has `on-click = "pavucontrol"`, and both compositor
+    # configs carry a float rule for its window — three references, in three
+    # files, to a program no list installed. Clicking the bar did nothing.
+    pavucontrol
 
     # dolphin is bound to Mod+E in the Hyprland config and is yazi's `reveal`
     # opener, and was installed by the *niri* module. Plasma ships it

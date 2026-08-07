@@ -24,43 +24,86 @@ in
 
   programs.waybar = {
     enable = true;
-    settings = [{
-      layer = "top";
-      position = "top";
-      margin = "8 12 0 12";
+    settings = [
+      {
+        layer = "top";
+        position = "top";
+        margin = "8 12 0 12";
 
-      modules-left = [ "niri/window" "hyprland/window" ];
-      modules-center = [ "niri/workspaces" "hyprland/workspaces" ];
-      modules-right = [ "tray" "pulseaudio" "network" "battery" "clock" ];
+        modules-left = [
+          "niri/window"
+          "hyprland/window"
+        ];
+        modules-center = [
+          "niri/workspaces"
+          "hyprland/workspaces"
+        ];
+        modules-right = [
+          "tray"
+          "pulseaudio"
+          "network"
+          "battery"
+          "clock"
+        ];
 
-      "niri/workspaces" = {
-        format = "{icon}";
-        format-icons = { default = "○"; focused = "●"; };
-      };
-      "hyprland/workspaces" = {
-        format = "{icon}";
-        on-click = "activate";
-      };
-      "niri/window" = { format = "󰖲 {title}"; max-length = 30; };
-      "hyprland/window" = { format = "󰖲 {title}"; max-length = 30; };
+        "niri/workspaces" = {
+          format = "{icon}";
+          format-icons = {
+            default = "○";
+            focused = "●";
+          };
+        };
+        "hyprland/workspaces" = {
+          format = "{icon}";
+          on-click = "activate";
+        };
+        "niri/window" = {
+          format = "󰖲 {title}";
+          max-length = 30;
+        };
+        "hyprland/window" = {
+          format = "󰖲 {title}";
+          max-length = 30;
+        };
 
-      network = {
-        format-wifi = "󰤨  {essid}";
-        format-disconnected = "󰤭  None";
-        on-click = "nm-connection-editor";
-      };
-      pulseaudio = {
-        format = "{icon} {volume}%";
-        format-icons = [ "󰕿" "󰖀" "󰕾" ];
-        on-click = "pavucontrol";
-      };
-      clock = { format = "󰥔  {:%H:%M}"; };
-      battery = {
-        format = "{icon} {capacity}%";
-        format-icons = [ "󰂎" "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
-      };
-      tray = { spacing = 10; };
-    }];
+        network = {
+          format-wifi = "󰤨  {essid}";
+          format-disconnected = "󰤭  None";
+          on-click = "nm-connection-editor";
+        };
+        pulseaudio = {
+          format = "{icon} {volume}%";
+          format-icons = [
+            "󰕿"
+            "󰖀"
+            "󰕾"
+          ];
+          on-click = "pavucontrol";
+        };
+        clock = {
+          format = "󰥔  {:%H:%M}";
+        };
+        battery = {
+          format = "{icon} {capacity}%";
+          format-icons = [
+            "󰂎"
+            "󰁺"
+            "󰁻"
+            "󰁼"
+            "󰁽"
+            "󰁾"
+            "󰁿"
+            "󰂀"
+            "󰂁"
+            "󰂂"
+            "󰁹"
+          ];
+        };
+        tray = {
+          spacing = 10;
+        };
+      }
+    ];
 
     style = ''
       * {

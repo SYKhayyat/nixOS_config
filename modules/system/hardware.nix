@@ -44,7 +44,7 @@
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;
-    settings.General.Experimental = true;   # battery % for some devices
+    settings.General.Experimental = true; # battery % for some devices
   };
   # Tray applet for the Wayland (niri/hyprland) sessions; Plasma has bluedevil.
   services.blueman.enable = true;
@@ -61,7 +61,7 @@
 
   # ── Power management (Intel laptop) ──────────────────────────────────────
   powerManagement.enable = true;
-  services.thermald.enable = true;          # Intel thermal daemon
+  services.thermald.enable = true; # Intel thermal daemon
 
   # TLP for battery life. It conflicts with power-profiles-daemon, so make sure
   # the latter (sometimes pulled in by desktop modules) is off.

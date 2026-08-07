@@ -41,8 +41,13 @@ update:
     nix flake update
 
 # Format all .nix files (RFC style)
+#
+# `--no-update-lock-file` here too: `nix fmt` resolves the flake to find the
+# formatter, so without it this recipe was the one hole in the rule stated at
+# the top of this file — a command nobody thinks of as touching the lock, which
+# is precisely the kind that does.
 fmt:
-    nix fmt
+    nix fmt --no-update-lock-file
 
 # Everything CI checks, in one command: statix, deadnix, the Emacs config, and
 # the whole system closure. `--no-update-lock-file` is the part that makes it

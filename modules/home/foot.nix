@@ -15,7 +15,7 @@
 #
 # The size moved there, to `stylix.fonts.sizes.terminal`, which is where sizes
 # are stated. Same rendered value; one place that decides it.
-{ ... }:
+_:
 
 {
   programs.foot.enable = true;

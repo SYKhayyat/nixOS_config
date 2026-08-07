@@ -20,14 +20,19 @@ and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
   `nixpkgs-unstable` input used to be threaded in as the `unstable` arg for
   per-package bleeding edge, and had zero call sites in the whole repo.
 - The Nix implementation is **Lix** (`nix.package = pkgs.lixPackageSets.stable.lix`).
-- A NixOS host. The rebuild alias and secrets assume the flake is checked out at
-  `/home/shaul/nixOS_config-specializations` (see `myConfig.flakePath` in
-  `flake.nix`); change it there if you clone elsewhere.
+- A NixOS host. The `nrs`/`nrt`/`nfu` aliases assume the flake is checked out at
+  `/home/shaul/nixos-config` (see `myConfig.flakePath` in `flake.nix`); change
+  it there if you clone elsewhere. It said
+  `/home/shaul/nixOS_config-specializations` — the name of the *branch*, not of
+  any directory that has ever existed — so all three aliases resolved to a path
+  with no flake in it. `just` was unaffected: it uses `.#desktop` and is only
+  ever run from the checkout, which is exactly why nothing caught it.
 
 ## Layout
 
 ```
 flake.nix                     # inputs, myConfig, outputs (host + fmt/check/devShell)
+statix.toml                   # what the lint gate checks — and the one it doesn't
 .github/workflows/check.yml   # the four gates — see "Continuous integration"
 tools/check-closure.sh        # asks the BUILT system whether the docs are true
 hosts/desktop/                # host entrypoint + hardware-configuration.nix
@@ -78,6 +83,16 @@ remembers the last one you used:
 Prefer the `(uwsm)` entries for the tiling compositors: they get a proper
 systemd user scope and working portals. Nothing needs a rebuild or a reboot to
 switch — log out, pick another.
+
+**`just switch` used to end the niri and Hyprland sessions** (never Plasma), which
+looked like a spontaneous reboot because SDDM is `Restart=always` and came
+straight back. The systemd user scope those entries get is exactly the reason:
+under uwsm the compositor *is* a NixOS-managed user unit, and
+`switch-to-configuration` restarts user units whose files changed — where
+uwsm's unit graph turns any stop into an irreversible teardown of the whole
+session. `modules/system/wayland.nix` now pins those units with
+`X-RestartIfChanged=false`, the same measure NixOS applies to
+`systemd-user-sessions` for the same reason. New units apply at the next login.
 
 ## The one specialisation
 
@@ -296,7 +311,7 @@ just update-emacs    # bump the emacs-config input only
 just lock            # lock a newly added input, and nothing else
 just emacs-dev PATH  # rebuild against a local emacs-config checkout
 just bootstrap-data  # fetch ~/Documents from Google Drive + GitHub (idempotent)
-just fmt             # nix fmt (nixfmt-rfc-style)
+just fmt             # nix fmt (nixfmt)
 just eval            # force the whole module system, build nothing (the fast gate)
 just check           # everything CI checks: statix, deadnix, Emacs, the closure
 just closure         # build the closure and assert what it claims about itself
@@ -308,7 +323,7 @@ Shell aliases (from `home/common.nix`): `nrs` (switch), `nrt` (test),
 `nfu` (flake update) — these use `myConfig.flakePath` so they work regardless of
 the current directory.
 
-`nix develop` provides a dev shell with `nixfmt-rfc-style`, `statix`, `deadnix`,
+`nix develop` provides a dev shell with `nixfmt`, `statix`, `deadnix`,
 `nil`, `just`, `nh`, plus `sops`/`age`/`ssh-to-age` for the secrets walkthrough
 below.
 

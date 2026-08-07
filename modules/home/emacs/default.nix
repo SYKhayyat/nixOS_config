@@ -1,4 +1,10 @@
-{ config, lib, pkgs, myConfig, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  myConfig,
+  ...
+}:
 
 # Home-manager wiring for Emacs. The *configuration* itself is no longer here —
 # it lives in its own repo and arrives as the `emacs-config` flake input.
@@ -25,9 +31,10 @@ let
   # Both come from the emacs-config flake input, threaded via myConfig so this
   # module does not need `inputs` plumbed down to it.
   emacs = myConfig.emacsPackage; # Emacs + the package set the config expects
-  emacsConfig = myConfig.emacsConfig; # that repo, with every module pre-tangled
-
-  seforimPath = myConfig.seforimPath;
+  inherit (myConfig)
+    emacsConfig # that repo, with every module pre-tangled
+    seforimPath
+    ;
   homeDir = config.home.homeDirectory;
 in
 {
@@ -91,10 +98,15 @@ in
   home.file.".config/emacs/early-init.el".source = "${emacsConfig}/early-init.el";
   home.file.".config/emacs/modules".source = "${emacsConfig}/modules";
 
+  # `noaspell` was indented four columns further than every line around it.
+  # recoll.conf is read by recoll's ConfSimple parser, in which indentation is
+  # not decoration — it is how the format spells a continuation of the previous
+  # line's value. Left as it was, `followLinks` was at best being handed a value
+  # it does not take, and `noaspell` at worst was not a setting at all.
   home.file.".recoll/recoll.conf".text = ''
     topdirs = ${seforimPath}
     followLinks = 1
-        noaspell = 1
+    noaspell = 1
     indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf
     unac_except_stripping = true
     snippetMaxPosWalk = 1000000

@@ -107,8 +107,7 @@ let
   niriChord = b: concatStringsSep "+" (b.mods ++ [ b.key ]);
   # Empty mods renders as ", Print", which is Hyprland's spelling for a bare key.
   hyprChord = b: "${concatMapStringsSep " " hyprMod b.mods}, ${b.key}";
-  guideChord =
-    b: concatStringsSep "+" ((map guideMod b.mods) ++ [ (keyLabels.${b.key} or b.key) ]);
+  guideChord = b: concatStringsSep "+" ((map guideMod b.mods) ++ [ (keyLabels.${b.key} or b.key) ]);
 
   # ── Actions ──────────────────────────────────────────────────────────────
   # niri's spawn is execvp-style: one KDL string per argv token, and KDL string
@@ -123,7 +122,8 @@ let
   # call site can sit at the enclosing indented-string's base indent and the
   # output lands flush at four columns either way.
   renderNiri = binds: concatMapStringsSep "\n" (b: "    ${niriChord b} { ${niriAction b} }") binds;
-  renderHypr = binds: concatMapStringsSep "\n" (b: "    bind = ${hyprChord b}, ${hyprAction b}") binds;
+  renderHypr =
+    binds: concatMapStringsSep "\n" (b: "    bind = ${hyprChord b}, ${hyprAction b}") binds;
 
   renderNiriStartup =
     items:
@@ -140,7 +140,23 @@ let
   # Hyprland's spelling. niri had `swww-daemon & sleep 1 && swww img`, which is
   # a race it usually won; this waits for the daemon to answer instead. Strictly
   # better, so both sessions get it.
-  swwwStart = "${pkgs.swww}/bin/swww-daemon & until ${pkgs.swww}/bin/swww query 2>/dev/null; do sleep 0.5; done && ${pkgs.swww}/bin/swww img ${wallpaper}";
+  #
+  # The package is `awww` — nixpkgs 26.05 renamed swww to awww and left
+  # `pkgs.swww` behind as a *throwing alias that still evaluates*, printing
+  # "evaluation warning: 'swww' has been renamed to 'awww'" and handing back the
+  # awww derivation. The alias fixes the attribute; it does not rename the
+  # binaries, and awww ships `bin/awww` and `bin/awww-daemon` only. So
+  # `${pkgs.swww}/bin/swww-daemon` interpolated to a store path that does not
+  # exist, in a string Nix never checks — the daemon failed to start, and then
+  # `until <missing binary> query` could never succeed, so every niri and
+  # Hyprland session spun this loop at half-second intervals for the life of the
+  # session while the wallpaper stayed unset.
+  #
+  # This is the ./palette.nix lesson in the one place the palette cannot reach:
+  # a value that is only wrong at runtime. `nix eval` cannot catch it — the
+  # string interpolates fine — which is exactly why the package is named here
+  # once and the binaries come off the same attribute.
+  awwwStart = "${pkgs.awww}/bin/awww-daemon & until ${pkgs.awww}/bin/awww query 2>/dev/null; do sleep 0.5; done && ${pkgs.awww}/bin/awww img ${wallpaper}";
 
   guidePath = "${config.xdg.configHome}/shaulos/keys.org";
 
@@ -173,9 +189,17 @@ let
     {
       # emacsclient against the daemon in modules/home/emacs/default.nix, not a
       # cold `emacs`. `-a ""` starts the daemon if it is somehow not up.
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "E";
-      spawn = [ "emacsclient" "-c" "-a" "" ];
+      spawn = [
+        "emacsclient"
+        "-c"
+        "-a"
+        ""
+      ];
       desc = "Emacs frame";
       group = "Launch";
     }
@@ -210,7 +234,10 @@ let
       group = "Session";
     }
     {
-      mods = [ "Mod" "Alt" ];
+      mods = [
+        "Mod"
+        "Alt"
+      ];
       key = "S";
       spawn = [ "spotlight" ];
       desc = "Spotlight - float and centre the focused window";
@@ -219,12 +246,19 @@ let
     {
       mods = [ "Mod" ];
       key = "V";
-      spawn = [ "bash" "-c" cliphistPick ];
+      spawn = [
+        "bash"
+        "-c"
+        cliphistPick
+      ];
       desc = "Clipboard history";
       group = "Session";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "Q";
       spawn = [ "wlogout" ];
       desc = "Session menu - lock, logout, suspend, reboot";
@@ -233,9 +267,18 @@ let
     {
       # The generated guide is a file in ~/.config that you would otherwise have
       # no way to find. Same key in both sessions, and the guide covers both.
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "Slash";
-      spawn = [ "emacsclient" "-c" "-a" "" guidePath ];
+      spawn = [
+        "emacsclient"
+        "-c"
+        "-a"
+        ""
+        guidePath
+      ];
       desc = "Open this guide";
       group = "Session";
     }
@@ -248,7 +291,10 @@ let
       group = "Scratchpad";
     }
     {
-      mods = [ "Mod" "Shift" ];
+      mods = [
+        "Mod"
+        "Shift"
+      ];
       key = "grave";
       spawn = [ "toggle-scratchpad-emacs" ];
       desc = "Scratchpad Emacs frame";
@@ -265,35 +311,50 @@ let
     {
       mods = [ ];
       key = "XF86AudioRaiseVolume";
-      spawn = [ "volctl" "up" ];
+      spawn = [
+        "volctl"
+        "up"
+      ];
       desc = "Volume up";
       group = "Hardware";
     }
     {
       mods = [ ];
       key = "XF86AudioLowerVolume";
-      spawn = [ "volctl" "down" ];
+      spawn = [
+        "volctl"
+        "down"
+      ];
       desc = "Volume down";
       group = "Hardware";
     }
     {
       mods = [ ];
       key = "XF86AudioMute";
-      spawn = [ "volctl" "mute" ];
+      spawn = [
+        "volctl"
+        "mute"
+      ];
       desc = "Toggle mute";
       group = "Hardware";
     }
     {
       mods = [ ];
       key = "XF86MonBrightnessUp";
-      spawn = [ "volctl" "br-up" ];
+      spawn = [
+        "volctl"
+        "br-up"
+      ];
       desc = "Brightness up";
       group = "Hardware";
     }
     {
       mods = [ ];
       key = "XF86MonBrightnessDown";
-      spawn = [ "volctl" "br-down" ];
+      spawn = [
+        "volctl"
+        "br-down"
+      ];
       desc = "Brightness down";
       group = "Hardware";
     }
@@ -309,7 +370,11 @@ let
       # The two-second waits came from the niri side. A tray icon that starts
       # before the tray exists does not appear, and waybar is the tray.
       name = "waybar";
-      argv = [ "bash" "-c" "sleep 2 && waybar" ];
+      argv = [
+        "bash"
+        "-c"
+        "sleep 2 && waybar"
+      ];
       desc = "Status bar";
     }
     {
@@ -323,18 +388,29 @@ let
       desc = "Idle daemon - dim at 5 min, lock at 7, panel off at 10";
     }
     {
-      name = "swww";
-      argv = [ "bash" "-c" swwwStart ];
+      name = "awww";
+      argv = [
+        "bash"
+        "-c"
+        awwwStart
+      ];
       desc = "Wallpaper daemon, then the wallpaper";
     }
     {
       name = "nm-applet";
-      argv = [ "bash" "-c" "sleep 2 && nm-applet --indicator" ];
+      argv = [
+        "bash"
+        "-c"
+        "sleep 2 && nm-applet --indicator"
+      ];
       desc = "Network tray icon";
     }
     {
       name = "udiskie";
-      argv = [ "udiskie" "--tray" ];
+      argv = [
+        "udiskie"
+        "--tray"
+      ];
       desc = "Removable-disk automount tray icon";
     }
     {
@@ -344,7 +420,11 @@ let
     }
     {
       name = "cliphist";
-      argv = [ "bash" "-c" cliphistWatch ];
+      argv = [
+        "bash"
+        "-c"
+        cliphistWatch
+      ];
       desc = "Clipboard history watcher";
     }
   ];
@@ -388,13 +468,25 @@ let
       all = [ header ] ++ rows;
       width =
         i:
-        lib.foldl' (m: r: let l = lib.stringLength (lib.elemAt r i); in if l > m then l else m) 0 all;
+        lib.foldl' (
+          m: r:
+          let
+            l = lib.stringLength (lib.elemAt r i);
+          in
+          if l > m then l else m
+        ) 0 all;
       w0 = width 0;
       w1 = width 1;
       line = r: "  | ${pad w0 (lib.elemAt r 0)} | ${pad w1 (lib.elemAt r 1)} |";
       rule = "  |-${dashes w0}-+-${dashes w1}-|";
     in
-    concatStringsSep "\n" ([ (line header) rule ] ++ map line rows);
+    concatStringsSep "\n" (
+      [
+        (line header)
+        rule
+      ]
+      ++ map line rows
+    );
 
   bindTables =
     binds:
@@ -403,7 +495,10 @@ let
       table =
         g:
         mkTable [ "Key" "Action" ] (
-          map (b: [ (guideChord b) b.desc ]) (lib.filter (b: b.group == g) binds)
+          map (b: [
+            (guideChord b)
+            b.desc
+          ]) (lib.filter (b: b.group == g) binds)
         );
     in
     concatMapStringsSep "\n\n" (g: "*** ${g}\n${table g}") groups;
@@ -468,11 +563,22 @@ let
     * Keyboard
 
     ${mkTable [ "Setting" "Value" ] (
-      [ [ "Layouts" "${keyboard.layout} - US English first, then Hebrew" ] ]
+      [
+        [
+          "Layouts"
+          "${keyboard.layout} - US English first, then Hebrew"
+        ]
+      ]
       ++ xkbRows
       ++ [
-        [ "Repeat delay" "${toString keyboard.repeatDelay} ms" ]
-        [ "Repeat rate" "${toString keyboard.repeatRate} per second" ]
+        [
+          "Repeat delay"
+          "${toString keyboard.repeatDelay} ms"
+        ]
+        [
+          "Repeat rate"
+          "${toString keyboard.repeatRate} per second"
+        ]
       ]
     )}
 
@@ -488,18 +594,38 @@ let
       =modules/home/palette.nix=. Change the scheme there and this table, both
       compositors' borders, the bar and the lock screen all move together.
 
-    ${mkTable [ "Role" "Value" ] [
-      [ "Background" css.bg ]
-      [ "Foreground" css.fg ]
-      [ "Accent (focused border)" css.accent ]
-      [ "Dim (unfocused border)" css.dim ]
-    ]}
+    ${mkTable
+      [ "Role" "Value" ]
+      [
+        [
+          "Background"
+          css.bg
+        ]
+        [
+          "Foreground"
+          css.fg
+        ]
+        [
+          "Accent (focused border)"
+          css.accent
+        ]
+        [
+          "Dim (unfocused border)"
+          css.dim
+        ]
+      ]
+    }
 
     * Autostart
 
       Started by both sessions, from one list.
 
-    ${mkTable [ "Program" "Purpose" ] (map (s: [ s.name s.desc ]) startup)}
+    ${mkTable [ "Program" "Purpose" ] (
+      map (s: [
+        s.name
+        s.desc
+      ]) startup
+    )}
 
     * Keys
     ** Shared — the same in every session
