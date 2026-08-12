@@ -33,6 +33,7 @@
     ../../modules/system/core.nix
     ../../modules/system/profile.nix
     ../../modules/system/hardware.nix
+    ../../modules/system/network.nix # NetworkManager, the firewall, sshd
     ../../modules/system/base-tools.nix # what the MACHINE installs — see toolkit.nix
     ../../modules/system/development.nix
     ../../modules/system/data.nix # the first-boot data bootstrap
@@ -100,7 +101,31 @@
     users.${myConfig.username}.imports = [ ../../home/shaul.nix ];
   };
 
+  # ── The two specialisations, and the two different mechanisms ────────────
+  #
+  # Both pass the test ../../modules/system/study-offline.nix states — they
+  # turn off *state*, which is the thing a session at the greeter cannot do —
+  # and they reach for opposite halves of the specialisation module because
+  # they are opposite kinds of difference.
+  #
+  # `study` is THIS system with the radios off. It wants every package, every
+  # font, Emacs, the seforim index and all three compositors; it wants the
+  # network gone. Inheriting is exactly right, and the handful of `mkForce`s it
+  # writes are all it needs.
+  #
+  # `focus` is a SMALLER system. Written the same way it would be fifteen
+  # forces deep and would silently stop being true the next time
+  # ./desktop.nix gained a service — the `lynx`-in-the-airgap failure, one
+  # layer down. `inheritParentConfig = false` makes it a different import list
+  # instead, so what it lacks it lacks by construction. See that file.
   specialisation.study.configuration = {
     imports = [ ../../modules/system/study-offline.nix ];
+  };
+
+  specialisation.focus = {
+    inheritParentConfig = false;
+    configuration = {
+      imports = [ ../../modules/system/focus.nix ];
+    };
   };
 }

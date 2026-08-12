@@ -1,7 +1,9 @@
 # modules/system/core.nix
 #
-# The machine: Nix itself, the boot loader, the network, time and language, the
-# user account. Facts that would still be facts if this box never drew a pixel.
+# The machine: Nix itself, the boot loader, its name, time and language, the
+# user account. Facts that would still be facts if this box never drew a pixel
+# — and, since ./network.nix and the `focus` specialisation, facts that would
+# still be facts if it never opened a socket either.
 #
 # It used to be the drawer. There was no rule about where a system-level setting
 # goes, so the answer defaulted to "core.nix" the same way every package once
@@ -75,25 +77,13 @@
   # rebuild goes wrong and that is the command you reach for. (Lamdan 3.4.)
   system.nixos.label = "ShaulOS";
 
-  # ── Network ──────────────────────────────────────────────────────────────
+  # ── The machine's name ───────────────────────────────────────────────────
+  # The rest of the network — NetworkManager, the firewall and sshd — moved to
+  # ./network.nix. The hostname stayed because it is true in every closure,
+  # including `focus`, which has no network stack at all. See that file for why
+  # the split had to happen for a module list rather than a `mkForce` to be the
+  # thing that takes the network away.
   networking.hostName = myConfig.hostname;
-  networking.networkmanager.enable = true;
-
-  # 22 is sshd, below, and it is the only port this file has an opinion about.
-  #
-  # There used to be 1714 and 1764 here too, on both protocols — the two
-  # *endpoints* of the range KDE Connect uses. It picks freely inside
-  # 1714-1764, so that opened two ports out of fifty-one and pairing worked
-  # only if both ends happened to land on them. `programs.kdeconnect.enable` in
-  # ./desktop.nix contributes the whole range to `allowedTCPPortRanges` and
-  # `allowedUDPPortRanges` on its own, which is the shape you want: a feature
-  # states its own requirements, and a second file transcribing two of the
-  # fifty-one is how you get a firewall that is open and a phone that still
-  # will not pair.
-  networking.firewall = {
-    enable = true;
-    allowedTCPPorts = [ 22 ];
-  };
 
   # ── Time and language ────────────────────────────────────────────────────
   time.timeZone = myConfig.timezone;
@@ -119,7 +109,8 @@
   # of its own name to authenticate against, and the default rules are correct.
   security.pam.services.hyprlock = { };
 
-  services.openssh.enable = true;
+  # `services.openssh.enable` was here and is in ./network.nix now, beside the
+  # firewall port that exists for it. One feature, one file.
   services.dbus.enable = true;
 
   # ── The user ─────────────────────────────────────────────────────────────

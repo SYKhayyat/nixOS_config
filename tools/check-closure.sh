@@ -51,6 +51,19 @@ study="$system/specialisation/study"
 studySw="$study/sw/bin"
 studyProfile="$study/etc/profiles/per-user/$user/bin"
 
+focus="$system/specialisation/focus"
+focusProfile="$focus/etc/profiles/per-user/$user/bin"
+
+# `focus`'s claim is not about packages, it is about *processes*, so the checks
+# for it read the generated unit directory rather than a bin directory. That is
+# also the only place its one real bug has ever been visible: dropping
+# ./network.nix took NetworkManager, wpa_supplicant and ModemManager away and
+# left `dhcpcd.service`, because `networking.useDHCP` defaults to true and is
+# not implemented by NetworkManager. It evaluated, it built, and nothing said a
+# word — it showed up in a diff of these two directories.
+units="$system/etc/systemd/system"
+focusUnits="$focus/etc/systemd/system"
+
 fail=0
 
 ok() { printf '  ok    %s\n' "$*"; }
@@ -109,6 +122,10 @@ anchor_dir "$profile" "$user's home profile"
 anchor_dir "$study" "the study specialisation"
 anchor_dir "$studySw" "study's system package set"
 anchor_dir "$studyProfile" "study's home profile"
+anchor_dir "$units" "the system unit directory"
+anchor_dir "$focus" "the focus specialisation"
+anchor_dir "$focusProfile" "focus's home profile"
+anchor_dir "$focusUnits" "focus's unit directory"
 
 echo
 echo "── modules/system/base-tools.nix: the repair set is there ─────────────"
@@ -164,6 +181,80 @@ echo "── study keeps what it is supposed to keep ─────────
 for b in rg fd nnn pandoc gcc mpv emacs; do
   present "$studyProfile" "$b" "study's home profile" \
     "study removes browsers, downloaders and the creative suite — not tools"
+done
+
+echo
+echo "── the base system runs all of this ───────────────────────────────────"
+# The anchor for the section below, and the reason it is a whole section: an
+# "is this unit absent" test is worthless if the unit was never generated under
+# this name in the first place. Every name asserted absent from focus is
+# asserted present here first, so a nixpkgs rename turns this section red
+# rather than turning the next one green.
+daemons=(
+  display-manager.service # SDDM, and Plasma behind it
+  NetworkManager.service
+  wpa_supplicant.service
+  ModemManager.service
+  sshd.service
+  cups.service
+  bluetooth.service
+  blueman-mechanism.service
+  pipewire.service
+  wireplumber.service
+  flatpak-system-helper.service
+  ollama.service
+  update-locatedb.service        # services.locate's plocate run
+  recoll-index-"$user".service   # the four-hourly seforim reindex
+  udisks2.service
+  upower.service
+  accounts-daemon.service
+)
+for u in "${daemons[@]}"; do
+  present "$units" "$u" "the base system's units" \
+    "if this name is wrong, the focus assertions below prove nothing"
+done
+
+echo
+echo "── focus runs none of it ──────────────────────────────────────────────"
+# README.md's claim for focus is a list of things that are NOT running. Unlike
+# study, focus does not force any of these off — it is built with
+# inheritParentConfig = false, so the units are absent because the modules that
+# generate them were never imported. This is what asks the artifact whether
+# that actually worked.
+for u in "${daemons[@]}"; do
+  absent "$focusUnits" "$u" "focus's units" \
+    "focus does not import the module that generates it; see modules/system/focus.nix"
+done
+# Not in the list above because the base system does not generate it either:
+# it appears only when NetworkManager is absent AND networking.useDHCP is left
+# at its default of true. That is the bug this section was written for, and it
+# is invisible to every other check in this file.
+absent "$focusUnits" "dhcpcd.service" "focus's units" \
+  "networking.useDHCP defaults to TRUE — dropping NetworkManager falls back to dhcpcd rather than to nothing"
+
+echo
+echo "── focus runs the one thing it is for ─────────────────────────────────"
+present "$focusUnits" "cage-tty1.service" "focus's units" \
+  "services.cage is the whole session — without it focus boots to a bare tty"
+for b in emacs emacsclient rg fd yazi recoll pandoc git; do
+  present "$focusProfile" "$b" "focus's home profile" \
+    "focus is Emacs plus the search stack; see home/focus.nix"
+done
+
+echo
+echo "── focus is not the desktop with holes in it ──────────────────────────"
+# The desktop half of home/shaul.nix, asserted absent from the profile that
+# does not import it. `foot` and `fuzzel` are the interesting two: they came in
+# through home/common.nix until modules/home/scripts.nix moved to
+# wayland-common.nix, so a regression there would put a terminal and a launcher
+# back into the session that has no compositor to run them under.
+for b in "${browsers[@]}"; do
+  absent "$focusProfile" "$b" "focus's home profile" \
+    "focus has no network stack at all"
+done
+for b in foot fuzzel waybar mako niri Hyprland libreoffice gimp mpv; do
+  absent "$focusProfile" "$b" "focus's home profile" \
+    "it belongs to a compositor session; see the 'not imported' list in home/focus.nix"
 done
 
 echo

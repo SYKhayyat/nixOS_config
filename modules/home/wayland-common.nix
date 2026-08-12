@@ -26,6 +26,9 @@
     ./waybar.nix
     ./yazi.nix
     ./lock.nix
+    # From home/common.nix. Every script in it drives niri or Hyprland — see
+    # the note there — so it belongs to the session stack, not to the shell.
+    ./scripts.nix
   ];
 
   home.sessionVariables = {

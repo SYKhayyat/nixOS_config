@@ -4,8 +4,9 @@
 
 A single-host NixOS flake for the machine `desktop` (`nixosConfigurations.desktop`,
 `x86_64-linux`). One system closure offers three graphical sessions — **KDE
-Plasma**, **Niri** and **Hyprland** — which you pick at the SDDM greeter, plus a
-single boot-time **specialisation** (`study`) for hard-offline work. Theming is driven by
+Plasma**, **Niri** and **Hyprland** — which you pick at the SDDM greeter, plus two
+boot-time **specialisations**: `study` for hard-offline work, and `focus` for
+Emacs on a machine running almost nothing else. Theming is driven by
 [stylix](https://github.com/nix-community/stylix), Plasma by
 [plasma-manager](https://github.com/nix-community/plasma-manager), the user
 environment by [home-manager](https://github.com/nix-community/home-manager),
@@ -37,19 +38,22 @@ statix.toml                   # what the lint gate checks — and the one it doe
 tools/check-closure.sh        # asks the BUILT system whether the docs are true
 hosts/desktop/                # host entrypoint + hardware-configuration.nix
 home/
-  common.nix                  # shell (zsh), git, aliases, session scripts
+  common.nix                  # shell (zsh), git, aliases
   shaul.nix                   # THE home profile — one file, every session
+  focus.nix                   # the `focus` profile — Emacs and the search stack
 modules/
   system/                     # NixOS modules (core, hardware, dev, services, secrets, ...)
-    core.nix                  # the machine: Nix, boot, network, locale, the user
+    core.nix                  # the machine: Nix, boot, its name, locale, the user
+    network.nix               # NetworkManager, the firewall, sshd — the file `focus` skips
     appearance.nix            # the ONE statement of how this machine looks
     base-tools.nix            # what the MACHINE installs — the repair set, and nothing else
     profile.nix               # the `shaulos.study` flag the home profile reads
     data.nix                  # the one-time ~/Documents bootstrap
-    desktop.nix               # X, SDDM, Plasma 6, audio, printing, KDE Connect, Flatpak
+    desktop.nix               # X, SDDM, Plasma 6, audio, printing, Bluetooth, KDE Connect, Flatpak
     wayland.nix               # everything a Wayland session needs that isn't a compositor
     niri.nix  hyprland.nix    # the compositors, four lines each
-    study-offline.nix         # the one specialisation
+    study-offline.nix         # `study`  — inherits, and forces state off
+    focus.nix                 # `focus`  — does not inherit; a smaller import list
   home/                       # home-manager modules
     toolkit.nix               # what YOU install — every program you type, and what study removes
     wayland-common.nix        # bar/launcher/notifier/lock/file-manager for any Wayland session
@@ -94,22 +98,47 @@ session. `modules/system/wayland.nix` now pins those units with
 `X-RestartIfChanged=false`, the same measure NixOS applies to
 `systemd-user-sessions` for the same reason. New units apply at the next login.
 
-## The one specialisation
+## The two specialisations
 
 | Name    | What it changes                                             |
 |---------|-------------------------------------------------------------|
 | `study` | NetworkManager, wireless, Bluetooth, sshd and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
+| `focus` | No Plasma, no SDDM, no X, no compositor, no PipeWire, no printing, no Flatpak, no Bluetooth, no network stack at all, no Baloo, no ollama, no plocate or recoll timer. `cage` on tty1 running one Emacs frame |
 
-Pick it in the systemd-boot menu. It is a specialisation and the sessions are
-not, and the line between them is whether the difference can coexist with the
-base system at runtime. "Which compositor" can — that is what a display manager
-is for. "The radios are off" cannot.
+Pick either in the systemd-boot menu. They are specialisations and the sessions
+are not, and the line between them is whether the difference can coexist with
+the base system at runtime. "Which compositor" can — that is what a display
+manager is for. "The radios are off" cannot, and neither can "Baloo is not
+running": on the base system those two plus plasmashell, kwin and SDDM are
+about **1.3 GB resident**, to host a 35 MB editor.
 
-`study` sets `shaulos.study = true` (declared in `modules/system/profile.nix`),
-which `home/shaul.nix` reads via `osConfig`. That flag exists so there is
-exactly **one** place that says which home profile to import: `home-manager.
-users.<name>` is a submodule, so a second `imports = [ … ]` inside a
-specialisation *merges* with the parent's rather than replacing it.
+They reach for opposite halves of the specialisation module, and that is the
+interesting part:
+
+**`study` inherits.** It is this system with the radios off — it wants every
+package, every font, all three compositors. It sets `shaulos.study = true`
+(declared in `modules/system/profile.nix`), which `modules/home/toolkit.nix`
+reads via `osConfig`. That flag exists so there is exactly **one** place that
+says which home profile to import: `home-manager.users.<name>` is a submodule,
+so a second `imports = [ … ]` inside an inheriting specialisation *merges* with
+the parent's rather than replacing it.
+
+**`focus` does not.** It is a *smaller* system, and written as an inheriting
+specialisation it would be about fifteen `lib.mkForce false` lines that
+silently stop being true the next time `desktop.nix` gains a service — the
+`lynx`-in-the-airgap failure one layer down. `inheritParentConfig = false`
+makes it a different import list instead: Plasma is absent because nothing
+imported `desktop.nix`. That also dissolves the submodule-merge problem
+entirely — with no parent definition to merge with, `home/focus.nix` can be a
+genuinely different profile and needs no flag.
+
+The catch worth knowing, because it is the failure mode of the whole idea:
+"absent because nothing imported it" only holds for options whose default is
+off. `networking.useDHCP` defaults to **true** and is not implemented by
+NetworkManager, so the first build of `focus` had no NetworkManager and a
+`dhcpcd.service` nothing in this repo had ever mentioned. It evaluated, built,
+and would have booted; it showed up only in a diff of `etc/systemd/system`
+against the parent. `focus` now says `networking.useDHCP = false` out loud.
 
 **Lost your desktop?** Reboot and pick an older generation — systemd-boot keeps
 ten (`configurationLimit`). For a guaranteed TTY on any generation, press `e` at
@@ -118,8 +147,8 @@ the boot menu and append `systemd.unit=multi-user.target`. That is what the old
 
 ## Where a package goes
 
-A specialisation can only ever **add** — inheriting the parent is the whole
-mechanism. So anything in `environment.systemPackages` is present in `study` and
+An *inheriting* specialisation can only ever **add** — inheriting the parent is
+the whole mechanism. So anything in `environment.systemPackages` is present in `study` and
 there is no expression that removes it, and every subtraction `study` wants has
 to be spelled as a `lib.mkForce` you remembered to write.
 
@@ -305,7 +334,7 @@ just switch          # sudo nixos-rebuild switch --flake .#desktop
 just test            # sudo nixos-rebuild test  --flake .#desktop  (no boot entry)
 just build           # nixos-rebuild build --flake .#desktop  (build only, no activation)
                      #   all three pass --no-update-lock-file; see below
-just specialisations # list specialisations available for next boot (just `study`)
+just specialisations # list specialisations available for next boot (`study`, `focus`)
 just update          # nix flake update
 just update-emacs    # bump the emacs-config input only
 just lock            # lock a newly added input, and nothing else
@@ -337,7 +366,7 @@ commands you can run by hand:
 |---|---|---|---|
 | `lock` | 1m | `flake.lock` accounts for every input in `flake.nix` | `nix flake metadata --no-update-lock-file` |
 | `lint` | 2m | statix and deadnix are clean | `just check` |
-| `eval` | 5m | the whole module system evaluates, and `study` is the only specialisation | `just eval` |
+| `eval` | 5m | the whole module system evaluates, and `study` and `focus` are the only specialisations | `just eval` |
 | `build` | 40m | the closure builds, and is the machine this README describes | `just closure` |
 
 `lint`, `eval` and `build` all `needs: lock`, so an unlocked input is **one**

@@ -1,7 +1,8 @@
 # modules/system/desktop.nix
 #
 # The graphical stack that is not a compositor: the X server (for XWayland and
-# the handful of X-only apps), the greeter, Plasma, sound, printing, Flatpak.
+# the handful of X-only apps), the greeter, Plasma, sound, printing, Bluetooth,
+# KDE Connect, Flatpak.
 #
 # What it no longer carries: sixteen font packages, `stylix.targets.qt.enable =
 # false` and `OSFONTDIR`. Those are all answers to "how does this machine look",
@@ -61,6 +62,22 @@
 
   # ── Printing ─────────────────────────────────────────────────────────────
   services.printing.enable = true;
+
+  # ── Bluetooth ────────────────────────────────────────────────────────────
+  # From ./hardware.nix, where it sat under the heading "Laptop hardware". The
+  # adapter is hardware; `bluetoothd` running and a tray applet offering to
+  # pair with things are a desktop feature, and this is the desktop file. It is
+  # also the file `focus` does not import, which is how that closure ends up
+  # with the radio off without writing a line about it. (`study` still forces
+  # `hardware.bluetooth.enable = false` — it inherits this file, so a force is
+  # the only subtraction available to it.)
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+    settings.General.Experimental = true; # battery % for some devices
+  };
+  # Tray applet for the Wayland (niri/hyprland) sessions; Plasma has bluedevil.
+  services.blueman.enable = true;
 
   # ── KDE Connect ──────────────────────────────────────────────────────────
   # Phone pairing. ./core.nix used to open TCP and UDP 1714 and 1764 by hand,

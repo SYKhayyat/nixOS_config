@@ -58,8 +58,19 @@ let
   '';
 in
 {
-  imports = [ ./../modules/home/scripts.nix ];
-
+  # `./../modules/home/scripts.nix` used to be imported here, and this file is
+  # the wrong place for it — a fact that only became load-bearing with the
+  # `focus` closure, which wants zsh and git and does not want a compositor.
+  #
+  # Every script in that module is a *compositor* script: `spotlight` and
+  # `teleport` shell out to `niri msg` / `hyprctl`, the toggles bind foot and
+  # fuzzel, `screenshot-edit` drives grim/slurp/swappy. Importing it from here
+  # meant that the file describing "zsh, git, aliases" pulled foot, fuzzel,
+  # grim, slurp, swappy and libnotify into any profile that wanted a shell.
+  #
+  # It is imported by ../modules/home/wayland-common.nix now, beside mako and
+  # fuzzel — i.e. by the module that already owns the Wayland session stack and
+  # is imported by exactly the profile that has a compositor to talk to.
   home.username = myConfig.username;
   home.homeDirectory = myConfig.homeDir;
   home.stateVersion = "25.11";

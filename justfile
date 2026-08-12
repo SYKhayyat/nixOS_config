@@ -31,7 +31,7 @@ test:
 build:
     nixos-rebuild build --flake .#{{host}} --no-update-lock-file
 
-# Show which specialisations exist for next boot (there is one: `study`).
+# Show which specialisations exist for next boot (`study` and `focus`).
 # The compositors are NOT here — they are greeter sessions, pick them at login.
 specialisations:
     @ls /run/current-system/specialisation 2>/dev/null || echo "none active"
@@ -57,7 +57,8 @@ check:
     nix flake check --no-update-lock-file --print-build-logs
 
 # The fast gate. Forces the entire module system — every option type, every
-# `pkgs.<name>`, both compositors, plasma-manager, the specialisation — and
+# `pkgs.<name>`, both compositors, plasma-manager, both specialisations (they
+# are reachable from `system.build.toplevel` via its `children`) — and
 # builds none of it. Minutes, not tens of minutes, and it is what catches the
 # class of bug this config has actually shipped.
 eval:

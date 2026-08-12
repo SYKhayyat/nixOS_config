@@ -118,20 +118,34 @@ jobs:
             .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
           echo
 
-      # The one specialisation, by name, at eval time. `attrNames` deliberately
+      # Both specialisations, by name, at eval time. `attrNames` deliberately
       # does not reach inside the submodule — the closure test below is what
-      # proves it builds; this is here so that deleting `study` by accident is
-      # a red job in five minutes rather than a surprise at the boot menu.
+      # proves they build; this is here so that deleting one by accident is a
+      # red job in five minutes rather than a surprise at the boot menu.
+      # `attrNames` sorts, so the expected value is alphabetical, not the order
+      # hosts/desktop/configuration.nix declares them in.
       - name: the specialisations are the ones we think
         run: |
           got=$(nix eval --json --no-update-lock-file \
             .#nixosConfigurations.desktop.config.specialisation \
             --apply builtins.attrNames)
           echo "specialisations: $got"
-          test "$got" = '["study"]' || {
-            echo "FAIL: expected exactly [\"study\"] — see README, 'The one specialisation'"
+          test "$got" = '["focus","study"]' || {
+            echo "FAIL: expected exactly [\"focus\",\"study\"] — see README, 'The two specialisations'"
             exit 1
           }
+
+      # `focus` is built with `inheritParentConfig = false`, which means the
+      # eval above does NOT cover it the way it covers `study`: it is a
+      # separate module-system evaluation with its own import list, and a
+      # missing import there is invisible from the parent's toplevel until the
+      # child's own toplevel is forced. Five seconds, and it is the difference
+      # between finding that here and finding it at the boot menu.
+      - name: the focus specialisation evaluates
+        run: |
+          nix eval --raw --no-update-lock-file \
+            .#nixosConfigurations.desktop.config.specialisation.focus.configuration.system.build.toplevel.drvPath
+          echo
 
   build:
     name: the closure builds
