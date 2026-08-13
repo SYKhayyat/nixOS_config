@@ -75,11 +75,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1786042357,
-        "narHash": "sha256-Ns73YkggADf/hoDOv1ntO9uZrR/xej1Ox+X5Q/Plzi4=",
+        "lastModified": 1786633472,
+        "narHash": "sha256-B75rDgg9tAh3EfhNYV9uL97D7CHaVaxk1xjd8HGiQE0=",
         "owner": "SYKhayyat",
         "repo": "emacs-config",
-        "rev": "773049b9af878a00821b901e639f784b90e89ed0",
+        "rev": "235dbe3ec6c956809d2e186e84c0ac194f134f23",
         "type": "github"
       },
       "original": {
