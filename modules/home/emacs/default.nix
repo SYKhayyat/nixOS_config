@@ -150,10 +150,38 @@ in
     lua-language-server
   ]);
 
+  # ── Which halves of the config load here ────────────────────────────────
+  # The emacs-config repo ships two module groups: `essentials/`, which is a
+  # general Emacs configuration that knows nothing about Hebrew or seforim, and
+  # `extras/`, the personal half that layers on top of it. Its `init.el`
+  # defaults to both and reads `EMACS_MODULE_GROUPS' to be told otherwise, so
+  # naming the groups is this machine's call to make and not the repo's.
+  #
+  # Set in BOTH places on purpose, and they are not redundant:
+  #
+  #   home.sessionVariables         -> ~/.profile etc., i.e. anything launched
+  #                                    from a shell, including a bare `emacs'.
+  #   systemd.user.sessionVariables -> environment.d, which is the only one of
+  #                                    the two that `emacs.service' ever reads.
+  #
+  # The daemon is not started from a shell, so the first line alone would leave
+  # every `emacsclient' frame — which is what EDITOR resolves to, three lines
+  # down — loading a different set of modules than a standalone Emacs. That is
+  # the kind of split that costs an afternoon to notice.
+  #
+  # To swap for one session rather than for the machine, leave this alone and
+  # override it in the environment:
+  #
+  #   EMACS_MODULE_GROUPS="essentials extras" emacs
+  #   systemctl --user set-environment EMACS_MODULE_GROUPS="essentials extras"
+  #   systemctl --user restart emacs.service
   home.sessionVariables = {
     EDITOR = "emacsclient -c -a ''";
     VISUAL = "emacsclient -c -a ''";
+    EMACS_MODULE_GROUPS = "essentials";
   };
+
+  systemd.user.sessionVariables.EMACS_MODULE_GROUPS = "essentials";
 
   services.emacs = {
     enable = true;
