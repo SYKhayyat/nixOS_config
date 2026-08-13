@@ -51,6 +51,63 @@ stays.
 
 ---
 
+## 2026-08-13 (r) — the two surfaces (q) missed, one of which was never written down
+
+Entry (q) was rebuilt on the machine and the reply was "nothing changed at all."
+Both halves of that turned out to be worth chasing, and neither was a fault in
+(q)'s reasoning about sizes.
+
+**Nothing had re-read anything.** Generation 230 was correct on disk — every
+file checked: `/etc/fonts/local.conf` at 9, `kdeglobals` at `Noto Sans,8`,
+`foot.ini` at `size=9`, `user.js` at `"0.8"`, waybar at `10px`, and a fresh
+`fc-match Monospace` answering 9 where it used to answer 12. The uptime was six
+days and fourteen hours. Font sizes are read once, at process start, so
+`plasmashell` and `kwin_wayland` were holding an Aug 6 `kdeglobals` and the
+Emacs daemon had resolved fontconfig's default the week before. The one process
+that *had* restarted — Firefox — was visibly smaller, which is what confirmed
+the mechanism. This is now stated in the README, because "it applied and you
+cannot see it" is the expected outcome of a switch, not a symptom.
+
+**konsole was never in this repo.** `grep -rni konsole` over the tree returned
+nothing and `~/.local/share/konsole/` was empty, while `pgrep` under the running
+Plasma session found konsole and did not find foot. The terminal actually in use
+was outside the derivation entirely. (q) fixed three bad literals; this was the
+harder case, because a literal leaves something to grep for and an undeclared
+program leaves nothing. It is `modules/home/konsole.nix` now, at
+`stylix.fonts.sizes.terminal`, the same size foot gets — and its default profile
+is declared, because `overrideConfig = true` rewrites `konsolerc` on every
+activation and a profile picked in the settings dialog is reverted by the next
+rebuild. That is the `kxkbrc` keyboard bug from entry (p), in a second file.
+
+**Emacs: (q) got the right answer for the wrong reason.** (q) recorded that
+Emacs "stated no font anywhere, checked" and would therefore inherit the new
+fontconfig default. The first clause is false. `01-ui.el` in the emacs-config
+repo states `:height 90` — but inside `(when (display-graphic-p) …)` evaluated
+at *load* time, and under `emacs --fg-daemon` there is no frame yet, so it is
+nil and the block never runs. With `EDITOR=emacsclient` every frame is a daemon
+frame, so that statement has never executed on this machine. A grep finds the
+size; only running it shows the size is dead code.
+
+Measured, on the real config: `family=DejaVu Sans Mono height=90 pixelsize=12`.
+Two more things fall out of that. The family is wrong — `01-ui.el` searches for
+`"JetBrains Mono"` with a space, and `fc-list` calls the installed patch
+`JetBrainsMono Nerd Font` without one, so the search fell through four entries
+to DejaVu. And 90 is a literal in a repo that knows nothing about this panel.
+
+`modules/home/emacs/default.nix` now generates `99-local-fonts.el` into the
+module tree — numbered to load after `01-ui.el`, setting family and height from
+`uiSize`, and hooking `after-make-frame-functions`, which is the half
+`display-graphic-p`-at-load-time cannot do. Emacs still names its own size; the
+number is this repo's. Verified by loading the generated file into a live frame:
+`DejaVu Sans Mono 12px` → `JetBrainsMono Nerd Font 11px`, and daemon frames go
+from fontconfig's old 16px to 11px.
+
+`nix flake check` passes. As with (q), **nothing here is applied until the next
+switch, and nothing is visible until you log out** — which is the entry's own
+first finding.
+
+---
+
 ## 2026-08-12 (q) — the text was too big, and the three surfaces that decided it derived from nothing
 
 The report was "text on my laptop is too big, always" — everything, not one app.

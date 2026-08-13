@@ -43,6 +43,7 @@ in
     ./common.nix # zsh, git, aliases, scripts
     ../modules/home/p10k.nix # the prompt common.nix sources
     ../modules/home/foot.nix # the terminal every compositor binds
+    ../modules/home/konsole.nix # the terminal Plasma actually opens
     ../modules/home/emacs
     ../modules/home/toolkit.nix # every program you type the name of
     ../modules/home/palette.nix # the stylix scheme, per-syntax

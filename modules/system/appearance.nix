@@ -93,8 +93,10 @@ let
   # move together either way.
   #
   #   uiSize      → Plasma menus and window titles, every GTK app, dunst,
-  #                 waybar, and the toolbar font a point under it
-  #   uiSize + 1  → foot, and the fontconfig default further down
+  #                 waybar, the toolbar font a point under it, and Emacs's
+  #                 default face (as `uiSize * 10`, Emacs counting in tenths)
+  #   uiSize + 1  → both terminals — foot and konsole — and the fontconfig
+  #                 default further down
   #   uiSize / 10 → Firefox's devPixelsPerPx (../home/toolkit.nix)
   #
   # ── Why it was too big, which was never a DPI problem ─────────────────────
@@ -109,10 +111,17 @@ let
   # at their vendors' defaults, every one of which is 12pt or 16px against the
   # 9pt the desktop ran:
   #
-  #   Emacs     stated no font anywhere. Not in init.el, not in early-init.el,
-  #             not in one of the 29 modules — checked. So it asked fontconfig
-  #             for an unsized "Monospace" and got fontconfig's own built-in
-  #             default of 12.0, a third larger than everything around it.
+  #   Emacs     got fontconfig's own built-in default of 12.0 — a third larger
+  #             than everything around it — but NOT for the reason first
+  #             written here, and the correction is the interesting part.
+  #             `01-ui.el` in the emacs-config repo does state a size,
+  #             `:height 90`. It is wrapped in `(when (display-graphic-p) …)`
+  #             evaluated at load time, and in `emacs --fg-daemon` there is no
+  #             frame yet, so the block never runs and every `emacsclient -c`
+  #             frame — i.e. every frame, since EDITOR is emacsclient — fell
+  #             through to fontconfig. A grep for a font size finds that file;
+  #             only running the thing shows the statement never executes.
+  #             See ../home/emacs/default.nix.
   #   Firefox   `layout.css.devPixelsPerPx = "1.0"`, a literal, while the
   #             desktop around it ran at three quarters of stylix's default.
   #   waybar    `font-size: 12px`, under a comment arguing it was a deliberate
@@ -123,6 +132,13 @@ let
   # Which is this repo's own rule broken three times in the one dimension no
   # pass had looked at. "Everything is too big" was exact, and the fix is the
   # rule: state it once, here, and derive it everywhere.
+  #
+  # A fourth turned up when the first three were already fixed, and it is the
+  # worst of them: konsole. Not a hardcoded size — no statement of any kind.
+  # `grep -rni konsole` over the tree returned nothing, `~/.local/share/konsole`
+  # was empty, and it is the terminal the Plasma session actually opens. Three
+  # bad literals are findable; a program nobody wrote down is not. It is
+  # declared in ../home/konsole.nix now, and the lesson is in its header.
   uiSize = 8;
 in
 

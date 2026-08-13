@@ -62,7 +62,8 @@ modules/
     keys.nix                  # the shared keymap + autostart, rendered per compositor
     emacs/default.nix         # packages + daemon only — the config is a flake input
     niri/  hyprland/          # just the compositor config files
-    waybar.nix  yazi.nix  scripts.nix  foot.nix  p10k.nix
+    waybar.nix  yazi.nix  scripts.nix  p10k.nix
+    foot.nix  konsole.nix   # the two terminals: compositor sessions, and Plasma
 secrets/                      # sops-nix encrypted secrets (see below)
 ```
 
@@ -208,6 +209,10 @@ modules/system/appearance.nix    stylix.base16Scheme + stylix.fonts + stylix.cur
         │                             QT_* variables), the pointer
         │                             (→ home.pointerCursor)
         │
+        ├── plasma-manager ────────── kdeglobals fonts, konsole's profile
+        │                             (neither is a stylix target: targets.kde
+        │                             is off, and konsole has none)
+        │
         └── modules/home/palette.nix ── config.shaulos.palette
                                             ├── .css    "#rrggbb"       → waybar, niri KDL
                                             ├── .hypr   "rgb(rrggbb)"   → hyprland.conf, hyprlock.conf
@@ -245,21 +250,48 @@ Plasma had been silently falling back to the default pointer.
 
 **To make all text smaller or bigger, change `uiSize` and rebuild.** It is a
 size in points, it is at the top of `appearance.nix`, and every surface derives
-from it: `uiSize` for Plasma, GTK, dunst and waybar, `uiSize + 1` for foot and
-for the fontconfig default, `uiSize / 10` for Firefox's `devPixelsPerPx`. The
-DPI stays 96 and every scale factor stays 1, so a point is 4/3 of a pixel and
-nothing multiplies it twice.
+from it: `uiSize` for Plasma, GTK, dunst and waybar, `uiSize + 1` for both
+terminals and for the fontconfig default, `uiSize / 10` for Firefox's
+`devPixelsPerPx`. The DPI stays 96 and every scale factor stays 1, so a point is
+4/3 of a pixel and nothing multiplies it twice.
+
+Nothing you are looking at changes until you log out. Font sizes are read once,
+at process start: after a `just switch` the files on disk are correct and every
+program launched before it is still holding the old ones. A six-day uptime means
+a six-day-old `kdeglobals` in `plasmashell`, and an Emacs daemon that resolved
+fontconfig's default the week before.
 
 That was three separate hardcodes until it wasn't, and none of them were where
-you would look for a font size. Emacs named no font in any of its 30 files, so
-it asked fontconfig for an unsized `Monospace` and got fontconfig's own built-in
-12.0 — a third larger than the desktop around it, in the app this machine is
-mostly for. Firefox pinned `devPixelsPerPx = "1.0"` while everything else ran at
+you would look for a font size. Emacs got fontconfig's built-in 12.0 — a third
+larger than the desktop around it, in the app this machine is mostly for — and
+the reason is worth reading twice, because grep gets it wrong. `01-ui.el` in the
+emacs-config repo *does* state a size, `:height 90`, inside
+`(when (display-graphic-p) …)` evaluated at load time. Under `emacs --fg-daemon`
+there is no frame yet, so that is nil, the block never runs, and every
+`emacsclient -c` frame falls through to fontconfig. The statement is right there
+in the file and has never once executed. Same file also searches for
+`"JetBrains Mono"`, with a space, which is not what the Nerd Font patch is
+called — so on the frames that *did* run it, Emacs was rendering in DejaVu Sans
+Mono while everything else used JetBrainsMono. `modules/home/emacs/default.nix`
+now generates a `99-local-fonts.el` into the module tree that sets both from
+`uiSize` and hooks `after-make-frame-functions`, which is the half
+`display-graphic-p` at load time cannot do. Firefox pinned
+`devPixelsPerPx = "1.0"` while everything else ran at
 three quarters. And waybar's `font-size: 12px` carried a comment calling it a
 deliberate exception for Nerd Font glyphs — but 9pt *is* 12px at 96 DPI, so it
 was the derived value in the other unit, pinned by hand and labelled a decision.
 The one real exception left is Plasma's toolbar font, one point below
 `stylix.fonts.sizes.applications`, which is Plasma's own convention.
+
+A fourth surface turned up after those three were fixed, and it was not a bad
+literal — it was no statement at all. `grep -rni konsole` over this repo returned
+nothing, and `~/.local/share/konsole/` was empty, while konsole was the terminal
+the Plasma session was actually opening. A hardcoded size leaves something to
+grep for; an undeclared program leaves nothing, and this one was found by reading
+`ps`. It is `modules/home/konsole.nix` now, at the same size foot gets. Note the
+`overrideConfig` trap in that file's header: plasma-manager rewrites `konsolerc`
+on every activation, so a profile picked in Konsole's settings dialog is reverted
+by the next rebuild — the same way the keyboard layout was.
 
 `stylix.targets.kde` is off — Plasma's fonts are written by plasma-manager, but
 they are *built* from `stylix.fonts` rather than restated. The three
