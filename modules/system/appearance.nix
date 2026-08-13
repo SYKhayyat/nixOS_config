@@ -78,6 +78,54 @@
 # actually runs.
 { pkgs, ... }:
 
+let
+  # ── The one number ────────────────────────────────────────────────────────
+  #
+  # TO MAKE ALL TEXT SMALLER OR BIGGER: change this, then `just switch`.
+  #
+  # It is a size in points. `forceFontDPI` (home/shaul.nix) pins this display at
+  # 96 DPI and the scale factors at the bottom of this file are all 1, so a
+  # point is exactly 4/3 of a pixel and nothing multiplies it a second time:
+  # 8pt is 10.67px, and that is the whole conversion.
+  #
+  # 8 is about the floor. At 7 (9.3px) Noto Sans starts dropping stems to
+  # hinting on this panel. Go up if anything strains; the surfaces below all
+  # move together either way.
+  #
+  #   uiSize      → Plasma menus and window titles, every GTK app, dunst,
+  #                 waybar, and the toolbar font a point under it
+  #   uiSize + 1  → foot, and the fontconfig default further down
+  #   uiSize / 10 → Firefox's devPixelsPerPx (../home/toolkit.nix)
+  #
+  # ── Why it was too big, which was never a DPI problem ─────────────────────
+  #
+  # The panel is 1366x768 over 344x193 mm. That is 101 real DPI against the 96
+  # this machine forces, so a point was already rendering *smaller* than its
+  # physical size. Nothing was mis-scaled, and no amount of looking at scale
+  # factors was going to find it.
+  #
+  # The problem was a pixel budget. 768 rows is not many, and three of the four
+  # surfaces you read all day derived their size from nothing at all — they sat
+  # at their vendors' defaults, every one of which is 12pt or 16px against the
+  # 9pt the desktop ran:
+  #
+  #   Emacs     stated no font anywhere. Not in init.el, not in early-init.el,
+  #             not in one of the 29 modules — checked. So it asked fontconfig
+  #             for an unsized "Monospace" and got fontconfig's own built-in
+  #             default of 12.0, a third larger than everything around it.
+  #   Firefox   `layout.css.devPixelsPerPx = "1.0"`, a literal, while the
+  #             desktop around it ran at three quarters of stylix's default.
+  #   waybar    `font-size: 12px`, under a comment arguing it was a deliberate
+  #             exception for Nerd Font glyphs. It was not an exception: 9pt
+  #             *is* 12px at 96 DPI, so that literal was the derived value all
+  #             along, written in the other unit and pinned by hand.
+  #
+  # Which is this repo's own rule broken three times in the one dimension no
+  # pass had looked at. "Everything is too big" was exact, and the fix is the
+  # rule: state it once, here, and derive it everywhere.
+  uiSize = 8;
+in
+
 {
   # `stylix.targets.gtk.enable = true` used to be stated here. Every stylix
   # target auto-enables, so that line said what was already true — and the NixOS
@@ -106,6 +154,23 @@
       emoji = {
         package = pkgs.noto-fonts-color-emoji;
         name = "Noto Color Emoji";
+      };
+
+      # These four were `stylix.fonts.sizes.applications`, `.desktop` and
+      # `.terminal` in home/shaul.nix, which is a layer that does not own them:
+      # stylix's own home-manager integration copies all four down from this
+      # config with `mkDefault` (homeManagerIntegration.followSystem, on by
+      # default), so the home-side statements were shadowing the value they were
+      # supposed to be receiving. Deleting them there changes nothing except
+      # which file you edit — and now there is one.
+      sizes = {
+        applications = uiSize;
+        desktop = uiSize;
+        popups = uiSize;
+        # Monospace reads smaller than sans at equal points, so the terminal
+        # gets the point back. This is the only size expressed as a difference,
+        # and it is the relation the config already had (9 and 10).
+        terminal = uiSize + 1;
       };
     };
 
@@ -171,6 +236,34 @@
     nerd-fonts.symbols-only # glyphs for waybar/p10k without a second monospace
   ];
 
+  # ── The size for everything that never asked ─────────────────────────────
+  #
+  # An app that names no size gets fontconfig's built-in default, which is
+  # 12.0pt and is not configurable through any NixOS option — `fonts.fontconfig`
+  # has families (stylix sets those) and hinting, and no size at all. So every
+  # unconfigured GUI ran a third larger than the desktop it sat in, and Emacs —
+  # which sets no font in any of its 30 files, and is the app this machine is
+  # mostly for — was the one you felt.
+  #
+  # `mode="append"` is what makes this a *default* rather than an override. It
+  # adds our size after any the app already asked for, and fontconfig reads
+  # index 0, so a request that named a size keeps it and a request that named
+  # none finds ours before FcDefaultSubstitute can supply 12.0. Checked both
+  # ways with `FONTCONFIG_FILE=… fc-match -v`: an unsized "Monospace" resolves
+  # to this number, and "Monospace-14" still resolves to 14.
+  #
+  # It is the terminal size rather than uiSize because the things that reach
+  # here are text editors and terminals, not chrome.
+  fonts.fontconfig.localConf = ''
+    <?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+    <fontconfig>
+      <match target="pattern">
+        <edit name="size" mode="append"><double>${toString (uiSize + 1)}</double></edit>
+      </match>
+    </fontconfig>
+  '';
+
   # Where non-fontconfig consumers look. TeX and a couple of Emacs paths read
   # this; it is a path, not a preference, but it belongs beside the font list
   # rather than in the middle of the display-manager module where it was.
@@ -180,6 +273,11 @@
   # Everything here says "1": no fractional scaling, on any toolkit. That is a
   # decision about a 1366x768 panel and it is the only appearance fact that is
   # not derived from stylix, because stylix has no opinion about scale.
+  #
+  # Leave them at 1, and leave `forceFontDPI` at 96, when you change `uiSize`.
+  # Text size has exactly one knob on this machine and it is the point size at
+  # the top of this file; a scale factor here would multiply it a second time,
+  # and then "how big is the text" would be a question with two answers again.
   #
   # QT_STYLE_OVERRIDE and QT_QPA_PLATFORMTHEME used to be in this attrset. They
   # are exported by nixpkgs' `qt` module from `qt.style` / `qt.platformTheme`,

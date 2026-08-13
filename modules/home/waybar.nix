@@ -10,10 +10,18 @@
 # that says when the bar appears.
 #
 # Colours and the monospace family come from ./palette.nix, which derives them
-# from the stylix scheme rather than restating it. The font *size* below stays a
-# literal on purpose: `stylix.fonts.sizes.desktop` is 9 and this bar is 12px
-# because of the Nerd Font glyphs in the module formats, not because anyone
-# forgot to wire it. A deliberate exception, said out loud.
+# from the stylix scheme rather than restating it. The font size now comes from
+# there too.
+#
+# It used to be `font-size: 12px`, under a comment claiming it was a deliberate
+# exception — that `stylix.fonts.sizes.desktop` was 9 but the bar needed 12 for
+# the Nerd Font glyphs in the module formats. That was not an exception, it was
+# a unit conversion nobody had done: CSS fixes 4 pixels to every 3 points, so
+# 9pt *is* 12px, and the literal was the derived value written in the other unit
+# and then pinned by hand. It said "deliberate" and rendered "identical", which
+# is the most expensive kind of hardcode — the bar was the one surface that
+# would not have followed when the desktop size changed, and it would have
+# looked like a decision rather than a leak.
 { config, ... }:
 
 let
@@ -108,7 +116,7 @@ in
     style = ''
       * {
         font-family: "${font.mono}", "Noto Sans Hebrew", "Font Awesome 6 Free";
-        font-size: 12px;
+        font-size: ${toString (font.sizes.desktop * 4 / 3)}px;
         border: none;
       }
       window#waybar { background: transparent; }

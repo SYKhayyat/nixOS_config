@@ -264,7 +264,21 @@ in
     configPath = lib.mkForce ".mozilla/firefox";
     profiles.${myConfig.username} = {
       settings = {
-        "layout.css.devPixelsPerPx" = "1.0";
+        # The one surface where the size knob cannot be a point size. Firefox
+        # sizes neither its chrome nor a web page in points: the CSS default is
+        # 16px and every site that styles its own text overrides
+        # `font.size.variable.*` anyway, so setting those prefs would shrink
+        # roughly the sites that needed it least. `devPixelsPerPx` is the only
+        # one that moves all of it — chrome, content, and the sites with
+        # opinions.
+        #
+        # The ratio is against 10, which is stylix's default `desktop` size and
+        # therefore the density Firefox's chrome and that 16px are drawn for. So
+        # this asks for the same relative size as the rest of the desktop rather
+        # than a zoom level someone liked: uiSize 8 gives 0.8, and 16px body
+        # text lands at 12.8. It was the literal "1.0", which is why the browser
+        # stayed at full size while everything around it was at three quarters.
+        "layout.css.devPixelsPerPx" = builtins.toJSON (osConfig.stylix.fonts.sizes.applications / 10.0);
         "browser.uidensity" = 1;
       };
     };

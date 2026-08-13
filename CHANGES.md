@@ -51,6 +51,90 @@ stays.
 
 ---
 
+## 2026-08-12 (q) — the text was too big, and the three surfaces that decided it derived from nothing
+
+The report was "text on my laptop is too big, always" — everything, not one app.
+It was accurate, and the reason is not the one the symptom suggests.
+
+### It was never a DPI problem
+
+`eDP-1` is 1366x768 over 344x193 mm, which is **101 real DPI** against the 96
+this machine forces in `kcmfonts`. Every scale factor was already 1 —
+`QT_SCALE_FACTOR`, `GDK_SCALE`, `GDK_DPI_SCALE`, `KScreen.ScaleFactor`,
+`_JAVA_OPTIONS`, and niri's and Hyprland's `scale 1.0`. So a point was rendering
+*slightly smaller* than its physical size and nothing was mis-scaled. Reading
+down the scale settings — which is where "too big" sends you — finds nothing,
+because there was nothing there.
+
+The problem is a pixel budget. 768 rows is not many, and the Nix-managed sizes
+were already modest: 9pt applications and desktop, 10pt terminal, verified live
+in `kdeglobals`, `gtk-3.0/settings.ini` and `foot.ini`. What was big was
+everything those three options did not reach — and that turned out to be most of
+what the day is spent in.
+
+### Three surfaces, all at their vendors' defaults, all ≈12pt
+
+- **Emacs stated no font at all.** Not in `init.el`, not in `early-init.el`, not
+  in one of the 29 modules the loader requires — grepped for `set-frame-font`,
+  `default-frame-alist`, `:height` and `face-attribute` across every file the
+  config ships. So Emacs asked fontconfig for an unsized `Monospace`, and
+  fontconfig's built-in default is **12.0pt**: a third larger than the desktop
+  around it, in the application this machine mostly exists to run.
+
+  That default is reachable from no NixOS option. `fonts.fontconfig` has
+  families — stylix sets those — and hinting, and no size. It now comes from
+  `fonts.fontconfig.localConf`, as `<edit name="size" mode="append">`. `append`
+  is what makes it a *default* rather than an override: it adds the size after
+  any the application already asked for and fontconfig reads index 0. Checked
+  both directions with `FONTCONFIG_FILE=… fc-match -v` — an unsized `Monospace`
+  resolves to the new number, `Monospace-14` still resolves to 14.
+
+- **Firefox was pinned at `layout.css.devPixelsPerPx = "1.0"`**, a literal, while
+  the desktop around it ran at three quarters of stylix's default. It is the one
+  surface where the knob cannot be a point size: Firefox sizes neither its chrome
+  nor a page in points, and `font.size.variable.*` is overridden by every site
+  that styles its own text, so it would have shrunk roughly the pages that needed
+  it least. The ratio is against 10 — stylix's default `desktop` size, and
+  therefore the density Firefox's chrome and the 16px CSS default are drawn for.
+
+- **waybar's `font-size: 12px` was labelled a deliberate exception** — the
+  comment above it argued the bar needed 12 for the Nerd Font glyphs while
+  `stylix.fonts.sizes.desktop` was 9. It was not an exception. CSS fixes 4 pixels
+  to every 3 points, so **9pt is 12px exactly**: the literal was the derived
+  value written in the other unit and then pinned by hand. That is the expensive
+  kind of hardcode — it rendered identically, so nothing could tell you, and it
+  was the one surface that would not have followed when the desktop size changed.
+
+### One number
+
+`uiSize` in `modules/system/appearance.nix`, in points, with the arithmetic and
+the floor written above it. `uiSize` for Plasma, GTK, dunst and waybar;
+`uiSize + 1` for foot and the fontconfig default, because monospace reads smaller
+than sans at equal points; `uiSize / 10` for Firefox. Set to **8**, from 9.
+
+`home/shaul.nix` loses its three `stylix.fonts.sizes.*` lines. They were the same
+fault as the Qt variables in entry (h), one layer over: stylix's home-manager
+integration copies all four sizes down from the system config with `mkDefault`
+(`homeManagerIntegration.followSystem`, on by default), so the home-side
+statements were shadowing the value they existed to receive. Deleting them
+changes nothing but which file you edit — confirmed by evaluating
+`home-manager.users.shaul.stylix.fonts.sizes`, which reads `8/8/8/9` with
+nothing stating it there.
+
+`forceFontDPI` stays 96 and the scale factors stay 1, and both now say why in
+the file: they are the denominator that makes a point mean 4/3 of a pixel, not a
+second size knob. Lowering one of them instead would arrive at the same effect
+twice, and would move Qt without moving GTK or foot.
+
+Verified: `nix flake check` green (lints, both specialisations, the closure),
+and the built system's `/etc/fonts/local.conf`, `foot.ini` (`size=9`),
+`kdeglobals` (`Noto Sans,8`, toolbar `7`), waybar CSS (`10px`) and the Firefox
+profile (`"0.8"`) all read the derived values. **Not switched** — the running
+generation is 229 from Jun 10, two months behind this tree, so applying it is a
+`just switch` with more in it than this change.
+
+---
+
 ## 2026-08-07 (p) — the first pass with a NixOS machine under it
 
 Every entry above this one was authored on Windows, and each says so. This one

@@ -186,7 +186,7 @@ neither.
 
 There is one place that decides how this machine looks:
 **`modules/system/appearance.nix`** — the base16 scheme, the wallpaper, the four
-font families, the cursor. Everything else derives from it.
+font families, `uiSize`, the cursor. Everything else derives from it.
 
 That sentence used to be in this README with `core.nix` in it, and it was only
 two-thirds true. The colours and fonts derived; the Qt theme was written out by
@@ -198,6 +198,10 @@ ships.
 
 ```
 modules/system/appearance.nix    stylix.base16Scheme + stylix.fonts + stylix.cursor
+        │                        uiSize ──┬── stylix.fonts.sizes
+        │                                 └── fonts.fontconfig.localConf
+        │                                     (the default for anything that
+        │                                     never asked — i.e. Emacs)
         │
         ├── stylix's own targets ──── GTK, foot, waybar base, firefox,
         │                             Qt (→ qt.style/qt.platformTheme → the
@@ -239,11 +243,30 @@ Before, those three disagreed — 24, 12 and unset — and the one that named a
 theme named `Breeze_Snow`, which KDE renamed to `Breeze_Light` for Plasma 6, so
 Plasma had been silently falling back to the default pointer.
 
-Two deliberate exceptions, both stated in the files that make them: waybar's
-`font-size: 12px` (glyph sizing, not UI scale) and Plasma's toolbar font (one
-point below `stylix.fonts.sizes.applications`, which is Plasma's own
-convention). `stylix.targets.kde` is off — Plasma's fonts are written by
-plasma-manager, but they are *built* from `stylix.fonts` rather than restated.
+**To make all text smaller or bigger, change `uiSize` and rebuild.** It is a
+size in points, it is at the top of `appearance.nix`, and every surface derives
+from it: `uiSize` for Plasma, GTK, dunst and waybar, `uiSize + 1` for foot and
+for the fontconfig default, `uiSize / 10` for Firefox's `devPixelsPerPx`. The
+DPI stays 96 and every scale factor stays 1, so a point is 4/3 of a pixel and
+nothing multiplies it twice.
+
+That was three separate hardcodes until it wasn't, and none of them were where
+you would look for a font size. Emacs named no font in any of its 30 files, so
+it asked fontconfig for an unsized `Monospace` and got fontconfig's own built-in
+12.0 — a third larger than the desktop around it, in the app this machine is
+mostly for. Firefox pinned `devPixelsPerPx = "1.0"` while everything else ran at
+three quarters. And waybar's `font-size: 12px` carried a comment calling it a
+deliberate exception for Nerd Font glyphs — but 9pt *is* 12px at 96 DPI, so it
+was the derived value in the other unit, pinned by hand and labelled a decision.
+The one real exception left is Plasma's toolbar font, one point below
+`stylix.fonts.sizes.applications`, which is Plasma's own convention.
+
+`stylix.targets.kde` is off — Plasma's fonts are written by plasma-manager, but
+they are *built* from `stylix.fonts` rather than restated. The three
+`stylix.fonts.sizes.*` lines that used to sit in `home/shaul.nix` are gone for
+the same reason the Qt variables were: stylix's home-manager integration copies
+all four sizes down from the system config with `mkDefault`, so those lines were
+shadowing the value they were there to receive.
 
 **Where a font goes.** Same rule as packages: exactly one list. Stylix's
 font-packages target already puts the four families named in `stylix.fonts` into

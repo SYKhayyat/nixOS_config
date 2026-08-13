@@ -71,11 +71,18 @@ in
   # would have Qt apps disagree with the desktop they sit in.
   stylix.targets.kde.enable = false;
   stylix.targets.qt.enable = false;
-  stylix.fonts.sizes.applications = 9;
-  stylix.fonts.sizes.desktop = 9;
-  # Was `lib.mkForce "…:size=10"` inside modules/home/foot.nix, overriding the
-  # font stylix derives for its foot target. Sizes belong with the other sizes.
-  stylix.fonts.sizes.terminal = 10;
+
+  # `stylix.fonts.sizes.applications`, `.desktop` and `.terminal` used to be
+  # stated here, at 9, 9 and 10. They are in ../modules/system/appearance.nix
+  # now, derived from one `uiSize` — that file is where you change how big text
+  # is, and its header says so.
+  #
+  # This was not a free move: stylix's home-manager integration already copies
+  # all four sizes down from the system config with `mkDefault`, so these three
+  # lines were overriding the value they were meant to inherit. The `9` here and
+  # the `9` there would have been two facts the day one of them changed. What
+  # reads them below — `uiSize`, and the toolbar font a point under it — did not
+  # have to change at all, which is the point of having read them from stylix.
 
   # Firefox moved to ../modules/home/toolkit.nix, beside the other three
   # browsers, so "no browsers" is a claim you can check by reading one list.
@@ -115,6 +122,11 @@ in
     };
 
     configFile = {
+      # 96, and it should stay 96: it is the denominator that makes a point mean
+      # 4/3 of a pixel, not a size knob. Text size is `uiSize` in
+      # ../modules/system/appearance.nix. Lowering this instead would shrink
+      # text by scaling every point size Qt is handed, which is the same effect
+      # arrived at twice — and it would move Qt without moving GTK or foot.
       "kcmfonts"."General"."forceFontDPI" = 96;
       "kdeglobals"."KScreen"."ScaleFactor" = 1;
       "kdeglobals"."General"."font" = qtFont font.sans uiSize;
