@@ -109,6 +109,42 @@ absent() {
   fi
 }
 
+# ── Absent and masked are different, and `absent` above cannot tell them apart ─
+#
+# `systemd.services.<n>.enable = false` does NOT omit the unit. nixpkgs'
+# `makeUnit` (nixos/lib/systemd-lib.nix) takes the other branch and emits
+#
+#     ln -s /dev/null "$out/<name>.service"
+#
+# which is systemd's masking convention. `[ -e ]` follows the symlink, finds
+# /dev/null, and reports the unit as present — so `absent` would go red on a
+# unit that is correctly switched off.
+#
+# Both forms are live in this repo and they are not interchangeable:
+#
+#   absent            the module was never imported, or its `mkIf` is false, so
+#                     nothing was generated. NetworkManager, wpa_supplicant,
+#                     ModemManager, sshd and dhcpcd in `study` — the forces in
+#                     study-offline.nix make the generating modules inert.
+#   masked            the unit is declared and switched off by name. Both
+#                     `shaulos-data-bootstrap` units, via `enable = mkForce
+#                     false`.
+#
+# Either is a pass. A real unit file is the failure. Distinguishing them is not
+# pedantry — it is the same mistake in miniature as the one the seforim section
+# below is about: a check that cannot tell two states apart will eventually be
+# asked to tell them apart.
+not_running() {
+  local path="$1/$2"
+  if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+    ok "$2 is not in $3 (absent — nothing generated it)"
+  elif [ -L "$path" ] && [ "$(readlink "$path")" = "/dev/null" ]; then
+    ok "$2 is masked in $3 (symlink to /dev/null)"
+  else
+    bad "$2 IS a live unit in $3 — $4"
+  fi
+}
+
 # Browsers, as modules/home/toolkit.nix lists them. `tor-browser` has been
 # spelled `torbrowser` in nixpkgs' past, so both names are checked for absence;
 # neither is used as an anchor, because a package rename must not be able to
@@ -259,16 +295,27 @@ echo "── the airgap: study's radios and daemons are off ──────�
 # only ever checked its packages. Each name below is a line in
 # modules/system/study-offline.nix; a force that stops working is invisible in
 # the source and visible right here.
+# Absent, because study-offline.nix's forces make the modules that generate
+# these inert — `networking.networkmanager.enable`, `networking.wireless.enable`,
+# `services.openssh.enable` and `hardware.bluetooth.enable` all gate their units
+# behind `mkIf cfg.enable`, so there is nothing left to emit.
 for u in \
   NetworkManager.service \
   wpa_supplicant.service \
   ModemManager.service \
   sshd.service \
-  bluetooth.service \
-  shaulos-data-bootstrap.service \
-  shaulos-data-bootstrap.timer; do
-  absent "$studyUnits" "$u" "study's units" \
+  bluetooth.service; do
+  not_running "$studyUnits" "$u" "study's units" \
     "modules/system/study-offline.nix forces it off; README.md says the airgap does not run it"
+done
+
+# Masked rather than absent, and that is the correct outcome. study-offline.nix
+# switches these off by name — `systemd.timers.shaulos-data-bootstrap.enable =
+# lib.mkForce false` — which nixpkgs renders as a /dev/null symlink. Both are
+# named so that `systemctl start` is off too, not just the timer.
+for u in shaulos-data-bootstrap.service shaulos-data-bootstrap.timer; do
+  not_running "$studyUnits" "$u" "study's units" \
+    "study-offline.nix sets enable = mkForce false on both; the airgap must not phone home"
 done
 
 # The assertion this whole section exists for, and the one that was missing.
@@ -280,7 +327,7 @@ done
 # solicited a lease on every wired interface. The firewall cannot catch it —
 # those four deny-all lists are an INBOUND claim, and dhcpcd's DISCOVER goes out
 # over a raw AF_PACKET socket that never touches the INPUT chain.
-absent "$studyUnits" "dhcpcd.service" "study's units" \
+not_running "$studyUnits" "dhcpcd.service" "study's units" \
   "networking.useDHCP defaults to TRUE — forcing NetworkManager off falls back to dhcpcd; study-offline.nix must say useDHCP = false out loud"
 
 echo

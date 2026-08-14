@@ -178,6 +178,36 @@ ten lines away —
   by `pdftotext` present. Flip the groups back on and this goes red, by name, in
   every closure, telling you which blocks to uncomment.
 
+#### `absent` and `masked` are different states, and the old helper could not tell them apart
+
+Caught while writing the above, and it would have shipped a red build gate.
+
+`systemd.services.<n>.enable = false` does **not** omit the unit. nixpkgs'
+`makeUnit` in `nixos/lib/systemd-lib.nix` takes its other branch and emits
+
+    ln -s /dev/null "$out/<name>.service"
+
+— systemd's masking convention. The script's `absent` helper tests `[ -e ]`,
+which **follows the symlink, finds `/dev/null`, and reports the unit as
+present**. So asserting the two `shaulos-data-bootstrap` units absent from
+`study` — which is exactly what `enable = lib.mkForce false` makes them — would
+have failed.
+
+Both states are live in this repo and they are not the same claim. The radios
+are *absent*: study-offline.nix's forces make the modules that generate them
+inert, so nothing is emitted at all. The data bootstrap is *masked*: it is
+declared and switched off by name. A new `not_running` helper accepts either and
+fails only on a real unit file, and it was tested against a fixture carrying one
+of each rather than reasoned about:
+
+    not_running  absent.service  ->  ok    (absent — nothing generated it)
+    not_running  masked.service  ->  ok    (masked — symlink to /dev/null)
+    not_running  live.service    ->  FAIL
+    absent       masked.service  ->  FAIL  <- the bug
+
+This is the same shape as everything else in this entry, one level down: a check
+that cannot distinguish two states will eventually be asked to.
+
 ### Nine smaller findings
 
 **`nrs` and `nrt` could silently rewrite `flake.lock`.** The `justfile` states
@@ -286,6 +316,28 @@ They are logged here retroactively:
 | `48be4fb` | the module that failed to load, and the sub-feature nobody required |
 | `9e34074` | the menu entry the previous bump could not have carried |
 | `2cc0946` | set `EMACS_MODULE_GROUPS = "essentials"` in both session-variable paths — the commit this entry's second section is about |
+
+### `emacs-config` bumped, and the audit's reasoning for it had already expired
+
+The audit called `just update-emacs` cosmetic, on solid evidence: the lock
+pinned `9f865ac`, whose tree is byte-identical to `c71e2c5` because the 14
+intervening commits are grafted-in ancestry from the archived repo. Verified
+independently here — both are `7bc60caeccf0ef9b87b41a0978634c6995cc1383`.
+
+It is no longer the tip. The bump landed on **`7e39fbf`**, from later the same
+day, and the narHash moved with it — so this is not the no-op the audit
+described. What changed:
+
+    LICENSE | 675 ++++++++++++++++++++++++++++++++++++++++++++++++
+    1 file changed, 675 insertions(+)
+
+A GPL-3.0 licence file. No module, no `init.el`, no flake change. **The input
+hash changes, so the closure rebuilds; nothing it builds behaves differently.**
+
+Recorded at this length because the general point outlives the instance: a
+"cosmetic bump" is a claim about two specific revisions, and it stops being
+true the moment either end moves. The evidence gets re-derived at bump time or
+it is not evidence.
 
 ### Still yours
 
