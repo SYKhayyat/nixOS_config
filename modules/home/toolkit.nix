@@ -111,8 +111,19 @@ let
     skim
     ugrep
     plocate # `locate` itself comes from the setgid wrapper services.locate makes
-    recoll # the seforim index; recoll.conf is written by ./emacs/default.nix
-    xapian # recoll's backend, and its own CLI
+    # recoll and xapian are off with `extras`. Every `recoll' call site in the
+    # Emacs config is in `extras/', and ./emacs/default.nix sets
+    # EMACS_MODULE_GROUPS = "essentials" — so the only caller is gone. The
+    # recoll.conf that comment used to point at is commented out in the same
+    # file, and ../system/services.nix's four-hourly indexer with it; see that
+    # file for the part nobody had noticed, which is that the index it built
+    # was never the one seforim search read.
+    #
+    # Uncomment both with `extras`. They are a pair — xapian is recoll's
+    # backend — and the ten other search tools above are why nothing else in
+    # this list depends on them.
+    # recoll
+    # xapian
     fsearch
     kdePackages.kfind
     television

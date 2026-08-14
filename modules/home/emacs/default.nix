@@ -9,11 +9,17 @@
 # Home-manager wiring for Emacs. The *configuration* itself is no longer here —
 # it lives in its own repo and arrives as the `emacs-config` flake input.
 #
-# What stayed: the packages Emacs shells out to, the daemon, recoll.conf, and
-# the scaffolding of directories Emacs expects to exist. All of that describes
-# what THIS MACHINE provides. What left: init.el, early-init.el, the 40 literate
-# modules, and the tools that build them — those describe what the CONFIG is,
-# and they run on Windows and macOS too.
+# What stayed: the packages Emacs shells out to, the daemon, the scaffolding of
+# directories Emacs expects to exist, the generated `99-local-fonts.el` that
+# carries this display's font size into the config, and the choice of which
+# module groups load. All of that describes what THIS MACHINE provides. What
+# left: init.el, early-init.el, the 40 literate modules, and the tools that
+# build them — those describe what the CONFIG is, and they run on Windows and
+# macOS too.
+#
+# (recoll.conf used to be in that first list. It is switched off with `extras`
+# now — see the EMACS_MODULE_GROUPS section below, which is also where the
+# "which module groups load" half is argued.)
 #
 # The thing that actually went away is the staging hop. This module used to
 # install the modules read-only at ~/.config/emacs/modules-src and then run a
@@ -33,8 +39,13 @@ let
   emacs = myConfig.emacsPackage; # Emacs + the package set the config expects
   inherit (myConfig)
     emacsConfig # that repo, with every module pre-tangled
-    seforimPath
     ;
+  # `seforimPath` used to be inherited here too, for recoll.conf and the
+  # ~/Documents/seforim/Bavli scaffold. Both are switched off below with
+  # EMACS_MODULE_GROUPS — see that section — so the binding would be dead, and
+  # `deadnix --fail` in flake.nix's checks is right to say so.
+  # modules/system/data.nix still reads it from myConfig, which is why it stays
+  # declared in flake.nix.
   homeDir = config.home.homeDirectory;
 
   inherit (config.shaulos.palette) font;
@@ -127,10 +138,12 @@ in
   # uninstalled Emacs? If yes it is a tool and it lives in ../toolkit.nix.
   # `recoll`, `plocate`, `fd`, `ripgrep`, `ripgrep-all` and `pandoc` were listed
   # here *and* in modules/system/cli-tools.nix, and they all pass that test —
-  # so toolkit.nix owns them now, and the seforim search, Org export and the
+  # so toolkit.nix owns them now, and the file search, Org export and the
   # Markdown preview keep working because it installs them in every session
-  # including study. What is left is what exists only because Emacs shells out
-  # to it.
+  # including study. (`recoll` is the one of those that toolkit.nix now has
+  # commented out; it is a seforim tool and seforim is `extras`. Everything
+  # else in that sentence is unchanged.) What is left below is what exists only
+  # because Emacs shells out to it.
   home.packages = [
     emacs
   ]
@@ -142,7 +155,13 @@ in
     graphviz
     imagemagick
     tree-sitter
-    hdate
+    # `hdate` is off with `extras`. Its only caller in the whole config is
+    # extras/04-hebrew-scholarship.org, which guards on
+    # `(executable-find "hdate")` and prints "hdate not installed" otherwise —
+    # so with `essentials` alone nothing ever asks for it. essentials/00-core
+    # names it in a comment listing what the config can shell out to; that is
+    # documentation, not a call site.
+    # hdate
     jdt-language-server
     nil
     rust-analyzer
@@ -156,6 +175,54 @@ in
   # `extras/`, the personal half that layers on top of it. Its `init.el`
   # defaults to both and reads `EMACS_MODULE_GROUPS' to be told otherwise, so
   # naming the groups is this machine's call to make and not the repo's.
+  #
+  # ── What naming only `essentials` costs, measured ───────────────────────
+  #
+  # This is the half that was missing when the variable was first set. The
+  # mechanism below was verified impeccably; the bill was never itemised, and
+  # for one commit this machine was fully provisioned for a feature it could
+  # not run.
+  #
+  #     group        modules   lines   loaded
+  #     essentials        25   2,379   yes
+  #     extras            15   3,165   no
+  #
+  # `extras/` is 57% of the configuration. It holds all 89 `seforim-*'
+  # functions — 31 of them interactive commands — across `10-'…`16-seforim-*',
+  # and the entire Hebrew and RTL layer: `00-hebrew', `01-hebrew-completion',
+  # `02-hebrew-org', `03-hebrew-typesetting', `04-hebrew-scholarship',
+  # `06-torah-search'. All of it is still copied into the Nix store and
+  # symlinked into ~/.config/emacs/modules. None of it is loaded.
+  #
+  # ── And the rule that follows from it, applied here and everywhere ──────
+  #
+  # A machine provisioned for code it does not load is a machine whose
+  # comments are lying. So every piece of machinery in this repo that existed
+  # only to serve `extras/' is switched off in the same breath, commented out
+  # rather than deleted with the reason written beside it, so that flipping
+  # the line below back to "essentials extras" is a matter of uncommenting the
+  # blocks it names. They are:
+  #
+  #   here              `hdate', ~/.recoll/recoll.conf, and the
+  #                     ~/.cache/emacs/seforim + ~/Documents/seforim/Bavli
+  #                     scaffolding
+  #   ../toolkit.nix    `recoll' and `xapian'
+  #   ../../home/focus.nix        the same two, and its stated purpose
+  #   ../../modules/system/services.nix   the four-hourly `recollindex' timer
+  #
+  # ── One thing found while switching them off, worth its own paragraph ───
+  #
+  # ~/.recoll/recoll.conf below was never read by the seforim search, in any
+  # configuration, extras loaded or not. `extras/15-seforim-dream.org' builds
+  # its index in a *private* confdir — ~/.cache/emacs/seforim/recoll — and
+  # writes its own recoll.conf there, deliberately, so that it "never touches
+  # a system-wide recoll setup". `seforim-recoll-index' runs
+  # `recollindex -c <that dir>' and `seforim-recoll-search' queries the same.
+  #
+  # So the system timer and this file's recoll.conf were maintaining a second
+  # index, over the same corpus, that nothing has ever queried. That is a
+  # stronger reason to switch them off than the module groups are, and it
+  # would still hold on the day `extras' comes back.
   #
   # Set in BOTH places on purpose, and they are not redundant:
   #
@@ -213,20 +280,38 @@ in
   # is that one plus a 99- module carrying the font size this display wants.
   home.file.".config/emacs/modules".source = emacsModules;
 
+  # ── The system-wide recoll config, off with `extras` ────────────────────
+  #
+  # Two reasons, and the second one is the one that matters:
+  #
+  # 1. Nothing loaded reads it. recoll is a seforim tool, and every `recoll'
+  #    call site in the config lives in `extras/'.
+  # 2. Nothing ever read it. See the EMACS_MODULE_GROUPS section above:
+  #    extras/15-seforim-dream.org builds and queries its index in
+  #    ~/.cache/emacs/seforim/recoll with a recoll.conf it writes itself,
+  #    explicitly to avoid a system-wide setup. This file's `topdirs' has
+  #    therefore only ever fed ../../modules/system/services.nix's timer,
+  #    which fed nobody.
+  #
+  # Kept rather than deleted because the indentation note below is a fact
+  # about the format that cost real time to learn, and because turning
+  # `extras' back on should be an uncomment, not an archaeology exercise.
+  #
   # `noaspell` was indented four columns further than every line around it.
   # recoll.conf is read by recoll's ConfSimple parser, in which indentation is
   # not decoration — it is how the format spells a continuation of the previous
   # line's value. Left as it was, `followLinks` was at best being handed a value
   # it does not take, and `noaspell` at worst was not a setting at all.
-  home.file.".recoll/recoll.conf".text = ''
-    topdirs = ${seforimPath}
-    followLinks = 1
-    noaspell = 1
-    indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf
-    unac_except_stripping = true
-    snippetMaxPosWalk = 1000000
-    maxTermExpand = 10000
-  '';
+  #
+  # home.file.".recoll/recoll.conf".text = ''
+  #   topdirs = ${seforimPath}   (myConfig.seforimPath — re-add the inherit)
+  #   followLinks = 1
+  #   noaspell = 1
+  #   indexedmimetypes = text/x-org text/org text/plain text/markdown application/pdf
+  #   unac_except_stripping = true
+  #   snippetMaxPosWalk = 1000000
+  #   maxTermExpand = 10000
+  # '';
 
   # ── One-time migration off the writable modules directory ───────────────
   # Before this change ~/.config/emacs/modules was a real directory that Nix
@@ -254,18 +339,30 @@ in
     fi
   '';
 
+  # The directories the loaded config expects to exist. The three seforim ones
+  # are commented out with `extras' — ~/.cache/emacs/seforim is
+  # `seforim--state-dir', which only extras/15-seforim-dream.org and its
+  # neighbours ever write to, and study-log.el is that module's own state file.
+  #
+  # `mkdir -p "${seforimPath}/Bavli"` is the one worth reading the removal of
+  # twice. ../../modules/system/data.nix's header is an essay about it: that
+  # line ran on every activation, including the first, so the bootstrap's old
+  # `[ ! -d "$dst" ]` test was always false and the seforim library never once
+  # downloaded. data.nix fixed its half by asking about *files* instead. This
+  # removes the other half — the empty directory that made the lie possible —
+  # so the two are now belt and braces rather than one fix and one landmine.
   home.activation.createOrgSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${homeDir}/.cache/emacs/undo-tree-history"
-    mkdir -p "${homeDir}/.cache/emacs/seforim"
+    # mkdir -p "${homeDir}/.cache/emacs/seforim"
     mkdir -p "${homeDir}/Documents/org"
     mkdir -p "${homeDir}/Documents/roam/daily"
-    mkdir -p "${seforimPath}/Bavli"
+    # mkdir -p "$SEFORIM_PATH/Bavli"   (myConfig.seforimPath — re-add the inherit)
 
     [ ! -f "${homeDir}/Documents/org/inbox.org" ] && echo -e "* Tasks\n* Notes" > "${homeDir}/Documents/org/inbox.org"
     [ ! -f "${homeDir}/Documents/org/journal.org" ] && echo "#+TITLE: Journal" > "${homeDir}/Documents/org/journal.org"
     [ ! -f "${homeDir}/Documents/org/research.org" ] && echo "#+TITLE: Research" > "${homeDir}/Documents/org/research.org"
     [ ! -f "${homeDir}/Documents/bibliography.bib" ] && echo "% Bibliography" > "${homeDir}/Documents/bibliography.bib"
-    [ ! -f "${homeDir}/.cache/emacs/seforim/study-log.el" ] && echo "nil" > "${homeDir}/.cache/emacs/seforim/study-log.el"
+    # [ ! -f "${homeDir}/.cache/emacs/seforim/study-log.el" ] && echo "nil" > "${homeDir}/.cache/emacs/seforim/study-log.el"
     true
   '';
 }

@@ -401,13 +401,28 @@ in
     }
 
     # ── Floating rules ────────────────────────────────────────────
-    # Scratchpads
+    # Scratchpads. The two halves match on DIFFERENT selectors, and it is not
+    # an inconsistency — it is the only thing that works.
+    #
+    # `foot --app-id=scratchpad` sets a real Wayland app-id, so `class:` is
+    # right for the terminal. The Emacs scratchpad is made with
+    # `(make-frame '((name . "emacs-scratch") …))` in ../scripts.nix, and an
+    # Emacs frame's `name` parameter sets the window TITLE. Under Wayland the
+    # app-id of every Emacs frame stays `emacs` — Emacs exposes no per-frame
+    # app-id at all — so `class:^(emacs-scratch)$` matched nothing, ever, and
+    # all three of its rules were dead. The frame opened tiled at the default
+    # size while three lines here asserted it was a centred 1100x600 float.
+    #
+    # ../scripts.nix had the answer in it the whole time: it focuses this same
+    # frame with `hyprctl dispatch focuswindow "title:$NAME"`, and it selects
+    # the *terminal* scratchpad on `.app_id` while selecting the *Emacs* one on
+    # `.title`. The script drew the distinction; these rules did not.
     windowrule = float, class:^(scratchpad)$
-    windowrule = float, class:^(emacs-scratch)$
+    windowrule = float, title:^(emacs-scratch)$
     windowrule = size 1100 600, class:^(scratchpad)$
-    windowrule = size 1100 600, class:^(emacs-scratch)$
+    windowrule = size 1100 600, title:^(emacs-scratch)$
     windowrule = center, class:^(scratchpad)$
-    windowrule = center, class:^(emacs-scratch)$
+    windowrule = center, title:^(emacs-scratch)$
 
     # File-picker dialogs
     windowrule = float, title:^(Open|Save|Select|Choose).*$

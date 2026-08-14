@@ -19,7 +19,7 @@
   imports = [
     ./common.nix # zsh, git, aliases — and, since the split, nothing else
     ../modules/home/p10k.nix # the prompt common.nix sources
-    ../modules/home/emacs # the daemon, recoll.conf, Emacs's shell-outs
+    ../modules/home/emacs # the daemon, the module groups, Emacs's shell-outs
     ../modules/home/yazi.nix
   ];
 
@@ -61,23 +61,42 @@
   # exactly one list, and `git`, `bat` and `fzf` are not here because
   # ./common.nix's `programs.*` modules install them as part of configuring
   # them — likewise `yazi` from ../modules/home/yazi.nix, and Emacs itself
-  # plus texlive, typst, sqlite, graphviz, imagemagick, hdate and the language
-  # servers from ../modules/home/emacs.
+  # plus texlive, typst, sqlite, graphviz, imagemagick and the language
+  # servers from ../modules/home/emacs. (`hdate` was in that list until it
+  # went off with `extras`; it had exactly one caller and it was Hebrew.)
   #
-  # What is left is the search stack, because that is what this mode is for.
+  # What is left is text search and the document toolchain, because that is
+  # what this mode is for.
+  #
+  # That sentence used to read "the search stack, because that is what this
+  # mode is for", and it named the *seforim* index. It was the single least
+  # true comment in this repo: ../modules/home/emacs sets
+  # EMACS_MODULE_GROUPS = "essentials", so this closure booted `cage` with one
+  # Emacs frame that could not run a single `seforim-' command, over a profile
+  # provisioned with recoll and xapian to serve it.
+  #
+  # Both are commented out below, on the rule that repo now applies
+  # everywhere: machinery for code that does not load gets switched off, not
+  # annotated. The mode is not diminished by it — `focus` is Emacs with
+  # nothing else running, and grep over a text library is `rg` and `rga`,
+  # which are still here.
   home.packages = with pkgs; [
     fd
     ripgrep
     ripgrep-all
     tre
 
-    # The seforim index. ../modules/home/emacs writes ~/.recoll/recoll.conf
-    # and the Emacs config queries it; what this closure drops is
-    # ../modules/system/services.nix's four-hourly `recollindex` timer, not
-    # the ability to search. Reindex by hand when you have added texts.
-    recoll
-    xapian
-    poppler-utils # pdftotext & co., which recoll and Org export both use
+    # Off with `extras`, and see ../modules/system/services.nix for the part
+    # that surprised: the four-hourly index this pair fed was never the index
+    # seforim search read. Uncomment both together with `extras`.
+    # recoll
+    # xapian
+
+    # Stays. `poppler-utils` is not a seforim package — essentials/11-pdf.org
+    # probes `pdfinfo` to decide whether pdf-tools is usable, and Org export
+    # goes through `pdftotext`. It was listed beside recoll, which is the only
+    # reason it looks like it belongs to that group.
+    poppler-utils
 
     pandoc
     jq

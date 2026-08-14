@@ -1,6 +1,6 @@
 # hosts/desktop/configuration.nix
 #
-# One machine, one system closure, three graphical sessions, one specialisation.
+# One machine, one system closure, three graphical sessions, two specialisations.
 #
 # It used to be four specialisations (minimal / niri / hyprland / study) built by
 # lib/mk-specialization.nix. Three of them were answering questions that already
@@ -109,9 +109,11 @@
   # they are opposite kinds of difference.
   #
   # `study` is THIS system with the radios off. It wants every package, every
-  # font, Emacs, the seforim index and all three compositors; it wants the
-  # network gone. Inheriting is exactly right, and the handful of `mkForce`s it
-  # writes are all it needs.
+  # font, Emacs and all three compositors; it wants the network gone.
+  # Inheriting is exactly right, and the handful of `mkForce`s it writes are
+  # all it needs. (It wanted "the seforim index" too, until
+  # ../../modules/home/emacs/default.nix's EMACS_MODULE_GROUPS section
+  # switched that whole stack off in every closure.)
   #
   # `focus` is a SMALLER system. Written the same way it would be fifteen
   # forces deep and would silently stop being true the next time

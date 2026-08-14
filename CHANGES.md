@@ -51,6 +51,254 @@ stays.
 
 ---
 
+## 2026-08-14 (s) — the airgap was taking a DHCP lease, and the machine was provisioned for an Emacs it does not load
+
+This entry closes an external audit of `2cc0946` (`GRADE-2026-08-14`), which
+graded the repo **A− / NOT READY** and gave two reasons: one stated guarantee
+that was false at runtime, and one deliberate toggle whose cost was never
+traced. Both are below, along with the nine smaller findings and the three
+commits that shipped without an entry here — which is itself one of the
+findings, and the mechanism behind two of the others.
+
+**Every fix below was verified against the evaluated configuration**, not read
+off the source. The three cheap CI gates (lock, lint, all three eval steps) pass
+locally; the closure build is left to CI, and is the one gate this pass did not
+personally finish.
+
+### The airgap booted a DHCP client
+
+`study` generated an **enabled `dhcpcd.service`**. The base system did not.
+`focus` did not.
+
+This is the exact failure `modules/system/focus.nix:126-142` already found,
+documented at length and fixed — in the other specialisation.
+`networking.useDHCP` defaults to **true**, and it is not NetworkManager that
+implements it: nixpkgs sets it false inside the network-manager module's
+`mkIf cfg.enable`, so `networking.networkmanager.enable = lib.mkForce false` in
+`study-offline.nix` took that definition away with it and the default won.
+
+The firewall did not cover it and could not. Those four deny-all lists are an
+*inbound* claim; dhcpcd's initial `DISCOVER` goes out over a raw `AF_PACKET`
+socket that never traverses the netfilter INPUT chain. The radios genuinely were
+off, so this only ever bit on a wired link — which is precisely why a laptop
+used on wifi would never show it.
+
+`networking.useDHCP = lib.mkForce false;` in `modules/system/study-offline.nix`,
+and the assertion that would have caught it — `tools/check-closure.sh:232`,
+written against `focus` and never copied — now exists for `study` too.
+
+    closure  useDHCP  dhcpcd.service     (after)
+    base     false    absent
+    study    false    absent
+    focus    false    absent
+
+### `EMACS_MODULE_GROUPS = "essentials"`, and everything that was provisioned for the half it drops
+
+Entry (r)'s last commit set this variable in both places that matter, and the
+mechanism was verified impeccably. What was never traced is what setting it
+**costs**:
+
+| group | modules | lines | loaded |
+|---|---|---|---|
+| `essentials` | 25 | 2,379 | yes |
+| `extras` | 15 | **3,165** | **no** |
+
+`extras/` is **57% of the Emacs configuration** — all 89 `seforim-*` functions,
+31 of them interactive commands, plus the entire Hebrew and RTL layer. Copied
+into the store, symlinked into `~/.config/emacs/modules`, never loaded.
+
+Meanwhile this machine indexed `~/Documents/seforim` every four hours, shipped
+`recoll`/`xapian`/`poppler-utils` into the `focus` profile under a comment
+reading *"the search stack, because that is what this mode is for"*, and
+declared in three separate files that `study` and `focus` had seforim search.
+`tools/check-closure.sh` **went green on all of it** — it asserted `recoll` was
+present in `focus`'s profile, and it was. That is the presence-test mirror of
+the failure that script's own header is about.
+
+The decision is to keep `essentials`, and the rule adopted with it is the part
+worth stating, because it applies past this one case:
+
+> Machinery that exists to serve code which does not load gets switched off in
+> the same commit — commented out with the reason beside it, not annotated and
+> left running.
+
+So, all switched off and all reversible by uncommenting:
+
+| Where | What |
+|---|---|
+| `modules/system/services.nix` | the four-hourly `recollindex` service + timer |
+| `modules/home/emacs/default.nix` | `~/.recoll/recoll.conf`, `hdate`, and the `~/.cache/emacs/seforim` + `~/Documents/seforim/Bavli` scaffolding |
+| `modules/home/toolkit.nix` | `recoll`, `xapian` |
+| `home/focus.nix` | `recoll`, `xapian`, and its stated purpose rewritten |
+
+`poppler-utils` deliberately **stays**: `essentials/11-pdf.org` probes `pdfinfo`
+to decide whether pdf-tools is usable and Org export shells out to `pdftotext`.
+It was listed beside `recoll`, which is the only reason it looked like part of
+that group.
+
+**The seforim library itself still downloads.** That is data, not machinery —
+the texts are yours and readable without Emacs — so `modules/system/data.nix` is
+untouched. It is the one place the line above was drawn by judgement rather than
+by the rule, and it is one uncomment away from moving.
+
+#### The thing nobody had noticed
+
+The four-hourly timer **was never the index Emacs searched**, in any
+configuration, `extras` loaded or not.
+
+`extras/15-seforim-dream.org` keeps a *private* recoll config directory at
+`~/.cache/emacs/seforim/recoll`, writes its own `recoll.conf` into it, and runs
+`recollindex -c <that dir>` — deliberately, so that it *"never touches a
+system-wide recoll setup"*. `seforim-recoll-search` queries that same private
+index. The systemd unit ran `recollindex` with no `-c`, so it read
+`~/.recoll/recoll.conf` and wrote `~/.recoll/xapiandb`: a second index, over the
+same corpus, that no caller has ever opened.
+
+So this was a nice-19 walk of the whole library, every four hours, producing an
+artifact with no reader, since the day it was written. Turning `extras` back on
+does not justify uncommenting it — `M-x seforim-recoll-index` maintains the
+index that search actually uses.
+
+### The gates now test the closure that was not fixed
+
+`check-closure.sh` asserted `focus`'s *processes* and `study`'s *packages*, and
+`study`'s entire claim is a process claim. The gap was not hypothetical: the
+DHCP finding above was sitting in it. Added, using the anchoring pattern already
+ten lines away —
+
+- **`study` still runs the desktop it inherits** — `display-manager`, `ollama`,
+  `cups`, `update-locatedb` present. Without this anchor, "NetworkManager is
+  absent from `study`" and "I mistyped the path" are the same result.
+- **`study`'s radios and daemons are off** — `NetworkManager`, `wpa_supplicant`,
+  `ModemManager`, `sshd`, `bluetooth`, and both `shaulos-data-bootstrap` units.
+- **`dhcpcd.service` is absent from `study`** — the assertion this section
+  exists for.
+- **the seforim stack and `EMACS_MODULE_GROUPS` agree** — `recoll`,
+  `recollindex`, `xapian` and `hdate` absent from all three profiles, anchored
+  by `pdftotext` present. Flip the groups back on and this goes red, by name, in
+  every closure, telling you which blocks to uncomment.
+
+### Nine smaller findings
+
+**`nrs` and `nrt` could silently rewrite `flake.lock`.** The `justfile` states
+the rule in bold — *"Nothing in this file may change `flake.lock` except
+`just lock`"* — and every recipe honours it. The two aliases README.md
+recommends *as the ergonomic equivalent* did not. Measured, with `sops-nix`
+dropped from the lock (the state this repo shipped in once): `just switch` exits
+1 and leaves the file alone; `nrs` exited 0, emitted a system drv, and rewrote
+it. Both carry `--no-update-lock-file` now. `nfu` deliberately does not — that
+is its job.
+
+**`~/Scripts/.git/hooks` was on `$PATH` in every shell.** `home/common.nix`
+filtered hidden directories with `-not -path '.*'`, and `find -path` matches the
+*whole* path, which always begins `/home/…` — so the glob could never match and
+the filter did nothing. Measured against a fixture:
+
+    as written  (-not -path '.*')    Scripts  .hidden  .git  .git/hooks  normal
+    as fixed    (-not -path '*/.*')  Scripts  normal
+
+Git hooks are executables named `update`, `pre-commit`, `post-checkout` and
+`prepare-commit-msg`, and `update` is a real command on several distros. Four
+characters.
+
+**waybar rendered a point smaller than everything it matched.** Nix `/` on two
+integers is integer division, so `font.sizes.desktop * 4 / 3` truncated `10.667`
+to `10`. The reason nobody saw it: the formula arrived in the commit that fixed
+waybar's hardcoded `12px`, and at that moment `uiSize` was 9, where `9 * 4 / 3`
+is exactly 12 — README.md's own worked example. The truncation appeared one
+commit later when `uiSize` dropped to 8. Now `* 4.0 / 3`, and there is an
+independent check on the result: stylix emits its own `* { font-size: 8pt; }`
+above this block, and 8pt at 96 DPI **is** 10.667px. Two derivations that never
+consult each other now agree to the digit; before, this rule came later in the
+cascade and quietly overrode stylix's correct value.
+
+**The three `emacs-scratch` window rules could never match.** They matched
+`class:^(emacs-scratch)$`, but `modules/home/scripts.nix` creates the frame with
+`(make-frame '((name . "emacs-scratch") …))` and an Emacs frame's `name` sets
+the **title**. Under Wayland the app-id of every Emacs frame stays `emacs`;
+Emacs exposes no per-frame app-id at all. So `Super+Shift+grave` opened a frame
+meant to be a centred 1100x600 float and got it tiled at the default size, with
+three lines asserting otherwise. `scripts.nix` had the answer in it the whole
+time — it focuses the same frame with `hyprctl dispatch focuswindow
+"title:$NAME"`, and selects the terminal scratchpad on `.app_id` while selecting
+the Emacs one on `.title`. Now `title:` in all three, **plus the matching niri
+rule that had never existed** — that session had no rule for this frame at all.
+
+**README's CI table was wrong in two of four "by hand" rows**, both in the same
+direction: claiming a local command matched a CI job when it did not. `lint`
+offered `just check`, which is `nix flake check` — all four checks including the
+40-minute closure build. `eval` offered `just eval`, which ran one of that job's
+three steps; proven by construction, deleting the whole `specialisation.focus`
+block left `just eval` **green** while CI went red. Fixed by making the commands
+true rather than by softening the claim: `just lint` is new, and `just eval` now
+runs all three steps.
+
+**`font_size = 64`** in `modules/home/lock.nix` was the one number in the repo
+with no argument beside it, in a repo that claims Plasma's toolbar font is the
+only exception. It stays a literal — the lock clock is read at a glance from
+across a room, not at a desk, and tying it to `uiSize` would mean fixing a
+cramped panel also resizes the lock screen — but it now has the paragraph the
+claim owes it.
+
+**Two file headers still said there was one specialisation**
+(`hosts/desktop/configuration.nix:3`, `modules/system/study-offline.nix:3`),
+118 lines above the block declaring two. Both were made stale by (q)'s `focus`
+commit, which updated the README and the body of the very file whose line 3 it
+left contradicting the change.
+
+**`sops-nix` stays inert, and now says so.** `.sops.yaml` still holds the
+literal `age1REPLACE_WITH_YOUR_HOST_AGE_PUBLIC_KEY`, `secrets/secrets.yaml` does
+not exist, and every `sops.secrets."…"` block is commented out — while
+`flake.nix:8-17` deletes `nixpkgs-unstable` for being *"a second fetch, a second
+lock entry and a second full evaluation on every rebuild, bought for zero call
+sites."* The two got opposite verdicts in the same repo. The verdict is
+unchanged and the reasoning is now written down rather than implied; see
+README.md.
+
+**`palette.nix` changed the rendered theme and nothing said so.** Entry (n)
+recorded the mechanism and not the outcome. The old hand-written literals were
+`#7aa2f7` (accent) and `#414868` (dim); neither appears anywhere in
+`tokyo-night-dark.yaml`, and the value used for `fg`, `#c0caf5`, is that
+scheme's `base08`. Deriving the roles from `config.lib.stylix.colors` — which is
+unambiguously right, and is what that file argues for — therefore moved three of
+the four colours:
+
+| role | was | is |
+|---|---|---|
+| accent | `#7aa2f7` | `#2ac3de` |
+| dim | `#414868` | `#444b6a` |
+| fg | `#c0caf5` | `#a9b1d6` |
+
+Not a defect — the derivation is correct and the literals were the bug. But
+**the borders are cyan now, not blue**, and that is a visible change to how the
+machine looks which arrived as a side effect of a commit about provenance.
+
+### The three commits that shipped without an entry here
+
+`48be4fb`, `9e34074` and `2cc0946` updated neither this file nor `README.md`, in
+a repo whose changelog discipline is real and documented. That lapse is the
+mechanism behind the two stale headers above and behind the whole first section
+of this entry — not carelessness, just the changelog falling behind the tree.
+They are logged here retroactively:
+
+| Commit | What it did |
+|---|---|
+| `48be4fb` | the module that failed to load, and the sub-feature nobody required |
+| `9e34074` | the menu entry the previous bump could not have carried |
+| `2cc0946` | set `EMACS_MODULE_GROUPS = "essentials"` in both session-variable paths — the commit this entry's second section is about |
+
+### Still yours
+
+- **GitHub's default branch is `master`**, five months and 54 commits stale.
+  Anyone landing on the repo page — including you, from a phone — reads a config
+  that predates the entire 2026-08 overhaul.
+  `gh repo edit --default-branch specializations`.
+- **`Super+Shift+grave`.** The `title:` fix is derived from Emacs's and
+  Wayland's matching semantics and corroborated twice in `scripts.nix`, but it
+  is the one change here not observed on hardware. Press the key.
+
+---
+
 ## 2026-08-13 (r) — the two surfaces (q) missed, one of which was never written down
 
 Entry (q) was rebuilt on the machine and the reply was "nothing changed at all."

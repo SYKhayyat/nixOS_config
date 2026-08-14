@@ -394,6 +394,24 @@ in
         default-column-width { proportion 0.8; }
     }
 
+    // The Emacs scratchpad, which this session has never had a rule for at
+    // all. Same key (Super+Shift+grave), same frame, and until now it opened
+    // tiled here while the Hyprland config carried three rules claiming
+    // otherwise — rules that were themselves dead, because they matched on
+    // `class:`. See ../hyprland/default.nix for that half.
+    //
+    // `match title=` rather than `match app-id=`, for the reason that file
+    // spells out: ../scripts.nix builds the frame with
+    // `(make-frame '((name . "emacs-scratch") …))`, and an Emacs frame's
+    // `name` is its Wayland title. Its app-id stays `emacs` — matching on
+    // app-id here would catch every Emacs window on the machine, which is
+    // worse than catching none.
+    window-rule {
+        match title="emacs-scratch";
+        open-floating true;
+        default-column-width { proportion 0.8; }
+    }
+
     // Autostart. One list, in ../keys.nix, shared with the Hyprland session —
     // neither can start something the other lacks, and the swww start no longer
     // races the daemon.

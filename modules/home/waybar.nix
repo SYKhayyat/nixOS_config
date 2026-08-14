@@ -116,7 +116,37 @@ in
     style = ''
       * {
         font-family: "${font.mono}", "Noto Sans Hebrew", "Font Awesome 6 Free";
-        font-size: ${toString (font.sizes.desktop * 4 / 3)}px;
+        /*
+          `* 4.0 / 3`, and the `.0` is the whole fix. Nix `/` on two integers
+          is INTEGER division, so this read `* 4 / 3` and truncated:
+
+            8 * 4 / 3   -> 10        what waybar got
+            8 * 4.0 / 3 -> 10.6667   8pt at 96 DPI, what everything else got
+
+          — waybar rendering ~6% under every other surface derived from
+          `uiSize`. The reason nobody saw it is worth keeping: this formula
+          arrived in the commit that fixed waybar's hardcoded `font-size: 12px`,
+          and at that moment `uiSize` was 9, where `9 * 4 / 3` is exactly 12 —
+          README.md's own worked example, "9pt is 12px at 96 DPI". The
+          truncation only appeared one commit later when `uiSize` dropped to 8.
+
+          A formula that is correct for one input is not a derivation, it is a
+          coincidence with a variable in it.
+
+          And there is an independent check on the fixed value sitting in this
+          same file, which is what makes it more than arithmetic. stylix emits
+          its own block above everything here:
+
+            * { font-family: "JetBrainsMono Nerd Font"; font-size: 8pt; }
+
+          8pt at 96 DPI IS 10.667px. Two derivations that never consult each
+          other — stylix's, from `fonts.sizes.desktop` in points, and this one,
+          converting to pixels because that is what waybar's CSS wants — now
+          agree to the digit. Before the `.0`, this rule came later in the
+          cascade and quietly overrode stylix's correct 8pt with a truncated
+          10px, which is the whole bug in one sentence.
+        */
+        font-size: ${toString (font.sizes.desktop * 4.0 / 3)}px;
         border: none;
       }
       window#waybar { background: transparent; }

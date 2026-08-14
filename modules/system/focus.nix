@@ -113,11 +113,13 @@
     # ./niri.nix       both compositors, and ./wayland.nix with them —
     # ./hyprland.nix   uwsm, udisks2, upower, gnome-keyring, the portals.
     # ./network.nix    NetworkManager, wpa_supplicant, ModemManager, sshd.
-    # ./services.nix   ollama, the plocate updatedb timer, the four-hourly
-    #                  recollindex run. `recoll` the *program* is still in
-    #                  ../../home/focus.nix, because Emacs's seforim search
-    #                  shells out to it — what is gone is the indexer
-    #                  waking up on a timer. Run `recollindex` by hand.
+    # ./services.nix   ollama and the plocate updatedb timer. It used to be
+    #                  worth naming the four-hourly recollindex run here too;
+    #                  that timer is now commented out in the file itself, for
+    #                  every closure, so there is nothing left for this one to
+    #                  decline. `recoll` the *program* went with it from
+    #                  ../../home/focus.nix. See that file and
+    #                  ../home/emacs/default.nix's EMACS_MODULE_GROUPS section.
     # ./data.nix       the rclone bootstrap timer.
     # ./secrets.nix    sops needs a network to be worth having.
     # ./profile.nix    the `shaulos.study` flag, which nothing here reads.

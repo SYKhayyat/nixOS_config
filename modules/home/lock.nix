@@ -152,6 +152,31 @@ in
         valign = center
     }
 
+    # ── The one number in this repo that is not derived, and why ────────────
+    #
+    # README.md claims Plasma's toolbar font is "the one real exception left".
+    # It is not — this is the other, and it is deliberate rather than missed,
+    # so it gets the paragraph the claim owes it.
+    #
+    # `font_size = 64` is NOT derived from `uiSize`, and it must not be. Every
+    # other surface in this repo derives because they are all answering the
+    # same question: how big is text on a display you are sitting in front of,
+    # reading a line at a time. The lock clock answers a different question —
+    # how big is a glyph you read at a glance, from across the room, on a
+    # black screen with nothing else on it. Those are tzvei dinim, and tying
+    # them to one variable would mean that raising `uiSize` because the panel
+    # is cramped also changes the lock screen, which nobody wants.
+    #
+    # It is also arithmetically the wrong lever: at `uiSize = 8` any honest
+    # multiplier is an 8x, and a formula whose only job is to multiply one
+    # number by a constant to reach another is a literal with extra steps —
+    # exactly the coincidence ../home/waybar.nix's comment is about, where
+    # `* 4 / 3` was right for one value of `uiSize` and silently wrong for the
+    # next.
+    #
+    # So: a literal, in points, stated once, with the reason beside it. If it
+    # ever needs a friend — a second lock element wanting the same scale — it
+    # becomes a `let` binding in this file, not an entry in the palette.
     label {
         monitor =
         text = $TIME

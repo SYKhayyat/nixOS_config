@@ -64,6 +64,14 @@ focusProfile="$focus/etc/profiles/per-user/$user/bin"
 units="$system/etc/systemd/system"
 focusUnits="$focus/etc/systemd/system"
 
+# `study`'s claim is a process claim too — "NetworkManager, wireless, Bluetooth,
+# sshd and the data bootstrap off; firewall deny-all" — and for a long time this
+# script tested only its *packages*. That gap was not hypothetical: the one unit
+# assertion that would have caught an enabled `dhcpcd.service` in the airgap was
+# written against `focus` and never copied here, so the airgap shipped a DHCP
+# client for as long as it has existed. Both halves are below now.
+studyUnits="$study/etc/systemd/system"
+
 fail=0
 
 ok() { printf '  ok    %s\n' "$*"; }
@@ -123,6 +131,7 @@ anchor_dir "$study" "the study specialisation"
 anchor_dir "$studySw" "study's system package set"
 anchor_dir "$studyProfile" "study's home profile"
 anchor_dir "$units" "the system unit directory"
+anchor_dir "$studyUnits" "study's unit directory"
 anchor_dir "$focus" "the focus specialisation"
 anchor_dir "$focusProfile" "focus's home profile"
 anchor_dir "$focusUnits" "focus's unit directory"
@@ -204,7 +213,6 @@ daemons=(
   flatpak-system-helper.service
   ollama.service
   update-locatedb.service        # services.locate's plocate run
-  recoll-index-"$user".service   # the four-hourly seforim reindex
   udisks2.service
   upower.service
   accounts-daemon.service
@@ -233,12 +241,98 @@ absent "$focusUnits" "dhcpcd.service" "focus's units" \
   "networking.useDHCP defaults to TRUE — dropping NetworkManager falls back to dhcpcd rather than to nothing"
 
 echo
+echo "── study still runs the desktop it inherits ───────────────────────────"
+# The anchor for the section below, and it is doing two jobs. It proves we are
+# reading a real unit directory — without it, "NetworkManager is absent from
+# study" and "I mistyped the path" are the same result — and it proves study is
+# still the inheriting specialisation it claims to be. If Plasma and ollama were
+# to vanish from here, study has stopped being "this system with the radios off"
+# and every assertion below is answering a question about a different closure.
+for u in display-manager.service ollama.service cups.service update-locatedb.service; do
+  present "$studyUnits" "$u" "study's units" \
+    "study inherits the full base system; if this is gone, the absences below prove nothing"
+done
+
+echo
+echo "── the airgap: study's radios and daemons are off ─────────────────────"
+# README.md's claim for study is a *process* claim, and until now this script
+# only ever checked its packages. Each name below is a line in
+# modules/system/study-offline.nix; a force that stops working is invisible in
+# the source and visible right here.
+for u in \
+  NetworkManager.service \
+  wpa_supplicant.service \
+  ModemManager.service \
+  sshd.service \
+  bluetooth.service \
+  shaulos-data-bootstrap.service \
+  shaulos-data-bootstrap.timer; do
+  absent "$studyUnits" "$u" "study's units" \
+    "modules/system/study-offline.nix forces it off; README.md says the airgap does not run it"
+done
+
+# The assertion this whole section exists for, and the one that was missing.
+#
+# It is the same bug as the focus line above, reached from the other side, and
+# it shipped in the airgap for as long as the airgap has existed: force
+# NetworkManager off and nixpkgs' `networking.useDHCP` default of TRUE wins
+# again, so the "hard offline" closure generated an enabled dhcpcd.service and
+# solicited a lease on every wired interface. The firewall cannot catch it —
+# those four deny-all lists are an INBOUND claim, and dhcpcd's DISCOVER goes out
+# over a raw AF_PACKET socket that never touches the INPUT chain.
+absent "$studyUnits" "dhcpcd.service" "study's units" \
+  "networking.useDHCP defaults to TRUE — forcing NetworkManager off falls back to dhcpcd; study-offline.nix must say useDHCP = false out loud"
+
+echo
+echo "── the seforim stack and EMACS_MODULE_GROUPS agree ────────────────────"
+# The gate this repo did not have, and the reason it did not have one is worth
+# stating: every check above is either "is the package there" or "is the unit
+# there", and the failure this catches is neither. It is a package that is
+# there for code that is not.
+#
+# modules/home/emacs/default.nix sets EMACS_MODULE_GROUPS = "essentials", which
+# leaves 57% of the Emacs configuration — all 89 seforim-* functions and the
+# whole Hebrew layer — copied into the store, symlinked into ~/.config/emacs,
+# and never loaded. For one commit this machine answered "yes" to every recoll
+# question this script asked while being unable to run a single `seforim-'
+# command, and the script went green on all of it.
+#
+# So the two are asserted to agree, in the only direction the artifact can be
+# asked about: with `essentials` alone, nothing whose only caller is `extras/`
+# may be in any profile. Turn the groups back on and this section is what tells
+# you which blocks to uncomment — it will go red, by name, in every closure.
+# Bash 3-compatible parallel arrays rather than an associative one: the three
+# profile paths and the names to print for them. `basename` cannot do this job —
+# all three end in the same `per-user/$user/bin`.
+seforimProfiles=("$profile" "$studyProfile" "$focusProfile")
+seforimLabels=("the base home profile" "study's home profile" "focus's home profile")
+for i in "${!seforimProfiles[@]}"; do
+  for b in recoll recollindex xapian hdate; do
+    absent "${seforimProfiles[$i]}" "$b" "${seforimLabels[$i]}" \
+      "its only callers live in the emacs-config repo's extras/, and EMACS_MODULE_GROUPS says essentials"
+  done
+done
+# The paired present-test, so this cannot go green by looking in the wrong
+# place: poppler-utils is in the same lists and is NOT a seforim package —
+# essentials/11-pdf.org probes `pdfinfo` and Org export shells out to
+# `pdftotext`. If this is absent the absences above mean nothing.
+for i in 0 2; do
+  present "${seforimProfiles[$i]}" "pdftotext" "${seforimLabels[$i]}" \
+    "poppler-utils is essentials' PDF path, not seforim's — it anchors the absences above"
+done
+# And the four-hourly indexer, which is now off in every closure rather than in
+# focus alone. It fed an index nothing read: extras/15-seforim-dream.org keeps
+# its own recoll confdir under ~/.cache/emacs/seforim and queries that.
+absent "$units" "recoll-index-$user.service" "the base system's units" \
+  "modules/system/services.nix has it commented out; its index was never the one seforim search read"
+
+echo
 echo "── focus runs the one thing it is for ─────────────────────────────────"
 present "$focusUnits" "cage-tty1.service" "focus's units" \
   "services.cage is the whole session — without it focus boots to a bare tty"
-for b in emacs emacsclient rg fd yazi recoll pandoc git; do
+for b in emacs emacsclient rg fd yazi pandoc git; do
   present "$focusProfile" "$b" "focus's home profile" \
-    "focus is Emacs plus the search stack; see home/focus.nix"
+    "focus is Emacs plus text search and the document toolchain; see home/focus.nix"
 done
 
 echo

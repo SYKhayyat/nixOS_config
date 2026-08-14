@@ -1,14 +1,23 @@
 # modules/system/study-offline.nix
 #
-# Hard offline mode for exam/study sessions, and the only specialisation left.
-# It earns that status: every option below is state that genuinely cannot
-# coexist with the base system at runtime. The radios are off, the firewall
-# denies everything, and the sync daemons are stopped — you cannot express
-# "networking is off" as a session you pick at the greeter.
+# Hard offline mode for exam/study sessions. One of two specialisations, and
+# the older of them — ./focus.nix is the other, and the two are different
+# shapes on purpose: `study` is this system with the radios off, `focus` is a
+# smaller system. See that file's header for why it does not inherit.
+#
+# This one earns its status the way ./focus.nix's header states the test:
+# every option below is state that genuinely cannot coexist with the base
+# system at runtime. The radios are off, the firewall denies everything, and
+# the sync daemons are stopped — you cannot express "networking is off" as a
+# session you pick at the greeter.
 #
 # The specialisation inherits the full base system, so everything here is an
-# active switch-off rather than an omission. Local tools (Emacs, seforim
-# search, ollama) keep working — none of them need the network.
+# active switch-off rather than an omission. Local tools (Emacs, ollama) keep
+# working — neither needs the network.
+#
+# `seforim search` used to be named in that sentence. It is not any more:
+# modules/home/emacs/default.nix sets EMACS_MODULE_GROUPS = "essentials", so
+# the seforim commands are not loaded in any closure. See the header there.
 { lib, ... }:
 
 {
@@ -18,6 +27,33 @@
   # No networking at all.
   networking.networkmanager.enable = lib.mkForce false;
   networking.wireless.enable = lib.mkForce false;
+
+  # ── And the DHCP client the two lines above bring back ──────────────────
+  #
+  # This is the same bug ./focus.nix:126-142 documents at length, arriving
+  # here by the other route, and it shipped in this file for as long as the
+  # airgap has existed.
+  #
+  # `networking.useDHCP` defaults to **true**, and it is not NetworkManager
+  # that implements it. nixpkgs' network-manager module sets it false inside
+  # `mkIf cfg.enable` — so the base system is not offering a lease because
+  # NetworkManager is on, and the moment the force above turns NetworkManager
+  # off that definition goes with it and the nixpkgs default of true wins. The
+  # closure evaluates, builds and boots with an enabled `dhcpcd.service`
+  # soliciting a lease on every interface.
+  #
+  # The firewall below does not cover it and cannot: those four lists are an
+  # *inbound* claim, and dhcpcd's initial DISCOVER goes out over a raw
+  # AF_PACKET socket that never traverses the INPUT chain. The radios really
+  # are off, so this only ever bit on a wired link — which is precisely why a
+  # laptop used on wifi would never show it.
+  #
+  # ./focus.nix's line is the general rule; this is its second call site.
+  # `mkForce` rather than a plain assignment for the reason the section at the
+  # bottom of this file gives: in an inheriting specialisation every
+  # subtraction is spelled as a force, and this one must beat whatever the
+  # parent's networking modules decide.
+  networking.useDHCP = lib.mkForce false;
 
   # Deny everything at the firewall as a backstop — all four lists, not the two
   # obvious ones.

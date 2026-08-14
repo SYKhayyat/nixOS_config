@@ -60,7 +60,7 @@ modules/
     lock.nix                  # hyprlock + hypridle, both compositors
     palette.nix               # the stylix scheme, rendered per config-file syntax
     keys.nix                  # the shared keymap + autostart, rendered per compositor
-    emacs/default.nix         # packages + daemon only — the config is a flake input
+    emacs/default.nix         # packages, daemon, and which module groups load
     niri/  hyprland/          # just the compositor config files
     waybar.nix  yazi.nix  scripts.nix  p10k.nix
     foot.nix  konsole.nix   # the two terminals: compositor sessions, and Plasma
@@ -71,8 +71,18 @@ The Emacs *configuration* is not in this repo. It lives at
 [SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config) and comes in
 as a pinned flake input — it is ~3× the size of this whole Nix config, runs on
 Windows and macOS as well, and has its own CI. `modules/home/emacs/default.nix`
-keeps only what this *machine* provides: the package set, `services.emacs`, and
-`recoll.conf`.
+keeps only what this *machine* provides, and that is four things, not two:
+
+* the package set Emacs shells out to, and `services.emacs`;
+* the scaffolding of directories the config expects to exist;
+* a generated `99-local-fonts.el`, which is how this display's `uiSize` reaches
+  a config that runs on three operating systems and cannot know it;
+* **which module groups load** — see [Emacs: only `essentials`
+  loads](#emacs-only-essentials-loads) below, because that one is a decision
+  with consequences all over this repo rather than a line of wiring.
+
+That list used to read "packages + daemon only", which was true when it was
+written and had quietly stopped being true twice over.
 
 ## Sessions
 
@@ -104,7 +114,7 @@ session. `modules/system/wayland.nix` now pins those units with
 | Name    | What it changes                                             |
 |---------|-------------------------------------------------------------|
 | `study` | NetworkManager, wireless, Bluetooth, sshd and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
-| `focus` | No Plasma, no SDDM, no X, no compositor, no PipeWire, no printing, no Flatpak, no Bluetooth, no network stack at all, no Baloo, no ollama, no plocate or recoll timer. `cage` on tty1 running one Emacs frame |
+| `focus` | No Plasma, no SDDM, no X, no compositor, no PipeWire, no printing, no Flatpak, no Bluetooth, no network stack at all, no Baloo, no ollama, no plocate timer. `cage` on tty1 running one Emacs frame |
 
 Pick either in the systemd-boot menu. They are specialisations and the sessions
 are not, and the line between them is whether the difference can coexist with
@@ -280,8 +290,21 @@ now generates a `99-local-fonts.el` into the module tree that sets both from
 three quarters. And waybar's `font-size: 12px` carried a comment calling it a
 deliberate exception for Nerd Font glyphs — but 9pt *is* 12px at 96 DPI, so it
 was the derived value in the other unit, pinned by hand and labelled a decision.
-The one real exception left is Plasma's toolbar font, one point below
-`stylix.fonts.sizes.applications`, which is Plasma's own convention.
+Two real exceptions are left, and both are deliberate. Plasma's toolbar font sits
+one point below `stylix.fonts.sizes.applications`, which is Plasma's own
+convention. And `modules/home/lock.nix` sets the hyprlock clock to
+`font_size = 64`, derived from nothing — that one has the paragraph beside it in
+the file, and the short version is that a glyph you read at a glance from across
+a room is answering a different question from text you read a line at a time at
+a desk. Tying them to one variable would mean fixing a cramped panel also
+resizes the lock screen.
+
+A third surface was wrong for a subtler reason and is now fixed: waybar derived
+its size with `* 4 / 3`, and Nix `/` on two integers is **integer division**, so
+`10.667` truncated to `10` and the bar sat ~6% under everything it was supposed
+to match. It is `* 4.0 / 3` now. The tell that it is right: stylix independently
+emits `* { font-size: 8pt; }` into the same stylesheet, and 8pt at 96 DPI *is*
+10.667px — two derivations that never consult each other agreeing to the digit.
 
 A fourth surface turned up after those three were fixed, and it was not a bad
 literal — it was no statement at all. `grep -rni konsole` over this repo returned
@@ -396,7 +419,8 @@ just lock            # lock a newly added input, and nothing else
 just emacs-dev PATH  # rebuild against a local emacs-config checkout
 just bootstrap-data  # fetch ~/Documents from Google Drive + GitHub (idempotent)
 just fmt             # nix fmt (nixfmt)
-just eval            # force the whole module system, build nothing (the fast gate)
+just lint            # statix + deadnix, and nothing else (CI's `lint` job, ~2m)
+just eval            # all three of CI's eval steps, build nothing (the fast gate)
 just check           # everything CI checks: statix, deadnix, Emacs, the closure
 just closure         # build the closure and assert what it claims about itself
 just gc              # nix-collect-garbage --delete-older-than 14d
@@ -406,6 +430,19 @@ just bundle          # dump all *.nix into combined.txt (e.g. to paste)
 Shell aliases (from `home/common.nix`): `nrs` (switch), `nrt` (test),
 `nfu` (flake update) — these use `myConfig.flakePath` so they work regardless of
 the current directory.
+
+`nrs` and `nrt` also carry `--no-update-lock-file`, and for a while they did
+not, which made them the one hole in the rule the `justfile` states in bold at
+the top. Measured, with `sops-nix` dropped from `flake.lock` — the state this
+repo genuinely shipped in once, six inputs declared and four pinned:
+
+| Route | Exit | `flake.lock` |
+|---|---|---|
+| `just switch` | **1** — `requires lock file changes but they're not allowed` | untouched |
+| `nrs`, before the flag | **0** — emitted a system drv | **silently rewritten** |
+
+`nfu` is deliberately without the flag: rewriting the lock is that alias's whole
+job, the same exemption `just lock` has.
 
 `nix develop` provides a dev shell with `nixfmt`, `statix`, `deadnix`,
 `nil`, `just`, `nh`, plus `sops`/`age`/`ssh-to-age` for the secrets walkthrough
@@ -420,9 +457,27 @@ commands you can run by hand:
 | Gate | ~ | What it proves | By hand |
 |---|---|---|---|
 | `lock` | 1m | `flake.lock` accounts for every input in `flake.nix` | `nix flake metadata --no-update-lock-file` |
-| `lint` | 2m | statix and deadnix are clean | `just check` |
+| `lint` | 2m | statix and deadnix are clean | `just lint` |
 | `eval` | 5m | the whole module system evaluates, and `study` and `focus` are the only specialisations | `just eval` |
 | `build` | 40m | the closure builds, and is the machine this README describes | `just closure` |
+
+Two of those rows used to be wrong, and both were wrong in the same direction —
+they claimed a local command was equivalent to a CI job when it was not:
+
+* `lint` offered **`just check`**, which is `nix flake check` — *all four*
+  checks including the 40-minute closure build. A two-minute gate documented as
+  a forty-minute one is a gate you stop running. `just lint` now exists and is
+  exactly the two `nix build` invocations CI's `lint` job runs.
+* `eval` offered **`just eval`**, which ran only the first of that job's three
+  steps. Proven by construction rather than argued: deleting the entire
+  `specialisation.focus` block from `hosts/desktop/configuration.nix` left
+  `just eval` **green** — it printed a drvPath and noticed nothing — while CI
+  went red. The config could silently lose a whole specialisation and the
+  documented local gate passed. `just eval` now runs all three steps.
+
+The fix was to make the commands true rather than to soften the claim, which is
+the same move the rest of this file argues for: a document that describes a
+weaker check is a document you have to remember to distrust.
 
 `lint`, `eval` and `build` all `needs: lock`, so an unlocked input is **one**
 red job and three skipped ones rather than four identical failures with the
@@ -464,7 +519,18 @@ whether the claims in this README are true of it:
 - `study` has no browser and no downloader in the home profile at all;
 - `study` still has the search tools, the file managers, the editors, the
   document toolchain, the compilers and a local media player — one binary per
-  clause of the sentence three sections up.
+  clause of the sentence three sections up;
+- **`study`'s daemons are actually off** — NetworkManager, wpa_supplicant,
+  ModemManager, sshd, Bluetooth and both data-bootstrap units absent, anchored
+  against a present-test for the desktop it still inherits. `study`'s whole
+  claim is a *process* claim and for a long time this script checked only its
+  packages;
+- **no `dhcpcd.service`, in `study` or `focus`.** Both closures can generate one
+  the same way — `networking.useDHCP` defaults to *true* and is implemented by
+  the base networking module, not by NetworkManager — and for a long time only
+  `focus` was asserted. The airgap took a lease on every wired link;
+- **the seforim stack and `EMACS_MODULE_GROUPS` agree** — with `essentials`
+  alone, nothing whose only caller lives in `extras/` may be in any profile.
 
 Every "is X absent" test is paired with an "is Y present" test in the same
 directory, and a missing directory is a hard failure rather than a pass. An
@@ -472,11 +538,57 @@ absence test that cannot tell *absent* from *I was looking in the wrong place*
 goes green forever and tells you nothing, which is the failure mode this entire
 pass exists to kill.
 
+The last two bullets are the presence-test mirror of that, and they were added
+because the script had been going green on both. It asserted `recoll` was in
+`focus`'s profile — it was — while the Emacs in that closure could not run a
+single `seforim-` command. A binary being installed says nothing about anything
+being able to reach it.
+
 ## Secrets (sops-nix)
 
 Encrypted secrets live in `secrets/secrets.yaml` and are safe to commit **once
 encrypted** — sops keeps values encrypted with keys in plaintext. The module
 `modules/system/secrets.nix` stays inert until `secrets.yaml` exists.
+
+### It is inert right now, on purpose, and that needs defending
+
+Stated plainly, because the current state is easy to mistake for an oversight:
+
+* `.sops.yaml` still contains the literal placeholder
+  `age1REPLACE_WITH_YOUR_HOST_AGE_PUBLIC_KEY`;
+* `secrets/secrets.yaml` does not exist;
+* every `sops.secrets."…"` block in `modules/system/secrets.nix` is commented
+  out.
+
+So the input, the module, this section and the `secrets/README.md` walkthrough
+are all live, and **nothing uses them**. The branch is even named `sops`.
+
+That is a real tension with this repo's own rules, and it deserves naming rather
+than hoping nobody checks. `flake.nix:8-17` deletes `nixpkgs-unstable` with the
+argument that it is *"a second fetch, a second lock entry and a second full
+evaluation on every rebuild, bought for zero call sites"*, and
+`modules/system/data.nix` deletes `services.onedrive` for being *"a knob with no
+call sites and no history of changing… not a requirement, a hedge."* sops-nix is
+a fetch, a lock entry and a NixOS module import whose only call sites are
+comments. By the letter of both rules it should go.
+
+**It stays, and the chiluk is the cost of getting it back.** `nixpkgs-unstable`
+and `onedrive` were each one line to re-add on the day they were wanted. sops-nix
+is not: the walkthrough below is host-key derivation, a re-key, and a
+`.sops.yaml` edit that you do *on the machine*, and the moment you want it is
+the moment you are holding a credential and least want to be reading setup
+docs. The thing being paid for is not the module — it is the walkthrough being
+correct and in the tree when it is needed.
+
+What it costs today, measured rather than waved at: one flake input, one lock
+entry, one module import that evaluates to nothing. No unit, no package, no
+activation step.
+
+**What would change the verdict.** If the `rclone.conf` route below is still
+unexercised the next time this repo is audited, that is no longer a hedge with a
+justification — it is a walkthrough nobody has ever run, which is a different
+and worse thing, because an untested walkthrough fails exactly when you are
+depending on it. Either run it or drop the input.
 
 One-time setup on the machine (full walkthrough in `secrets/README.md`):
 
@@ -512,9 +624,17 @@ fetches them once:
 A timer runs it two minutes after boot — deliberately *not* on the boot path,
 so nothing waits on the network for a job that is usually already done. It
 skips anything already present, and it decides that by looking for **files**,
-not for the directory: `modules/home/emacs/default.nix` creates
+not for the directory: `modules/home/emacs/default.nix` used to create
 `~/Documents/seforim/Bavli` during home-manager activation, so a directory test
-was always true and the seforim library never downloaded.
+was always true and the seforim library never downloaded. Both halves of that
+are closed now — the predicate asks about files, *and* the `mkdir` that made the
+lie possible is commented out with the rest of the seforim scaffolding (see
+[Emacs: only `essentials` loads](#emacs-only-essentials-loads)). Belt and
+braces, rather than one fix and one landmine.
+
+The seforim library itself still downloads, and that is a deliberate line: it is
+*data*, not machinery for code that no longer loads, and the texts are readable
+without Emacs.
 
 Run it by hand any time with `just bootstrap-data`.
 
@@ -553,5 +673,73 @@ drifts. Bump it with `just update-emacs`.
 > writable `~/.config/emacs/modules` to `modules.pre-flake-input` rather than
 > clobber it. Diff that against the repo before deleting it — under the old
 > scheme a hand-edit in there could silently have become your live config.
+
+### Emacs: only `essentials` loads
+
+The `emacs-config` repo ships two module groups. `essentials/` is a general
+Emacs configuration that knows nothing about Hebrew or seforim; `extras/` is the
+personal half that layers on top of it. Its `init.el` defaults to **both** and
+reads `EMACS_MODULE_GROUPS` to be told otherwise.
+
+This machine says `essentials`, in `modules/home/emacs/default.nix`, in both
+places that matter — `home.sessionVariables` for anything launched from a shell,
+and `systemd.user.sessionVariables` for `emacs.service`, which is what `$EDITOR`
+resolves to. Setting only the first would leave every `emacsclient` frame
+loading a different config from a standalone `emacs`.
+
+**What that costs, because it is not small:**
+
+| group | modules | lines | loaded |
+|---|---|---|---|
+| `essentials` | 25 | 2,379 | yes |
+| `extras` | 15 | **3,165** | **no** |
+
+`extras/` is 57% of the configuration: all 89 `seforim-*` functions, 31 of them
+interactive commands, and the entire Hebrew and RTL layer. It is still copied
+into the Nix store and symlinked into `~/.config/emacs/modules`. It is simply
+not loaded.
+
+**And everything that existed to serve it is switched off with it.** That is the
+rule, and it is deliberately stronger than "leave a comment":
+
+> Machinery that exists to serve code which does not load gets switched off in
+> the same commit — commented out with the reason beside it, not annotated and
+> left running.
+
+| Where | What is commented out |
+|---|---|
+| `modules/system/services.nix` | the four-hourly `recollindex` service + timer |
+| `modules/home/emacs/default.nix` | `~/.recoll/recoll.conf`, `hdate`, the `~/.cache/emacs/seforim` and `~/Documents/seforim/Bavli` scaffolding |
+| `modules/home/toolkit.nix` | `recoll`, `xapian` |
+| `home/focus.nix` | `recoll`, `xapian` |
+
+`poppler-utils` stays — `essentials/11-pdf.org` probes `pdfinfo` and Org export
+shells out to `pdftotext`, so it is not a seforim package; it was merely listed
+beside one. **The seforim library still downloads**, because that is data rather
+than machinery and the texts are readable without Emacs.
+
+`tools/check-closure.sh` asserts the agreement, so this cannot drift again: with
+`essentials` alone, nothing whose only caller is `extras/` may be in any
+profile, anchored by a present-test on `pdftotext`.
+
+**To turn it back on:** set `EMACS_MODULE_GROUPS = "essentials extras"` (or drop
+the line and take `init.el`'s default), then uncomment the blocks in the table
+above — the closure check will name every one of them for you. For a single
+session instead, leave the config alone:
+
+```sh
+EMACS_MODULE_GROUPS="essentials extras" emacs
+systemctl --user set-environment EMACS_MODULE_GROUPS="essentials extras"
+systemctl --user restart emacs.service
+```
+
+> **One thing worth knowing before you re-enable the indexer.** The four-hourly
+> `recollindex` was never the index the seforim search read, in any
+> configuration. `extras/15-seforim-dream.org` keeps a *private* recoll config
+> directory at `~/.cache/emacs/seforim/recoll` and queries that, explicitly so
+> it "never touches a system-wide recoll setup". The timer ran `recollindex`
+> with no `-c`, building a second index over the same corpus that nothing has
+> ever opened. `M-x seforim-recoll-index` is what maintains the real one — so
+> turning `extras` back on is not a reason to uncomment that timer.
 
 See `CHANGES.md` for the last overhaul and its post-install checklist.

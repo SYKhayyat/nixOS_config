@@ -147,15 +147,49 @@ in
       [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.zsh
 
+      # `-not -path '*/.*'`, and the four characters matter. `find -path`
+      # matches the WHOLE path, which always begins `/home/…`, so the glob
+      # `.*` written without the `*/` prefix can never match anything and the
+      # filter silently did nothing. Measured against a fixture:
+      #
+      #   as written  (-not -path '.*')    Scripts .hidden .git .git/hooks normal
+      #   as intended (-not -path '*/.*')  Scripts normal
+      #
+      # So every hidden directory under ~/Scripts was on $PATH, and the one
+      # that matters is `~/Scripts/.git/hooks` — a git checkout there puts
+      # `update`, `pre-commit`, `post-checkout` and `prepare-commit-msg` on the
+      # path of every shell, and `update` is a real command on several distros.
+      #
+      # Worth naming the shape, not just the bug: this is the same class as
+      # modules/home/waybar.nix's integer division. `nix flake check` cannot
+      # evaluate a glob's runtime behaviour, and neither statix nor deadnix
+      # looks inside a shell string — so a value that is silently wrong here is
+      # invisible to every gate this repo has.
       if [ -d "$HOME/Scripts" ]; then
-        export PATH="$PATH$(find "$HOME/Scripts" -maxdepth 2 -type d -not -path '.*' -printf ":%p")"
+        export PATH="$PATH$(find "$HOME/Scripts" -maxdepth 2 -type d -not -path '*/.*' -printf ":%p")"
       fi
     '';
   };
 
+  # ── These carry `--no-update-lock-file` for the reason the justfile does ──
+  #
+  # The justfile states the rule in bold at the top — "Nothing in this file may
+  # change flake.lock except `just lock`" — and every recipe in it honours it.
+  # These two did not, and README.md presents them as the ergonomic equivalent
+  # of `just switch` / `just test`, so the rule had a hole in exactly the path
+  # you actually type.
+  #
+  # Proven by construction rather than argued: with `sops-nix` dropped from
+  # flake.lock — the state this repo genuinely shipped in once, six inputs
+  # declared and four pinned — `just switch` exits 1 with "requires lock file
+  # changes but they're not allowed" and leaves the file alone, while `nrs`
+  # exited 0, emitted a system drv, and silently rewrote flake.lock.
+  #
+  # `nfu` is deliberately without it: updating the lock is that alias's entire
+  # job, which is the same reason `just lock` is the one recipe exempted.
   home.shellAliases = {
-    nrs = "sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname}";
-    nrt = "sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname}";
+    nrs = "sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
+    nrt = "sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
     nfu = "nix flake update --flake ${myConfig.flakePath}";
     ll = "ls -la";
     la = "ls -A";
