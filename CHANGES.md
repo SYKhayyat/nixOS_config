@@ -339,6 +339,36 @@ Recorded at this length because the general point outlives the instance: a
 true the moment either end moves. The evidence gets re-derived at bump time or
 it is not evidence.
 
+### What was actually run, and one more bug it found
+
+Every gate in `.github/workflows/check.yml` was run against this tree before it
+shipped — `lock`, `lint` and all three steps of `eval` — plus the closure build
+and `tools/check-closure.sh` against the artifact. The lock pins all six inputs,
+`statix` and `deadnix` exit 0, and both specialisations evaluate by name.
+
+`tools/check-closure.sh` also got the treatment it exists to give everything
+else. A fixture builds a fake closure with the exact layout the script asserts,
+runs it, then mutates that closure one regression at a time — a live
+`dhcpcd.service` in each specialisation, `recoll` back in each of the three
+profiles, `firefox` as a system package, a live `sshd.service` in the airgap, an
+unmasked `shaulos-data-bootstrap.timer`, a deleted anchor — and requires the
+script to go **red** for each. Seventeen mutations, seventeen correct verdicts,
+including the two that are pass-not-fail: a unit masked as a `/dev/null`
+symlink, and a unit absent outright.
+
+That is the point of the exercise rather than a flourish. A closure check is all
+absence assertions, and an absence assertion that has never been *seen* to fail
+is indistinguishable from one that cannot. The suite found one: the paired
+present-test for `pdftotext` ran against the base and `focus` profiles and
+skipped `study`'s, so every seforim absence asserted about the airgap had no
+anchor under it and would have stayed green against a mistyped path.
+`poppler-utils` is in `modules/home/toolkit.nix`'s `always` list, not in
+`offInStudy`, so the airgap keeps it and the anchor belongs there too. Fixed.
+
+The fixture itself is deliberately not committed: it hard-codes the layout it is
+testing, so a copy in-tree would be a second source of truth about the closure
+shape that nothing keeps in sync with the first.
+
 ### Still yours
 
 - **GitHub's default branch is `master`**, five months and 54 commits stale.

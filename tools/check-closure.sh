@@ -363,7 +363,10 @@ done
 # place: poppler-utils is in the same lists and is NOT a seforim package —
 # essentials/11-pdf.org probes `pdfinfo` and Org export shells out to
 # `pdftotext`. If this is absent the absences above mean nothing.
-for i in 0 2; do
+#
+# All three profiles, including study's: modules/home/toolkit.nix lists
+# `poppler-utils` in `always`, not in `offInStudy`, so the airgap keeps it.
+for i in "${!seforimProfiles[@]}"; do
   present "${seforimProfiles[$i]}" "pdftotext" "${seforimLabels[$i]}" \
     "poppler-utils is essentials' PDF path, not seforim's — it anchors the absences above"
 done

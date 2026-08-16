@@ -544,6 +544,21 @@ because the script had been going green on both. It asserted `recoll` was in
 single `seforim-` command. A binary being installed says nothing about anything
 being able to reach it.
 
+**A disabled unit is not an absent one.** `systemd.services.<n>.enable = false`
+does not omit the unit: nixpkgs' `makeUnit` emits `ln -s /dev/null` instead,
+which is systemd's masking convention, and `[ -e ]` follows that symlink and
+reports the unit as present. So the script tests *not running* rather than
+*absent*, and accepts either form — genuinely absent, because the generating
+module went inert, or masked by name. Both are live in this repo and they are
+not interchangeable: `study`'s radios are absent, its two `shaulos-data-bootstrap`
+units are masked.
+
+The script has itself been mutation-tested — a fixture closure, seventeen
+one-at-a-time regressions, each required to turn it red. That is not ceremony:
+a check made entirely of absence assertions is worth exactly as much as the
+number of times it has been seen to fail. It found one gap that way, and
+CHANGES.md entry (s) records which.
+
 ## Secrets (sops-nix)
 
 Encrypted secrets live in `secrets/secrets.yaml` and are safe to commit **once
