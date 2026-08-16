@@ -339,35 +339,114 @@ Recorded at this length because the general point outlives the instance: a
 true the moment either end moves. The evidence gets re-derived at bump time or
 it is not evidence.
 
-### What was actually run, and one more bug it found
+### What was actually run, and the two bugs it found — both in the checker
 
 Every gate in `.github/workflows/check.yml` was run against this tree before it
-shipped — `lock`, `lint` and all three steps of `eval` — plus the closure build
-and `tools/check-closure.sh` against the artifact. The lock pins all six inputs,
-`statix` and `deadnix` exit 0, and both specialisations evaluate by name.
+shipped — `lock`, `lint`, all three steps of `eval`, the closure build, and
+`tools/check-closure.sh` against the built artifact. The lock pins all six
+inputs, `statix` and `deadnix` exit 0, both specialisations evaluate by name,
+and the closure check ends `closure check passed` on 86 assertions.
 
-`tools/check-closure.sh` also got the treatment it exists to give everything
-else. A fixture builds a fake closure with the exact layout the script asserts,
-runs it, then mutates that closure one regression at a time — a live
-`dhcpcd.service` in each specialisation, `recoll` back in each of the three
-profiles, `firefox` as a system package, a live `sshd.service` in the airgap, an
-unmasked `shaulos-data-bootstrap.timer`, a deleted anchor — and requires the
-script to go **red** for each. Seventeen mutations, seventeen correct verdicts,
-including the two that are pass-not-fail: a unit masked as a `/dev/null`
-symlink, and a unit absent outright.
+It did not end that way the first time, and the story is the useful part.
 
-That is the point of the exercise rather than a flourish. A closure check is all
-absence assertions, and an absence assertion that has never been *seen* to fail
-is indistinguishable from one that cannot. The suite found one: the paired
-present-test for `pdftotext` ran against the base and `focus` profiles and
-skipped `study`'s, so every seforim absence asserted about the airgap had no
-anchor under it and would have stayed green against a mistyped path.
-`poppler-utils` is in `modules/home/toolkit.nix`'s `always` list, not in
-`offInStudy`, so the airgap keeps it and the anchor belongs there too. Fixed.
+`tools/check-closure.sh` first got the treatment it exists to give everything
+else: a fixture builds a fake closure with the layout the script asserts, then
+mutates it one regression at a time — a live `dhcpcd.service` in each
+specialisation, `recoll` back in each of the three profiles, `firefox` as a
+system package, a live `sshd.service` in the airgap, an unmasked
+`shaulos-data-bootstrap.timer`, a deleted anchor — and requires the script to go
+**red** for each. That is not a flourish. A closure check is made almost
+entirely of absence assertions, and an absence assertion that has never been
+*seen* to fail is indistinguishable from one that cannot.
+
+**Bug one, found by the fixture.** The paired present-test for `pdftotext` ran
+against the base and `focus` profiles and skipped `study`'s, so every seforim
+absence asserted about the airgap had no anchor beneath it and would have stayed
+green against a mistyped path. `poppler-utils` is in
+`modules/home/toolkit.nix`'s `always` list rather than in `offInStudy`, so the
+airgap keeps it and the anchor belongs there. Fixed.
+
+**Bug two, which the fixture could not find, because the fixture had it too.**
+The suite went 17/17 green. The real closure then reported both
+`shaulos-data-bootstrap` units as **live in the airgap** — the one claim in this
+whole entry that would have meant the machine phones home.
+
+It does not. `makeUnit` (`nixos/lib/systemd-lib.nix:76`) does not emit
+`ln -s /dev/null` where the unit sits. It builds a store path named
+`unit-<name>-disabled` and puts the `/dev/null` symlink *inside* it, so the
+closure holds two hops:
+
+    /etc/systemd/system/<name>
+      -> /nix/store/…-unit-<name>-disabled/<name>
+           -> /dev/null
+
+The helper compared `readlink "$path"` against `/dev/null`. Plain `readlink`
+prints only the first hop — the `-disabled` store path — so the comparison never
+matched and a correctly masked unit was reported as running. `readlink -f`
+resolves the chain to its end and both forms now pass, with a zero-length unit
+accepted as inert for good measure.
+
+The fixture missed it because the fixture wrote `ln -s /dev/null` directly:
+**it encoded the same wrong belief the checker did, so it confirmed the belief
+instead of testing it.** That is the failure mode this repo keeps rediscovering
+in new clothes — a check that agrees with its author rather than with the
+machine — and the only thing that caught it was building the closure and asking
+the artifact. Which is precisely the argument for having a `build` gate at all,
+demonstrated at this repo's own expense. The fixture now models the two-hop form
+taken from the artifact, and carries mutations for both masking shapes and for a
+`-disabled` path that has been quietly refilled with a real unit: 19/19.
 
 The fixture itself is deliberately not committed: it hard-codes the layout it is
 testing, so a copy in-tree would be a second source of truth about the closure
-shape that nothing keeps in sync with the first.
+shape that nothing keeps in sync with the first. Its value was never the file —
+it was being forced to write down what "off" looks like, and then discovering
+that what got written down was wrong.
+
+### The two packages your machine compiles, and the one it must keep
+
+Building the closure surfaced something no source reading would have: a rebuild
+was 19 minutes in, still compiling `graphite`, with nothing else left to do. So
+every package in the creative suite was asked the only question that matters for
+build time — *does `cache.nixos.org` have a substitute?* — by fetching each
+derivation's `.narinfo` against the pinned nixpkgs (`445d861c`).
+
+The answer is not the one "big packages are slow" predicts. `krita`, `digikam`,
+`darktable`, `rawtherapee`, `scribus`, `calligra`, `gimp-with-plugins`,
+`tor-browser` (336 MB), `vlc`, `audacity` — all substituted. They cost a
+download and nothing else. Exactly two are not:
+
+| | | |
+|---|---|---|
+| `graphite` | 404 | Rust, an `0-unstable-2026-05-02` snapshot — Hydra does not build unstable snapshots, so this compiles locally forever |
+| `inkscape-with-extensions` | 404 | C++; plain `inkscape` was checked too and is also 404, so dropping the wrapper buys nothing |
+
+Both are commented out in `modules/home/toolkit.nix`, with the measurement and
+the restore note beside them. `inkscape` is the one real loss — for vector work
+nothing else in the list replaces it; `graphite` is an alpha-stage editor that
+does the same job less completely.
+
+**`texlive.combined.scheme-full` stays**, and that is the interesting half. It
+is the largest single thing in the closure and it is *never* substituted —
+`texlive.combined.*` is a union derivation, so scheme-full, scheme-medium and
+scheme-small all 404 alike and all build locally. Removing it would have been
+the obvious economy and it would have been a new instance of this entry's own
+headline bug, pointing the other way:
+
+- `essentials/07-latex.org` — a full AUCTeX setup
+- `essentials/05-org.org:108` — `(setq org-latex-compiler "lualatex")`
+- `essentials/05-org.org:111` — `org-latex-pdf-process` shells out to `latexmk`
+
+All of that **loads** under `EMACS_MODULE_GROUPS = "essentials"`. Dropping TeX
+leaves live code calling a binary that is not installed, failing at export time
+with nothing in the config admitting it. Provisioning without code and code
+without provisioning are the same defect; this entry opened by fixing the first
+and would have closed by shipping the second.
+
+`scheme-medium` is the real economy and is deliberately **not** taken here,
+because it is unverified: it would have to be *shown* to carry `latexmk`,
+`lualatex` and `fontspec` — `05-org` keeps `org-latex-packages-alist` to
+fontspec alone — before the swap is anything better than a guess. Noted in the
+file as the next move rather than guessed at.
 
 ### Still yours
 

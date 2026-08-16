@@ -243,7 +243,47 @@ let
     gimpPlugins.resynthesizer
     krita
     krita-plugin-gmic
-    inkscape-with-extensions
+
+    # ── The two that are not downloads ────────────────────────────────────
+    #
+    # Everything else in this section is in cache.nixos.org, so it costs a
+    # download and nothing else. These two are not, and "not cached" means
+    # *your machine compiles them*, from source, every time the nixpkgs pin
+    # moves. Measured against the pinned nixpkgs (445d861c) by asking
+    # cache.nixos.org for each derivation's .narinfo:
+    #
+    #   graphite                    404 — no substitute, Rust, builds locally
+    #   inkscape / -with-extensions 404 — no substitute, C++, builds locally
+    #
+    # `graphite` was caught doing exactly this: 19 minutes into a closure
+    # build, still compiling, with nothing else left to do. It is an
+    # `0-unstable-2026-05-02` snapshot of a browser-based vector editor, which
+    # is also why it has no substitute — unstable snapshots are not built by
+    # Hydra.
+    #
+    # `inkscape-with-extensions` is the same story and the plain `inkscape`
+    # attribute is no better; both were checked, both 404. So this is not a
+    # case where dropping the wrapper buys anything.
+    #
+    # Commented rather than deleted, per the rule this repo already follows
+    # for the Emacs `extras` machinery: uncomment either line and it comes
+    # back, at the price named above.
+    #
+    #   inkscape                    krita, pinta, photoflare and gimp all
+    #                               overlap it for raster work; for vector,
+    #                               it is the one real loss here.
+    #   graphite                    an alpha-stage editor that duplicates
+    #                               inkscape's job less completely.
+    #
+    # NOT applied to texlive.combined.scheme-full in ../emacs/default.nix,
+    # which is the largest single thing in the closure and also never
+    # substituted. That one is load-bearing: essentials/07-latex.org is a
+    # whole AUCTeX module and essentials/05-org.org sets `org-latex-compiler'
+    # to lualatex with an `org-latex-pdf-process' that shells out to
+    # `latexmk'. Both are LOADED under EMACS_MODULE_GROUPS = "essentials", so
+    # removing TeX would leave live code calling a binary that is not there —
+    # the same defect as the seforim one, pointing the other way.
+    # inkscape-with-extensions
     pinta
     photoflare
     ansel
@@ -254,7 +294,8 @@ let
     rapidraw
     art
     aaphoto
-    graphite
+    # See "The two that are not downloads" above — uncached, compiles locally.
+    # graphite
     graphicsmagick_q16
     upscayl
     vlc

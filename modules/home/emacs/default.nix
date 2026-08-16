@@ -148,6 +148,34 @@ in
     emacs
   ]
   ++ (with pkgs; [
+    # The largest single thing in this closure, and it is never substituted:
+    # `texlive.combined.*` is a union derivation, so cache.nixos.org 404s on
+    # scheme-full, scheme-medium and scheme-small alike — all three are built
+    # on this machine. Switching schemes therefore does not buy you a
+    # download; it only changes how much gets unioned.
+    #
+    # It stays anyway, and the reason is the whole argument of the
+    # EMACS_MODULE_GROUPS section below, pointed the other way. TeX is not
+    # `extras` machinery:
+    #
+    #   essentials/07-latex.org   a full AUCTeX setup — lualatex, SyncTeX both
+    #                             ways, RefTeX, math mode
+    #   essentials/05-org.org:108 (setq org-latex-compiler "lualatex")
+    #   essentials/05-org.org:111 org-latex-pdf-process shells out to
+    #                             `latexmk -pdflatex='lualatex …' -pdf -bibtex'
+    #
+    # All of that LOADS under `essentials`. Drop TeX and you get live code
+    # calling a binary that is not installed, failing at export time with
+    # nothing in the config admitting it — which is precisely the shape of
+    # defect this pass was cleaning up, arrived at from the opposite
+    # direction. Provisioning without code and code without provisioning are
+    # the same bug.
+    #
+    # `scheme-medium` is the obvious economy and is NOT taken here, because
+    # it is unverified: it would have to be shown to carry latexmk, lualatex
+    # and fontspec (05-org keeps `org-latex-packages-alist' to fontspec alone)
+    # before the swap is anything better than a guess. Worth doing; not worth
+    # guessing.
     texlive.combined.scheme-full
     typst
     tinymist

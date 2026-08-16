@@ -112,13 +112,23 @@ absent() {
 # ── Absent and masked are different, and `absent` above cannot tell them apart ─
 #
 # `systemd.services.<n>.enable = false` does NOT omit the unit. nixpkgs'
-# `makeUnit` (nixos/lib/systemd-lib.nix) takes the other branch and emits
+# `makeUnit` (nixos/lib/systemd-lib.nix:76) takes the `else` branch and builds a
+# store path named `unit-<name>-disabled`, and systemd's masking convention
+# lives INSIDE it. The result in the closure is two hops, not one:
 #
-#     ln -s /dev/null "$out/<name>.service"
+#     /etc/systemd/system/<name>
+#       -> /nix/store/…-unit-<name>-disabled/<name>
+#            -> /dev/null
 #
-# which is systemd's masking convention. `[ -e ]` follows the symlink, finds
-# /dev/null, and reports the unit as present — so `absent` would go red on a
-# unit that is correctly switched off.
+# `[ -e ]` resolves that whole chain, finds /dev/null and reports the unit as
+# present — so `absent` would go red on a unit that is correctly switched off.
+#
+# The two hops are the entire subtlety, and getting it wrong is not theoretical:
+# this helper first shipped comparing `readlink "$path"` to "/dev/null". Plain
+# `readlink` prints only the FIRST hop — the `-disabled` store path — so the
+# comparison never matched and the airgap's two data-bootstrap units were
+# reported as live. Hence `readlink -f` below, which resolves the chain to its
+# end. Anything that ends at /dev/null is masked, however many links it took.
 #
 # Both forms are live in this repo and they are not interchangeable:
 #
@@ -136,12 +146,22 @@ absent() {
 # asked to tell them apart.
 not_running() {
   local path="$1/$2"
+  local resolved
   if [ ! -e "$path" ] && [ ! -L "$path" ]; then
     ok "$2 is not in $3 (absent — nothing generated it)"
-  elif [ -L "$path" ] && [ "$(readlink "$path")" = "/dev/null" ]; then
-    ok "$2 is masked in $3 (symlink to /dev/null)"
+    return
+  fi
+  # -f, not bare readlink: follow every hop to the end of the chain.
+  resolved=$(readlink -f "$path" 2>/dev/null) || resolved=""
+  if [ "$resolved" = "/dev/null" ]; then
+    ok "$2 is masked in $3 (resolves to /dev/null)"
+  elif [ ! -s "$path" ]; then
+    # Belt and braces. A unit that resolves somewhere other than /dev/null but
+    # still has no content cannot start anything either, and saying so is more
+    # useful than calling it live.
+    ok "$2 is inert in $3 (zero-length unit)"
   else
-    bad "$2 IS a live unit in $3 — $4"
+    bad "$2 IS a live unit in $3 ($(wc -c <"$path") bytes) — $4"
   fi
 }
 
