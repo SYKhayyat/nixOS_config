@@ -12,6 +12,11 @@ Emacs on a machine running almost nothing else. Theming is driven by
 environment by [home-manager](https://github.com/nix-community/home-manager),
 and secrets by [sops-nix](https://github.com/Mic92/sops-nix).
 
+**New here?** [`docs/ONBOARDING.md`](docs/ONBOARDING.md) — what this builds, how to
+rebuild safely, the three rules, and what each design decision cost.
+**Something broken?** [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) —
+symptom-first, starting with "I lost my desktop".
+
 ## Requirements
 
 - Nix with **flakes** and `nix-command` enabled
