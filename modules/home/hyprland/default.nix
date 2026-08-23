@@ -401,35 +401,32 @@ in
     }
 
     # ── Floating rules ────────────────────────────────────────────
+    # Hyprland >= 0.53 window-rule syntax: every rule field takes an explicit
+    # value and conditions need the `match:` prefix.
+    #
     # Scratchpads. The two halves match on DIFFERENT selectors, and it is not
     # an inconsistency — it is the only thing that works.
     #
-    # `foot --app-id=scratchpad` sets a real Wayland app-id, so `class:` is
-    # right for the terminal. The Emacs scratchpad is made with
+    # `foot --app-id=scratchpad` sets a real Wayland app-id, so `match:class`
+    # is right for the terminal. The Emacs scratchpad is made with
     # `(make-frame '((name . "emacs-scratch") …))` in ../scripts.nix, and an
     # Emacs frame's `name` parameter sets the window TITLE. Under Wayland the
     # app-id of every Emacs frame stays `emacs` — Emacs exposes no per-frame
-    # app-id at all — so `class:^(emacs-scratch)$` matched nothing, ever, and
-    # all three of its rules were dead. The frame opened tiled at the default
-    # size while three lines here asserted it was a centred 1100x600 float.
-    #
-    # ../scripts.nix had the answer in it the whole time: it focuses this same
-    # frame with `hyprctl dispatch focuswindow "title:$NAME"`, and it selects
-    # the *terminal* scratchpad on `.app_id` while selecting the *Emacs* one on
-    # `.title`. The script drew the distinction; these rules did not.
-    windowrule = float, class:^(scratchpad)$
-    windowrule = float, title:^(emacs-scratch)$
-    windowrule = size 1100 600, class:^(scratchpad)$
-    windowrule = size 1100 600, title:^(emacs-scratch)$
-    windowrule = center, class:^(scratchpad)$
-    windowrule = center, title:^(emacs-scratch)$
+    # app-id at all — so matching the class matched nothing, ever, and all
+    # three of its rules were dead.
+    windowrule = float on, match:class ^(scratchpad)$
+    windowrule = float on, match:title ^(emacs-scratch)$
+    windowrule = size 1100 600, match:class ^(scratchpad)$
+    windowrule = size 1100 600, match:title ^(emacs-scratch)$
+    windowrule = center on, match:class ^(scratchpad)$
+    windowrule = center on, match:title ^(emacs-scratch)$
 
     # File-picker dialogs
-    windowrule = float, title:^(Open|Save|Select|Choose).*$
+    windowrule = float on, match:title ^(Open|Save|Select|Choose).*$
 
     # Other floating apps
-    windowrule = float, class:^(pavucontrol)$
-    windowrule = float, class:^(nm-connection-editor)$
+    windowrule = float on, match:class ^(pavucontrol)$
+    windowrule = float on, match:class ^(nm-connection-editor)$
 
     $mainMod = SUPER
 

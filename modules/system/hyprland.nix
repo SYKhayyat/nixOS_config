@@ -2,12 +2,21 @@
 #
 # The compositor, and nothing else. Everything else this file used to carry is
 # in ./wayland.nix, which niri.nix imports too.
-_:
+{ lib, ... }:
 
 {
   imports = [ ./wayland.nix ];
 
   programs.hyprland.enable = true;
+
+  # The setcap wrapper carries CAP_SYS_NICE, but NixOS's default wrapper
+  # permissions (`u+rx,g+x,o+x`) leave it unreadable by anyone but root — a
+  # hardening choice for capability-carrying binaries. uwsm refuses to launch
+  # a compositor whose binPath it cannot *read* ("Path ... is not readable!"
+  # and the session drops back to SDDM), so restore the historical a+rx.
+  # Reading the binary grants nothing; executing it is what confers
+  # capabilities, and o+x was already there.
+  security.wrappers.Hyprland.permissions = lib.mkOverride 900 "a+rx";
 
   # Register Hyprland with uwsm so SDDM offers a "Hyprland (UWSM)" session.
   # `programs.hyprland.withUWSM` is not the option to use here: all it does is
