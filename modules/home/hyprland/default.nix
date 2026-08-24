@@ -190,6 +190,50 @@ let
     }
 
     {
+      # Directional moves, mirroring what niri gets from move-column-left /
+      # move-column-right and friends. Swap exchanges places; this repositions
+      # the window in the layout tree.
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
+      key = "H";
+      cmd = "movewindow, l";
+      desc = "Move the window left";
+      group = "Arrange";
+    }
+    {
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
+      key = "L";
+      cmd = "movewindow, r";
+      desc = "Move the window right";
+      group = "Arrange";
+    }
+    {
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
+      key = "K";
+      cmd = "movewindow, u";
+      desc = "Move the window up";
+      group = "Arrange";
+    }
+    {
+      mods = [
+        "Mod"
+        "Ctrl"
+      ];
+      key = "J";
+      cmd = "movewindow, d";
+      desc = "Move the window down";
+      group = "Arrange";
+    }
+
+    {
       mods = [ "Mod" ];
       key = "F";
       cmd = "fullscreen, 0";
