@@ -115,6 +115,24 @@ in
   # Same shape as the `backupCommand = "true"` it sat under, and the same
   # answer: the module system already computes this, so state it once, there.
 
+  # A stale backup makes the *next* activation abort. With
+  # backupFileExtension set (hosts/desktop/configuration.nix,
+  # modules/system/focus.nix), linkGeneration moves a colliding file to
+  # `<file>.hm-bak` — but if that path already exists from an earlier switch,
+  # it refuses to clobber it and home-manager-shaul.service fails. This hits
+  # on every rebuild for ~/.gtkrc-2.0, because GTK apps keep writing it back
+  # as a real file between switches.
+  #
+  # Deleting only files ending in the configured extension is safe in a way
+  # the force-clean block above was not: it runs before checkLinkTargets, and
+  # the current content of every colliding file is still moved to a fresh
+  # backup moments later. What is discarded is an older snapshot of a file
+  # whose newer self sits right next to it.
+  home.activation.clearStaleBackups =
+    config.lib.dag.entryBefore [ "checkLinkTargets" ] ''
+      $DRY_RUN_CMD find "$HOME" -type f -name '*.hm-bak' -delete
+    '';
+
   programs.zsh = {
     enable = true;
     enableCompletion = true;
