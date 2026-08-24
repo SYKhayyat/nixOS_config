@@ -3,17 +3,11 @@
 Ideas for greeter entries, not commitments. Nothing here is broken; these are
 the "for fun" options discussed on 2026-08-23.
 
-## COSMIC (System76) — next in line
+## COSMIC (System76) — DONE
 
-Usable on nixpkgs now, fully upstreamed:
-
-```nix
-services.displayManager.cosmic-greeter.enable = true;
-services.desktopManager.cosmic.enable = true;
-```
-
-Expect applet/settings-daemon quirks after updates, not session-breaking ones.
-Worth doing after the LatticeWM session exists so both land together.
+Added 2026-08-23 as ../../modules/system/cosmic.nix: desktop-manager half
+only, so SDDM lists `cosmic-session` without a second display manager.
+XWayland left at upstream default (off).
 
 ## LatticeWM — blocked on packaging
 
