@@ -176,6 +176,14 @@
         inherit system;
         specialArgs = { inherit inputs myConfig; };
         modules = [
+          {
+            # Expose the numtide `llm-agents` package scope (`pkgs.llm-agents.freebuff`
+            # and the rest of the tree) to the system and to home-manager, whose
+            # `pkgs` comes from the NixOS module system — the flake's own `pkgs`
+            # import above is used for the `formatter` output only and does not
+            # flow into nixosSystem.
+            nixpkgs.overlays = [ inputs.llm-agents.overlays.shared-nixpkgs ];
+          }
           ./hosts/desktop/configuration.nix
           home-manager.nixosModules.home-manager
           stylix.nixosModules.stylix
