@@ -229,6 +229,7 @@ let
     yt-dlp
     opencode
     llm-agents.freebuff
+    clixad
     # `rclone config` — the one rclone command you run by hand. The
     # shaulos-data-bootstrap unit in modules/system/data.nix names rclone in its
     # own PATH=, so the service does not depend on this entry, and study turns

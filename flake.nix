@@ -91,7 +91,31 @@
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
-        overlays = [ inputs.llm-agents.overlays.shared-nixpkgs ];
+        overlays = [
+          inputs.llm-agents.overlays.shared-nixpkgs
+          clixadOverlay
+        ];
+      };
+      # clixad — a free AI coding agent, distributed as a bundled npm CLI. Not in
+      # nixpkgs, so this overlay wraps the pinned npm build with node. The
+      # package.json/package-lock.json pair lives in ./packages/clixad; bump the
+      # npmDepsHash if either changes.
+      clixadOverlay = final: _prev: {
+        clixad = final.buildNpmPackage rec {
+          pname = "clixad";
+          version = "0.0.1-beta.13";
+          src = ./packages/clixad;
+          npmDepsHash = "sha256-f3LP7hV0NkognqHa1djqz4tS9HQFqBG1ZHwt2sL3hKA=";
+          dontNpmBuild = true;
+          installPhase = ''
+            runHook preInstall
+            mkdir -p $out/lib/node_modules $out/bin
+            cp -r node_modules/. $out/lib/node_modules/
+            makeWrapper ${final.nodejs}/bin/node $out/bin/clixad --add-flags $out/lib/node_modules/clixad/dist/clixad.mjs
+            runHook postInstall
+          '';
+          meta.mainProgram = "clixad";
+        };
       };
       myConfig = {
         username = "shaul";
@@ -182,7 +206,10 @@
             # `pkgs` comes from the NixOS module system — the flake's own `pkgs`
             # import above is used for the `formatter` output only and does not
             # flow into nixosSystem.
-            nixpkgs.overlays = [ inputs.llm-agents.overlays.shared-nixpkgs ];
+            nixpkgs.overlays = [
+              inputs.llm-agents.overlays.shared-nixpkgs
+              clixadOverlay
+            ];
           }
           ./hosts/desktop/configuration.nix
           home-manager.nixosModules.home-manager
