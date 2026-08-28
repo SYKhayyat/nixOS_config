@@ -169,6 +169,7 @@ let
     # ── Editors, other than the one this whole repo is about ──────────────
     neovim
     helix
+    leo-editor
 
     # ── Terminal odds and ends ────────────────────────────────────────────
     jq
@@ -227,6 +228,7 @@ let
     ytfzf
     yt-dlp
     opencode
+    llm-agents.freebuff
     # `rclone config` — the one rclone command you run by hand. The
     # shaulos-data-bootstrap unit in modules/system/data.nix names rclone in its
     # own PATH=, so the service does not depend on this entry, and study turns
@@ -290,6 +292,7 @@ let
     digikam
     rawtherapee
     darktable
+    geeqie
     sly
     rapidraw
     art

@@ -46,6 +46,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # ── Freebuff: the free coding agent CLI ────────────────────────────────
+    # numtide's package wraps the prebuilt Bun binary with ripgrep on PATH.
+    # No FHS needed — the binary is self-contained.
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # ── The Emacs configuration ──────────────────────────────────────────
     # It used to live at modules/home/emacs/modules/ in this repo. By line
     # count it was never a NixOS config that includes Emacs — it is an Emacs
@@ -83,6 +91,7 @@
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
+        overlays = [ inputs.llm-agents.overlays.shared-nixpkgs ];
       };
       myConfig = {
         username = "shaul";

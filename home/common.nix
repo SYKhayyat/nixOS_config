@@ -164,6 +164,7 @@ in
     initContent = ''
       [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.zsh
+      bindkey '^[t' toggle-fzf-tab
 
       # `-not -path '*/.*'`, and the four characters matter. `find -path`
       # matches the WHOLE path, which always begins `/home/…`, so the glob
