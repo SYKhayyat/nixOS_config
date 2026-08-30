@@ -273,10 +273,10 @@ in
   home.sessionVariables = {
     EDITOR = "emacsclient -c -a ''";
     VISUAL = "emacsclient -c -a ''";
-    EMACS_MODULE_GROUPS = "essentials";
+    EMACS_MODULE_GROUPS = "essentials extras";
   };
 
-  systemd.user.sessionVariables.EMACS_MODULE_GROUPS = "essentials";
+  systemd.user.sessionVariables.EMACS_MODULE_GROUPS = "essentials extras";
 
   services.emacs = {
     enable = true;
