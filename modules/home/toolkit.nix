@@ -230,6 +230,11 @@ let
     opencode
     llm-agents.freebuff
     clixad
+    # `gh` is a GitHub network client, so — like opencode and rclone — it
+    # leaves the offline study airgap. It stays out of `always`: everything it
+    # does talks to github.com, and git (which works offline) already stays
+    # available in study.
+    gh
     # `rclone config` — the one rclone command you run by hand. The
     # shaulos-data-bootstrap unit in modules/system/data.nix names rclone in its
     # own PATH=, so the service does not depend on this entry, and study turns
