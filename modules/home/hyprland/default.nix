@@ -384,6 +384,15 @@ in
     env = XCURSOR_THEME,${cursor.name}
     env = XCURSOR_SIZE,${toString cursor.size}
 
+    # The module groups Emacs loads.  modules/home/emacs/default.nix pins this
+    # to "essentials extras" via environment.d/sessionVariables so the daemon
+    # and shells see it on a fresh login.  But `env` in Hyprland is what every
+    # GUI app it spawns actually inherits -- including the Super+D -> fuzzel ->
+    # emacs path, which runs a fresh standalone "emacs" rather than
+    # emacsclient.  Pinning it here guarantees that launch gets the RTL/extras
+    # layer even before a running session has re-imported environment.d.
+    env = EMACS_MODULE_GROUPS,essentials extras
+
     # Autostart. The shared list is in ../keys.nix and the niri session runs the
     # same one; only the two lines above it are Hyprland's own.
     ${render.startup (ownStartup ++ startup)}
