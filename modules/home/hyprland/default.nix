@@ -300,6 +300,44 @@ let
       desc = "Stash the window on the special workspace";
       group = "Workspaces";
     }
+    {
+      # Relative navigation. Hyprland makes workspaces on demand: `+1` from the
+      # highest-numbered workspace creates the next one rather than wrapping, so
+      # these two are the unbounded way around — the Mod+1..5 keys stay as direct
+      # jumps and this pair does the moving.
+      mods = [ "Mod" ];
+      key = "Period";
+      cmd = "workspace, +1";
+      desc = "Next workspace";
+      group = "Workspaces";
+    }
+    {
+      mods = [ "Mod" ];
+      key = "Comma";
+      cmd = "workspace, -1";
+      desc = "Previous workspace";
+      group = "Workspaces";
+    }
+    {
+      mods = [
+        "Mod"
+        "Shift"
+      ];
+      key = "Period";
+      cmd = "movetoworkspace, +1";
+      desc = "Move window to the next workspace";
+      group = "Workspaces";
+    }
+    {
+      mods = [
+        "Mod"
+        "Shift"
+      ];
+      key = "Comma";
+      cmd = "movetoworkspace, -1";
+      desc = "Move window to the previous workspace";
+      group = "Workspaces";
+    }
 
     {
       mods = [
