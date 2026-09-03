@@ -17,7 +17,7 @@
     fzy # Another fuzzy file finder.
     docfd # See above.
     skim # See above.
-    agrep # Fuzzy grep
+    ugrep # Fuzzy grep (replaces agrep, removed upstream)
     lynx # Web browser.
     television # File finder.
     bat # Cat clone.

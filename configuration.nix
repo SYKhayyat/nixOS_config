@@ -7,6 +7,7 @@
       ./writers_and_readers.nix
       ./utilities.nix
       ./graphics.nix
+      ./otzaria.nix
       ./files_search.nix
       ./media.nix
       ./languages.nix
@@ -115,9 +116,8 @@ packages = with pkgs; [
   # Enable the Ollama service
   services.ollama = {
     enable = true;
-    
-    # Force CPU-only mode (disables CUDA/ROCm/Vulkan)
-    acceleration = false; 
+    # Force CPU-only mode (disables CUDA/ROCm/Vulkan).
+    package = pkgs.ollama-cpu;
   };
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
  
@@ -152,6 +152,7 @@ packages = with pkgs; [
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
+    gh
   ];
   nix.gc = {
 	automatic = true;
