@@ -136,6 +136,11 @@ in
       # Toolbars a point down, which is Plasma's own convention.
       "kdeglobals"."General"."toolBarFont" = qtFont font.sans (uiSize - 1);
       "kdeglobals"."KDE"."widgetStyle" = "Breeze";
+      # Baloo: index filenames only, skip full-text content indexing.
+      # Full-text indexing of the (large) document/seforim library was pinning
+      # the disk — 80k+ files queued for content extraction. Disabling it keeps
+      # search-by-name working and drops the disk/CPU hammering.
+      "baloofilerc"."General"."onlyBasicIndexing" = true;
     };
 
     workspace = {
