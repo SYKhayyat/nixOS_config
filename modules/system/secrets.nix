@@ -21,11 +21,11 @@ in
     #
     # A GitHub token so Nix doesn't hit the anonymous API rate limit. Rendered
     # to a file that core.nix already `!include`s (/etc/nix/tokens.conf).
-    # secrets."nix-access-tokens" = {
-    #   path = "/etc/nix/tokens.conf";
-    #   mode = "0440";
-    #   group = "wheel";
-    # };
+    secrets."nix-access-tokens" = {
+      path = "/etc/nix/tokens.conf";
+      mode = "0440";
+      group = "wheel";
+    };
     #
     # rclone remote config for the data bootstrap (modules/system/data.nix).
     # With this uncommented the bootstrap needs no interactive `rclone config`

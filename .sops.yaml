@@ -5,7 +5,7 @@
 #
 # will encrypt to these recipients automatically.
 keys:
-  - &host_desktop age1REPLACE_WITH_YOUR_HOST_AGE_PUBLIC_KEY
+  - &host_desktop age1jcakh9mt0lg3z98a2mkqcdq87fncvq0yd6pp8auadm8lzlhwlsvsdtqfl7
 creation_rules:
   - path_regex: secrets/.*\.yaml$
     key_groups:
