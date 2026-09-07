@@ -94,6 +94,7 @@
         overlays = [
           inputs.llm-agents.overlays.shared-nixpkgs
           clixadOverlay
+          otzariaOverlay
         ];
       };
       # clixad — a free AI coding agent, distributed as a bundled npm CLI. Not in
@@ -116,6 +117,13 @@
           '';
           meta.mainProgram = "clixad";
         };
+      };
+      # Otzaria (אוצריא) — a Flutter app for the Jewish library, shipped as a
+      # prebuilt Linux package. We fetch the app-only .deb and repackage it;
+      # the seforim library downloads separately on first run. See
+      # packages/otzaria.nix. Personal-Use license => local fetch, not upstream.
+      otzariaOverlay = final: _prev: {
+        otzaria = final.callPackage ./packages/otzaria.nix { };
       };
       myConfig = {
         username = "shaul";
@@ -209,6 +217,7 @@
             nixpkgs.overlays = [
               inputs.llm-agents.overlays.shared-nixpkgs
               clixadOverlay
+              otzariaOverlay
             ];
           }
           ./hosts/desktop/configuration.nix

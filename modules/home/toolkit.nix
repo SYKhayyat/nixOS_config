@@ -230,6 +230,9 @@ let
     opencode
     llm-agents.freebuff
     clixad
+    # Otzaria (אוצריא) downloads its seforim library on first run, so it
+    # leaves the study airgap like the other network apps above.
+    otzaria
     # `gh` is a GitHub network client, so — like opencode and rclone — it
     # leaves the offline study airgap. It stays out of `always`: everything it
     # does talks to github.com, and git (which works offline) already stays
