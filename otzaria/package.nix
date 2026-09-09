@@ -52,8 +52,16 @@ stdenv.mkDerivation (finalAttrs: {
     # process path as /opt/wpe-sdk/...; point it at the bundled binaries.
     # Exec-ing the real ELF keeps $ORIGIN (= <out>/lib/otzaria) intact, so the
     # bundled libs and flutter_assets resolve exactly as upstream ships them.
+    #
+    # Flutter loads its native plugin libs (libsearch_engine.so, …) via dlopen
+    # *from the engine* (libflutter_linux_gtk.so), whose RUNPATH only lists the
+    # system deps, not our bundle dir — RUNPATH is non-transitive for a dlopen'd
+    # dependency, so a bare-name dlopen misses the bundled .so and the app dies
+    # with "Failed to load dynamic library". LD_LIBRARY_PATH is consulted first
+    # by dlopen regardless of the caller's RUNPATH, so point it at the bundle.
     makeWrapper "$out/lib/otzaria/otzaria" "$out/bin/otzaria" \
-      --set WEBKIT_EXEC_PATH "$out/lib/otzaria/lib"
+      --set WEBKIT_EXEC_PATH "$out/lib/otzaria/lib" \
+      --prefix LD_LIBRARY_PATH ":" "$out/lib/otzaria/lib"
     runHook postInstall
   '';
 
