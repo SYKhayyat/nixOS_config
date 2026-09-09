@@ -1,9 +1,12 @@
 # my-packages.nix
 { config, lib, pkgs, ... }:
 { 
+  programs.zsh.enable = true;
+  environment.shells = with pkgs; [ zsh bashInteractive ];
+  users.users.shaul.shell = pkgs.zsh;
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
-    # Add the packages you want to install
+    zsh
     # Tools:
     git # Version Control.
     wget # Download from url.
