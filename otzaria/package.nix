@@ -7,7 +7,8 @@
 { lib, stdenv, fetchurl, dpkg, autoPatchelfHook, makeWrapper
 , gtk3, gdk-pixbuf, pango, cairo, glib, atk, harfbuzzFull
 # Runtime system deps pulled in by the bundled WPE/gstreamer/sentry helpers.
-, curl, mesa, libdrm, libsecret, xorg
+, curl, mesa, libdrm, libsecret, xorg, util-linux, libxkbcommon, xkeyboard-config
+, adwaita-icon-theme
 }:
 
 stdenv.mkDerivation (finalAttrs: {
@@ -25,7 +26,8 @@ stdenv.mkDerivation (finalAttrs: {
   # system libs the bundled WPE webview / gstreamer / sentry helpers also need.
   buildInputs = [
     gtk3 gdk-pixbuf pango cairo glib atk harfbuzzFull
-    curl mesa libdrm libsecret xorg.libXmu
+    curl mesa libdrm libsecret xorg.libXmu util-linux libxkbcommon xkeyboard-config
+    adwaita-icon-theme
   ];
 
   # libdartjni.so is a leftover Java/JNI helper that the desktop build never
@@ -45,6 +47,11 @@ stdenv.mkDerivation (finalAttrs: {
     runHook preInstall
     mkdir -p "$out/bin" "$out/lib" "$out/share"
     cp -r unpacked/opt/otzaria "$out/lib/otzaria"
+    # Drop bundled system libs that shadow newer nixpkgs versions via
+    # LD_LIBRARY_PATH (e.g. old libmount lacks MOUNT_2_40 needed by glib).
+    # autoPatchelf then rewires those DT_NEEDED to nixpkgs (util-linux).
+    rm -f "$out/lib/otzaria/lib/libmount.so.1" "$out/lib/otzaria/lib/libblkid.so.1"
+    rm -f "$out/lib/otzaria/lib/libxkbcommon.so.0"
     cp -r unpacked/usr/share/applications "$out/share/"
     cp -r unpacked/usr/share/metainfo "$out/share/"
     cp -r unpacked/usr/share/icons "$out/share/"
@@ -61,6 +68,9 @@ stdenv.mkDerivation (finalAttrs: {
     # by dlopen regardless of the caller's RUNPATH, so point it at the bundle.
     makeWrapper "$out/lib/otzaria/otzaria" "$out/bin/otzaria" \
       --set WEBKIT_EXEC_PATH "$out/lib/otzaria/lib" \
+      --set XKB_CONFIG_ROOT "${xkeyboard-config}/share/X11/xkb" \
+      --set XCURSOR_THEME "Adwaita" \
+      --prefix XCURSOR_PATH ":" "${adwaita-icon-theme}/share/icons" \
       --prefix LD_LIBRARY_PATH ":" "$out/lib/otzaria/lib"
     runHook postInstall
   '';
