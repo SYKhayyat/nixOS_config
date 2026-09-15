@@ -2,7 +2,7 @@
 #
 # Complete NixOS module for Emacs with Hebrew/RTL support
 
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, inputs, ... }:
 
 let
   # ══════════════════════════════════════════════════════════════════
@@ -10,7 +10,24 @@ let
   # ══════════════════════════════════════════════════════════════════
 
   username = "shaul";
-  seforimPath = "/home/${username}/Documents/seforim";
+  userHome = "/home/${username}";
+  seforimPath = "${userHome}/Documents/seforim";
+
+  # Emacs 30 selects ~/.emacs.d when that directory exists. Keep the
+  # compatibility bridge in the Nix store so it is recreated declaratively,
+  # while the canonical config remains managed at ~/.config/emacs.
+  emacsInitBridge = pkgs.writeText "emacs-init-bridge.el" ''
+    ;;; init.el --- Declarative bridge to the managed Emacs config -*- lexical-binding: t; -*-
+    (setq user-emacs-directory
+          (file-name-as-directory (expand-file-name "~/.config/emacs/")))
+    (load (expand-file-name "init.el" user-emacs-directory) nil nil)
+  '';
+  emacsEarlyInitBridge = pkgs.writeText "emacs-early-init-bridge.el" ''
+    ;;; early-init.el --- Declarative bridge to the managed Emacs config -*- lexical-binding: t; -*-
+    (setq user-emacs-directory
+          (file-name-as-directory (expand-file-name "~/.config/emacs/")))
+    (load (expand-file-name "early-init.el" user-emacs-directory) nil nil)
+  '';
 
   # ══════════════════════════════════════════════════════════════════
   # EMACS BUILD
@@ -38,6 +55,18 @@ let
     # Consult-projectile
     epkgs.consult-projectile
   ]);
+
+  # AI coding tools. Freebuff is packaged by llm-agents.nix; Clixad is
+  # published only through npm, so keep its exact version declarative while
+  # allowing its upstream launcher to manage its JS dependencies.
+  freebuff = inputs.llm-agents.packages.${pkgs.system}.freebuff;
+  clixad = pkgs.writeShellApplication {
+    name = "clixad";
+    runtimeInputs = [ pkgs.nodejs ];
+    text = ''
+      exec npx --yes clixad@0.0.1-beta.21 "$@"
+    '';
+  };
 
   # ══════════════════════════════════════════════════════════════════
   # SPELL CHECKING
@@ -92,6 +121,10 @@ in
   environment.systemPackages = with pkgs; [
     # Emacs
     emacsWithPackages
+
+    # AI coding tools
+    freebuff
+    clixad
 
     # Document Systems
     texlive.combined.scheme-full
@@ -220,10 +253,14 @@ in
   # RECOLL SETUP
   # ════════════════════════════════════════════════════════════════════
 
+  systemd.tmpfiles.rules = [
+    "L+ ${userHome}/.emacs.d/init.el - - - - ${emacsInitBridge}"
+    "L+ ${userHome}/.emacs.d/early-init.el - - - - ${emacsEarlyInitBridge}"
+  ];
+
   system.activationScripts.emacsSetup = let
     confFile = pkgs.writeText "recoll.conf" recollConf;
     mimeFile = pkgs.writeText "mimeview" recollMimeview;
-    userHome = "/home/${username}";
   in ''
     USER_GROUP=$(${pkgs.coreutils}/bin/id -gn ${username} 2>/dev/null || echo "users")
 
@@ -231,7 +268,6 @@ in
     ${pkgs.coreutils}/bin/mkdir -p "${userHome}/.recoll"
     ${pkgs.coreutils}/bin/mkdir -p "${userHome}/Documents/org"
     ${pkgs.coreutils}/bin/mkdir -p "${userHome}/Documents/roam/daily"
-    ${pkgs.coreutils}/bin/mkdir -p "${userHome}/.emacs.d/undo-tree-history"
 
     ${pkgs.coreutils}/bin/cp -f ${confFile} "${userHome}/.recoll/recoll.conf"
     ${pkgs.coreutils}/bin/cp -f ${mimeFile} "${userHome}/.recoll/mimeview"
@@ -267,7 +303,6 @@ EOF
     ${pkgs.coreutils}/bin/chown -R ${username}:"$USER_GROUP" "${seforimPath}"
     ${pkgs.coreutils}/bin/chown -R ${username}:"$USER_GROUP" "${userHome}/.recoll"
     ${pkgs.coreutils}/bin/chown -R ${username}:"$USER_GROUP" "${userHome}/Documents"
-    ${pkgs.coreutils}/bin/chown -R ${username}:"$USER_GROUP" "${userHome}/.emacs.d"
   '';
 
   # ════════════════════════════════════════════════════════════════════
