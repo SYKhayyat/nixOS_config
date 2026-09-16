@@ -4,6 +4,16 @@
   programs.zsh.enable = true;
   environment.shells = with pkgs; [ zsh bashInteractive ];
   users.users.shaul.shell = pkgs.zsh;
+  
+  # Shell aliases
+  environment.shellAliases = {
+    nrs = "sudo nixos-rebuild switch --flake /home/shaul/config#nixos";
+    nrt = "sudo nixos-rebuild test --flake /home/shaul/config#nixos";
+    nfu = "nix flake update --flake /home/shaul/config";
+    clean = "sudo nix-collect-garbage -d && sudo /run/current-system/bin/switch-to-configuration boot";
+    ll = "ls -la";
+    la = "ls -A";
+  };
   # This adds packages to the system-wide environment
   environment.systemPackages = with pkgs; [
     zsh
