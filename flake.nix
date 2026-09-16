@@ -2,12 +2,6 @@
 {
   description = "My NixOS system configuration";
 
-  nixConfig = {
-    access-tokens = {
-      github = builtins.readFile /home/shaul/token;
-    };
-  };
-
   inputs = {
     # Pin nixpkgs to a specific version for reproducibility
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";

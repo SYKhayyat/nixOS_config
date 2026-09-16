@@ -120,7 +120,6 @@ packages = with pkgs; [
     package = pkgs.ollama-cpu;
   };
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
-  nix.settings.access-tokens = "github=${builtins.readFile /home/shaul/token}";
  
   # Install firefox.
   programs.firefox.enable = true;
