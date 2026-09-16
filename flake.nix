@@ -4,7 +4,7 @@
 
   nixConfig = {
     access-tokens = {
-      github = builtins.readFile ~/token;
+      github = builtins.readFile /home/shaul/token;
     };
   };
 
