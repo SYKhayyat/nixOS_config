@@ -73,7 +73,7 @@ let
   # ══════════════════════════════════════════════════════════════════
 
   hunspellDicts = with pkgs.hunspellDicts; [ en_US he_IL ];
-  hunspellWithDicts = pkgs.hunspellWithDicts hunspellDicts;
+  hunspellWithDicts = pkgs.hunspell.withDicts hunspellDicts;
 
   # ══════════════════════════════════════════════════════════════════
   # RECOLL CONFIGURATION
