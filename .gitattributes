@@ -1,0 +1,22 @@
+# The shell scripts under modules/home/emacs/tools/ are executed inside a Nix
+# build (`nix flake check` tangles and verifies the Emacs modules). A CRLF
+# shebang there fails with "bad interpreter: /usr/bin/env^M: no such file or
+# directory", which is a genuinely awful hour to spend. This repo is edited
+# from Windows as well as NixOS, so pin the line endings rather than trusting
+# every checkout's core.autocrlf.
+*.sh    text eol=lf
+*.nix   text eol=lf
+*.el    text eol=lf
+*.org   text eol=lf
+justfile text eol=lf
+
+# Same hazard, second file. A GitHub workflow's `run:` block is a bash script
+# with no shebang to go wrong — the CR ends up *inside* the commands instead,
+# where `nix build \<CR>` and `fi<CR>` fail in ways that read like nix bugs.
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# statix.toml is read inside the `statix` check's build sandbox. TOML tolerates
+# CRLF, but the file is config for a gate whose whole job is to be trustworthy,
+# and the list above is only useful if new file types join it.
+*.toml  text eol=lf

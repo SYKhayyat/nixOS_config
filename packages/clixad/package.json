@@ -1,0 +1,12 @@
+{
+  "name": "clixad-install",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "clixad": "node_modules/clixad/dist/clixad.mjs"
+  },
+  "dependencies": {
+    "clixad": "^0.0.1-beta.13"
+  }
+}
