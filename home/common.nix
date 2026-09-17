@@ -210,6 +210,17 @@ in
     nrs = "sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
     nrt = "sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
     nfu = "nix flake update --flake ${myConfig.flakePath}";
+    # Carried over from the flat tree, where `clean` was a *system-wide* alias
+    # in shellUtilities.nix — so it survived every switch of that tree and
+    # vanished the moment this one was installed, which is the difference
+    # between a package in a list and a package in the layer that owns it.
+    #
+    # `-d` is not the justfile's rule and is not a typo either: `just gc` keeps
+    # fourteen days of generations, this deletes all of them and then rewrites
+    # the boot entry. It is kept as it was found rather than quietly softened,
+    # because four letters that remove your rollback path should do exactly what
+    # they say they do.
+    clean = "sudo nix-collect-garbage -d && sudo /run/current-system/bin/switch-to-configuration boot";
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";

@@ -132,17 +132,26 @@
         hostname = "desktop";
         homeDir = "/home/shaul";
         # Where this flake is checked out on the target machine. Used by the
-        # `nrs` rebuild alias so it works regardless of the folder name.
+        # `nrs` rebuild alias so it works regardless of the current directory.
         #
-        # This said `/home/shaul/nixOS_config-specializations`, which is the
+        # This has been wrong twice, in exactly the same way, which is the part
+        # worth keeping. It said `/home/shaul/nixOS_config-specializations` — the
         # name of the *branch*, not of any directory that has ever existed on
-        # this machine — the checkout is `/home/shaul/nixos-config`. So all
-        # three aliases that exist to work "regardless of the current
-        # directory" resolved to a path with no flake in it and failed from
-        # everywhere, including the one directory where plain `nixos-rebuild
-        # --flake .` would have worked. The justfile never noticed because it
-        # uses `.#{{host}}` and is therefore only ever run from the checkout.
-        flakePath = "/home/shaul/nixos-config";
+        # this machine — and was then corrected to `/home/shaul/nixos-config`,
+        # which nobody checked either, and which does not exist. The clone is
+        # `/home/shaul/config`. So all three aliases that exist to work
+        # "regardless of the current directory" resolved to a path with no flake
+        # in it and failed from everywhere, including the one directory where
+        # plain `nixos-rebuild --flake .` would have worked. The justfile never
+        # noticed because it uses `.#{{host}}` and is therefore only ever run
+        # from the checkout.
+        #
+        # What did notice, eventually, was the home directory: a
+        # `~/.config/zsh/.zshrc` left behind by the specializations branch still
+        # carried the old value, and zsh sources it *after* `/etc/zshrc` — so
+        # `nrs` was broken twice over, in two different ways at the same time,
+        # and the second failure is the one you could see.
+        flakePath = "/home/shaul/config";
         timezone = "America/New_York";
         locale = "en_US.UTF-8";
         seforimPath = "/home/shaul/Documents/seforim";

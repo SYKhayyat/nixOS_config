@@ -92,14 +92,22 @@ the alias.
 
 ### `nrs` / `nrt` / `nfu` cannot find the flake
 
-They assume the flake is checked out at `/home/shaul/nixos-config`, from
+They assume the flake is checked out at `/home/shaul/config`, from
 `myConfig.flakePath` in `flake.nix`. **Change it there if you clone
 elsewhere.**
 
-This is worth knowing because it was wrong once in an instructive way: the value
-was `/home/shaul/nixOS_config-specializations` — the name of the *branch*, not
-of any directory that has ever existed — so all three aliases resolved to a path
-with no flake in it.
+This is worth knowing because it has been wrong twice in an instructive way. The
+value was `/home/shaul/nixOS_config-specializations` — the name of the *branch*,
+not of any directory that has ever existed — and it was then corrected to
+`/home/shaul/nixos-config`, which nobody checked. Neither directory exists, so
+all three aliases resolved to a path with no flake in it.
+
+**Check `~/.config/zsh/.zshrc` before you check `/etc/zshrc`.** When you switch
+from a tree that uses home-manager to one that does not, the home-manager files
+stay behind in `$HOME`, and zsh sources them *after* the system files — so a
+stale alias definition wins silently, and the first explanation you reach for
+("the system alias is wrong") is the wrong one. `nrs` was broken both ways at
+once for exactly this reason.
 
 `just` was unaffected, because it uses `.#desktop` and is only ever run from the
 checkout. **Which is exactly why nothing caught it.**

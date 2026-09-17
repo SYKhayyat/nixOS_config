@@ -63,17 +63,19 @@ Clone it, then **set the path**:
 
 ```nix
 # flake.nix
-myConfig.flakePath = "/home/shaul/nixos-config";   # change if you clone elsewhere
+myConfig.flakePath = "/home/shaul/config";   # change if you clone elsewhere
 ```
 
 `nrs`, `nrt` and `nfu` — the shell aliases from `home/common.nix` — resolve
 through that value, so they work regardless of the current directory. `just`
 does not use it; it uses `.#desktop` and is only ever run from the checkout.
 
-That asymmetry is worth knowing on day one, because it hid a bug: the value was
-once `/home/shaul/nixOS_config-specializations` — the name of the **branch**, not
-of any directory that has ever existed — so all three aliases resolved to a path
-with no flake in it, and `just` never noticed.
+That asymmetry is worth knowing on day one, because it hid a bug twice. The value
+was once `/home/shaul/nixOS_config-specializations` — the name of the **branch**,
+not of any directory that has ever existed — and its replacement,
+`/home/shaul/nixos-config`, was never checked and does not exist either. Both
+times all three aliases resolved to a path with no flake in it, and `just` never
+noticed.
 
 ### The commands, cheapest first
 

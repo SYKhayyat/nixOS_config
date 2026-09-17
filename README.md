@@ -27,12 +27,15 @@ symptom-first, starting with "I lost my desktop".
   per-package bleeding edge, and had zero call sites in the whole repo.
 - The Nix implementation is **Lix** (`nix.package = pkgs.lixPackageSets.stable.lix`).
 - A NixOS host. The `nrs`/`nrt`/`nfu` aliases assume the flake is checked out at
-  `/home/shaul/nixos-config` (see `myConfig.flakePath` in `flake.nix`); change
-  it there if you clone elsewhere. It said
+  `/home/shaul/config` (see `myConfig.flakePath` in `flake.nix`); change it
+  there if you clone elsewhere. That value has been wrong twice in the same way,
+  which is why the sentence is worth reading rather than skimming: it said
   `/home/shaul/nixOS_config-specializations` — the name of the *branch*, not of
-  any directory that has ever existed — so all three aliases resolved to a path
-  with no flake in it. `just` was unaffected: it uses `.#desktop` and is only
-  ever run from the checkout, which is exactly why nothing caught it.
+  any directory that has ever existed — and was then "corrected" to
+  `/home/shaul/nixos-config`, a directory that also does not exist. Both times
+  all three aliases resolved to a path with no flake in it. `just` was
+  unaffected: it uses `.#desktop` and is only ever run from the checkout, which
+  is exactly why nothing caught it either time.
 
 ## Layout
 
