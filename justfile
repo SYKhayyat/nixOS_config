@@ -141,6 +141,40 @@ update-emacs:
     nix flake update emacs-config
     @git diff --stat flake.lock
 
+# opencode and freebuff are the two packages on this machine that are not from
+# nixpkgs: both come from the numtide `llm-agents` input, which tracks the
+# upstream releases rather than a stable branch — see the note beside
+# `llm-agents.opencode` in modules/home/toolkit.nix. Nothing else moves when
+# the agents do, so this is the narrow half of `just update`.
+
+# Bump opencode and freebuff to the newest upstream releases
+update-opencode:
+    nix flake update llm-agents
+    @git diff --stat flake.lock
+
+# The version in the comment beside `llm-agents.opencode` goes stale the day
+# after it is written, and there is no other way to see what you are running
+# without switching to find out. So: what the lock installs, then upstream's
+# newest tag — two lines that answer the only question this file gets asked
+# about opencode.
+#
+# Two details are load-bearing. `sst/opencode` is now a redirect to
+# `anomalyco/opencode`, so a bare `curl -s` to the old name prints a
+# rate-limit-looking body that greps to nothing. And the body is read into a
+# variable before it is grepped: `curl … | grep -m1` answers correctly, but
+# grep exits on the first match and takes curl's stdout with it, so curl exits
+# 23 and prints "Failure writing output to destination" over the answer.
+# Nothing inside a recipe body can be a comment — just echoes those lines
+# before running them — which is why this note is up here.
+
+# Show the locked vs upstream-newest opencode version
+opencode-version:
+    @nix eval --raw --no-update-lock-file \
+        .#nixosConfigurations.{{host}}._module.args.pkgs.llm-agents.opencode.version
+    @echo
+    @json=$(curl -fsSL https://api.github.com/repos/anomalyco/opencode/releases/latest) && \
+        echo "$json" | grep -m1 '"tag_name"'
+
 # No commit, no push, no input bump. Undo with `just update-emacs`.
 #
 # This is the one recipe without `--no-update-lock-file`, and it is safe:

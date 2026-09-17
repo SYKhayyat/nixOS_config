@@ -227,7 +227,26 @@ let
     persepolis
     ytfzf
     yt-dlp
-    opencode
+    # `opencode` comes from the numtide scope, not from nixpkgs, and this is
+    # the only line in the file where that matters.
+    #
+    # nixpkgs here is `nixos-26.05`, a *stable* branch: whatever opencode was
+    # when the branch was cut is what the branch keeps, and it is a coding
+    # agent — the one class of program whose value decays by the week, since it
+    # names models, endpoints and CLI flags that upstream renames. As of this
+    # line the branch gives 1.15.10 and upstream is 1.18.31.
+    #
+    # numtide/llm-agents.nix exists to track precisely these CLIs, one package
+    # per upstream release, with its own CI moving the pin, and the input is
+    # already here for `freebuff` below. So the newest opencode costs one
+    # attribute name and no new input — where the alternative, re-adding the
+    # `nixpkgs-unstable` input that `flake.nix` argues against, costs a second
+    # full nixpkgs fetch and evaluation to reach the same version.
+    #
+    # Refresh with `nix flake update llm-agents`, which is what `just
+    # update-opencode` runs. It is a normal input bump: nothing else on the
+    # machine moves when opencode does.
+    llm-agents.opencode
     llm-agents.freebuff
     clixad
     # Otzaria (אוצריא) downloads its seforim library on first run, so it
