@@ -20,14 +20,39 @@
 # no redistribution). Shipping the prebuilt binary for this machine's personal
 # use is fine; it is why this stays a local build-time fetch and is not offered
 # as a public nixpkgs package.
-{ lib, stdenv, fetchurl, dpkg, autoPatchelfHook, makeWrapper
-, gtk3, gdk-pixbuf, pango, cairo, glib, atk, harfbuzzFull
-# Runtime system deps pulled in by the bundled WPE/gstreamer/sentry helpers.
-, curl, mesa, libdrm, libsecret, xorg, util-linux, libxkbcommon, xkeyboard-config
-, adwaita-icon-theme
+{
+  lib,
+  stdenv,
+  fetchurl,
+  dpkg,
+  autoPatchelfHook,
+  makeWrapper,
+  gtk3,
+  gdk-pixbuf,
+  pango,
+  cairo,
+  glib,
+  atk,
+  harfbuzzFull,
+  # Runtime system deps pulled in by the bundled WPE/gstreamer/sentry helpers.
+  curl,
+  mesa,
+  libdrm,
+  libsecret,
+  xorg,
+  util-linux,
+  libxkbcommon,
+  xkeyboard-config,
+  adwaita-icon-theme,
 }:
 
-stdenv.mkDerivation (finalAttrs: {
+# `finalAttrs` used to be the argument here and nothing in this file references
+# it -- no attribute below reads the derivation being built. deadnix has been
+# failing on exactly that line since this package landed in the consolidated
+# tree, which makes it the one file holding the repo's own lint gate red, and
+# `deadnix --fail` runs in CI on every push. The lambda bought nothing, so it
+# goes rather than staying on as a name that is never read.
+stdenv.mkDerivation {
   pname = "otzaria";
   version = "0.9.96";
 
@@ -36,13 +61,30 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-e14ilxJ+AFE3Q72RMseacuSrFkVAiRqnhewzLRgJZiI=";
   };
 
-  nativeBuildInputs = [ dpkg autoPatchelfHook makeWrapper ];
+  nativeBuildInputs = [
+    dpkg
+    autoPatchelfHook
+    makeWrapper
+  ];
 
   # Required directly by the Flutter launcher's DT_NEEDED entries, plus the
   # system libs the bundled WPE webview / gstreamer / sentry helpers also need.
   buildInputs = [
-    gtk3 gdk-pixbuf pango cairo glib atk harfbuzzFull
-    curl mesa libdrm libsecret xorg.libXmu util-linux libxkbcommon xkeyboard-config
+    gtk3
+    gdk-pixbuf
+    pango
+    cairo
+    glib
+    atk
+    harfbuzzFull
+    curl
+    mesa
+    libdrm
+    libsecret
+    xorg.libXmu
+    util-linux
+    libxkbcommon
+    xkeyboard-config
     adwaita-icon-theme
   ];
 
@@ -109,4 +151,4 @@ stdenv.mkDerivation (finalAttrs: {
     platforms = [ "x86_64-linux" ];
     mainProgram = "otzaria";
   };
-})
+}

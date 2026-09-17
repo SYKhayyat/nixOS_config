@@ -128,10 +128,9 @@ in
   # the current content of every colliding file is still moved to a fresh
   # backup moments later. What is discarded is an older snapshot of a file
   # whose newer self sits right next to it.
-  home.activation.clearStaleBackups =
-    config.lib.dag.entryBefore [ "checkLinkTargets" ] ''
-      $DRY_RUN_CMD find "$HOME" -type f -name '*.hm-bak' -delete
-    '';
+  home.activation.clearStaleBackups = config.lib.dag.entryBefore [ "checkLinkTargets" ] ''
+    $DRY_RUN_CMD find "$HOME" -type f -name '*.hm-bak' -delete
+  '';
 
   programs.zsh = {
     enable = true;
