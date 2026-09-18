@@ -39,7 +39,7 @@
   mesa,
   libdrm,
   libsecret,
-  xorg,
+  libxmu,
   util-linux,
   libxkbcommon,
   xkeyboard-config,
@@ -81,7 +81,7 @@ stdenv.mkDerivation {
     mesa
     libdrm
     libsecret
-    xorg.libXmu
+    libxmu
     util-linux
     libxkbcommon
     xkeyboard-config

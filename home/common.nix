@@ -128,8 +128,17 @@ in
   # the current content of every colliding file is still moved to a fresh
   # backup moments later. What is discarded is an older snapshot of a file
   # whose newer self sits right next to it.
+  #
+  # The `|| true` + stderr redirect is load-bearing, not cosmetic: this runs
+  # under `set -eu -o pipefail`, and `find $HOME` returns 1 when it cannot
+  # descend somewhere — rootless Docker layers under
+  # ~/.local/share/docker/fuse-overlayfs (owned by a subuid, mode 0700) and
+  # any root-owned strays (e.g. config/.sentry-native from a sudo'd tool).
+  # Without it the whole activation fails in clearStaleBackups with nothing
+  # but "Permission denied" lines in the journal, which is exactly the
+  # 2026-09-08 / 2026-09-17 home-manager-shaul.service failure.
   home.activation.clearStaleBackups = config.lib.dag.entryBefore [ "checkLinkTargets" ] ''
-    $DRY_RUN_CMD find "$HOME" -type f -name '*.hm-bak' -delete
+    $DRY_RUN_CMD find "$HOME" -type f -name '*.hm-bak' -delete 2>/dev/null || true
   '';
 
   programs.zsh = {
