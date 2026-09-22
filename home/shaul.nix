@@ -48,6 +48,7 @@ in
     ../modules/home/toolkit.nix # every program you type the name of
     ../modules/home/palette.nix # the stylix scheme, per-syntax
     ../modules/home/wayland-common.nix # bar, launcher, lock, notifier, yazi
+    ../modules/home/darktable.nix # darktable LUTs/styles/lua (needs no extra pkgs)
     ../modules/home/niri
     ../modules/home/hyprland
   ];

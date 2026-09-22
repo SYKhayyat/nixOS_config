@@ -5,16 +5,11 @@
     # ── NixOS 26.05 "Yarara" — current stable, supported through 2026-12-31.
     nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
 
-    # There was a second `nixpkgs-unstable` input here, imported into a full
-    # second nixpkgs and threaded through `specialArgs` into the host config and
-    # `extraSpecialArgs` into every home-manager module, so that any of them
-    # could say `unstable.some-package`. A repo-wide grep for `unstable.` found
-    # the input URL and the comment explaining how to use it, and nothing else
-    # (Lamdan 3.1). That is a second fetch, a second lock entry and a second full
-    # evaluation on every rebuild, bought for zero call sites — the same shape as
-    # the `lxqt` branches in the old specialisation factory, which were also a
-    # hedge nobody had ever needed. Re-adding it is four lines, on the day a
-    # package actually needs to run ahead of stable.
+    # ── Unstable for packages that need to run ahead of 26.05 ───────────────
+    # Re-added 2026-09-22 for darktable >=5.6: stable is 5.4.1, unstable is
+    # 5.6.0 (5.6.1 not yet in nixpkgs). Cost is one extra fetch/lock/eval,
+    # used only via the overlay below so no module needs `unstable.` plumbing.
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
@@ -93,9 +88,19 @@
         config.allowUnfree = true;
         overlays = [
           inputs.llm-agents.overlays.shared-nixpkgs
+          darktableOverlay
           clixadOverlay
           otzariaOverlay
         ];
+      };
+      # darktable >=5.6 from unstable — stable 26.05 is 5.4.1. Single attr, no
+      # `unstable.` plumbing needed elsewhere (toolkit.nix still just says `darktable`).
+      darktableOverlay = final: _prev: {
+        darktable =
+          (import inputs.nixpkgs-unstable {
+            inherit system;
+            config.allowUnfree = true;
+          }).darktable;
       };
       # clixad — a free AI coding agent, distributed as a bundled npm CLI. Not in
       # nixpkgs, so this overlay wraps the pinned npm build with node. The
@@ -225,6 +230,7 @@
             # flow into nixosSystem.
             nixpkgs.overlays = [
               inputs.llm-agents.overlays.shared-nixpkgs
+              darktableOverlay
               clixadOverlay
               otzariaOverlay
             ];
