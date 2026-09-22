@@ -4,6 +4,7 @@
 # Verified sources (git ls-remote + fetch hash checked 2026-09-22):
 #   darktable-org/lua-scripts @ 055ef31  sha256-Sd5+ik+Ux4s+5pTYmduhbB9+u4cLakAb2EqL1IThk4k=
 #   t3mujinpack/t3mujinpack @ 0b421f3    sha256-2e0gxQD4fhfw5b7lzyoOo5T4GJotGD7S7o4vudVtLC8=  (58M haldcluts)
+#   cedeber/hald-clut @ 3b3180f          sha256-R8vyYmcsfk49QsSV3v0QblXcO6U0oIfDyxbHPLwSMdo=  (740M full HaldCLUT, opt-in)
 #   rabauke/darktable-styles @ bebfec2   sha256-hMOw9bequAlKnrC0KTGFntfv/d+4rq1/ehpI/adIhfs=
 #   shetyeshail/dt.styles @ 1b413fa      sha256-yCON8Bn94pa/qFnXgWWahQLv1DB8HBlZdBdy1jwj1wM=
 #   Popul-AR/gmic-luts @ a2ef4c9         sha256-UH0ssqB7CBDbAFqNzgRJPMoSOZMhvMLp884yP5QZIBQ= (tiny, neutral + previews)
@@ -37,6 +38,12 @@ let
     repo = "t3mujinpack";
     rev = "0b421f3e25209ed78253d1724a29cc6255c5e7fe";
     hash = "sha256-2e0gxQD4fhfw5b7lzyoOo5T4GJotGD7S7o4vudVtLC8=";
+  };
+  haldClut = pkgs.fetchFromGitHub {
+    owner = "cedeber";
+    repo = "hald-clut";
+    rev = "3b3180f82d4dcea1e6e8c5648473539a910d7f49";
+    hash = "sha256-R8vyYmcsfk49QsSV3v0QblXcO6U0oIfDyxbHPLwSMdo=";
   };
   rabaukeStyles = pkgs.fetchFromGitHub {
     owner = "rabauke";
@@ -89,11 +96,14 @@ in
   xdg.configFile."darktable/styles/shetyeshail".source = shetyeStyles;
 
   # ── LUTs (HaldCLUT PNGs for the lut3d module) ───────────────────────
-  # t3mujinpack holds ~200 film emulations as 512x512 HaldCLUT PNGs
-  # (~58M). They work with darktable's lut3d, RawTherapee, etc.
+  # t3mujinpack holds ~200 film emulations as 512x512 HaldCLUT PNGs (~58M).
+  # hald-clut is the full collection (~740M, Apple + Fuji + Film Simulation etc).
+  # Both work with darktable's lut3d, RawTherapee, etc.
   # Placed in ~/Pictures/LUTs (browsable) and linked in XDG for parity.
   home.file."Pictures/LUTs/t3mujinpack".source = "${t3mujinpack}/haldcluts";
   xdg.configFile."darktable/luts/t3mujinpack".source = "${t3mujinpack}/haldcluts";
+  home.file."Pictures/LUTs/hald-clut".source = "${haldClut}/HaldCLUT";
+  xdg.configFile."darktable/luts/hald-clut".source = "${haldClut}/HaldCLUT";
 
   # Optional: add more LUT packs declaratively as you discover them.
   # Example (uncomment, fill rev/hash via `nix-prefetch`):
