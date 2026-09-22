@@ -93,15 +93,21 @@
           otzariaOverlay
         ];
       };
-      # darktable 5.6.1 — unstable is still 5.6.0, so override the tarball.
-      # When unstable bumps to 5.6.1, drop the overrideAttrs and keep the
-      # plain import. Verified: tar e8b84ac… sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=
+      # darktable 5.6.1 with AI — unstable is 5.6.0 and `withAi=false` by default.
+      # AI gates onnxruntime + libarchive behind USE_AI (package.nix:6 `withAi ? false`).
+      # You built 5.6.1 but saw no AI tab because the standard nixpkgs package
+      # is built without it to avoid inflating closure for non-AI users.
+      # When unstable bumps to 5.6.1, keep `override { withAi=true; }`.
+      # Verified: tar e8b84ac… sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=
       darktableOverlay = final: _prev: {
         darktable =
-          (import inputs.nixpkgs-unstable {
-            inherit system;
-            config.allowUnfree = true;
-          }).darktable.overrideAttrs
+          (
+            (import inputs.nixpkgs-unstable {
+              inherit system;
+              config.allowUnfree = true;
+            }).darktable.override
+            { withAi = true; }
+          ).overrideAttrs
             (old: {
               version = "5.6.1";
               src = final.fetchurl {
