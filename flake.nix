@@ -93,14 +93,22 @@
           otzariaOverlay
         ];
       };
-      # darktable >=5.6 from unstable — stable 26.05 is 5.4.1. Single attr, no
-      # `unstable.` plumbing needed elsewhere (toolkit.nix still just says `darktable`).
+      # darktable 5.6.1 — unstable is still 5.6.0, so override the tarball.
+      # When unstable bumps to 5.6.1, drop the overrideAttrs and keep the
+      # plain import. Verified: tar e8b84ac… sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=
       darktableOverlay = final: _prev: {
         darktable =
           (import inputs.nixpkgs-unstable {
             inherit system;
             config.allowUnfree = true;
-          }).darktable;
+          }).darktable.overrideAttrs
+            (old: {
+              version = "5.6.1";
+              src = final.fetchurl {
+                url = "https://github.com/darktable-org/darktable/releases/download/release-5.6.1/darktable-5.6.1.tar.xz";
+                hash = "sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=";
+              };
+            });
       };
       # clixad — a free AI coding agent, distributed as a bundled npm CLI. Not in
       # nixpkgs, so this overlay wraps the pinned npm build with node. The
