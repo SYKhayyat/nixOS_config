@@ -245,6 +245,8 @@
             # from nixpkgs. The CLI (`lighttable`) needs none of this and is
             # left alone. `wrapProgram` renames the script to `.wrapped`, so
             # its "dirname of $0" root computation still resolves the bundle.
+            # GST_PLUGIN_PATH hands video-preview GStreamer's appsink element,
+            # which gst-plugins-base provides and the host lacks.
             wrapProgram $out/lib/lighttable/bin/lighttable-desktop \
               --prefix LD_LIBRARY_PATH : "${
                 final.lib.makeLibraryPath [
@@ -257,7 +259,13 @@
                   final.dbus
                 ]
               }" \
-              --prefix XDG_DATA_DIRS : "${final.glib.getSchemaPath final.gtk3}"
+              --prefix XDG_DATA_DIRS : "${final.glib.getSchemaPath final.gtk3}" \
+              --prefix GST_PLUGIN_PATH : "${
+                final.lib.makeSearchPath "lib/gstreamer-1.0" [
+                  final.gst_all_1.gst-plugins-base
+                  final.gst_all_1.gst-plugins-good
+                ]
+              }"
             runHook postInstall
           '';
           meta.mainProgram = "lighttable";
