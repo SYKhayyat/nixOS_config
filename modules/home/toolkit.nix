@@ -324,11 +324,10 @@ let
     sly
     rapidraw
     art
-    # The three niche raw editors — not in nixpkgs (neither branch), so each is
+    # The two niche raw editors — not in nixpkgs (neither branch), so each is
     # a flake overlay that repackages the upstream Linux bundle; see flake.nix.
     # Version state lives there, this list only decides presence.
     filmulator
-    calibraw
     lighttable
     aaphoto
     # See "The two that are not downloads" above — uncached, compiles locally.

@@ -91,7 +91,6 @@
           inputs.llm-agents.overlays.shared-nixpkgs
           darktableOverlay
           rapidrawOverlay
-          calibrawOverlay
           filmulatorOverlay
           lighttableOverlay
           clixadOverlay
@@ -154,10 +153,9 @@
       rapidrawOverlay = _final: _prev: {
         inherit (unstablePkgs) rapidraw;
       };
-      # The three niche raw editors. None are in nixpkgs (checked 2026-09-24,
-      # both branches), and each upstream ships a built Linux bundle, so these
-      # overlays repackage the bundle instead of hand-rolling three GUI stacks:
-      #   calibraw    Duecki1/CalibRaw              1.0.0   AppImage
+      # The niche raw editors. None are in nixpkgs (checked 2026-09-24, both
+      # branches), and each upstream ships a built Linux bundle, so these
+      # overlays repackage the bundle instead of hand-rolling two GUI stacks:
       #   filmulator  CarVac/filmulator-gui        v0.12.0 AppImage
       #   lighttable  reville/lighttable-digital-darkroom 0.7.10  raw tarball
       # Each pin was verified by unpacking the payload (bin/desktop names,
@@ -165,8 +163,8 @@
       #
       # `wrapType2` only produces the FHS wrapper: its output is just
       # `bin/<pname>`. The AppImage's own `.desktop` entry and hicolor icon
-      # (both apps keep them in `usr/share/`, Exec and pname match) are merged
-      # in here so the apps reach the session's launchers.
+      # (filmulator keeps them in `usr/share/`, Exec and pname match) are
+      # merged in here so the apps reach the session's launchers.
       wrapAppImage =
         final:
         {
@@ -191,14 +189,6 @@
             cp -r ${payload}/usr/share/icons "$out/share/icons"
           '';
         };
-      calibrawOverlay = final: _prev: {
-        calibraw = wrapAppImage final {
-          pname = "calibraw";
-          version = "1.0.0";
-          url = "https://github.com/Duecki1/CalibRaw/releases/download/1.0.0/CalibRaw-x86_64.AppImage";
-          hash = "sha256-PGSXcQ9wJKZgG5f6AUYcDi6jF+E2h0mp06chCYm3ZPI=";
-        };
-      };
       filmulatorOverlay = final: _prev: {
         filmulator = wrapAppImage final {
           pname = "filmulator";
@@ -223,6 +213,9 @@
           # Repackaging a prebuilt bundle: leave its ELFs and RPATHs alone.
           dontStrip = true;
           dontPatchELF = true;
+          # `lighttable-desktop-shell` needs the GTK/WebKit stack, which the
+          # bundle leaves to the system and NixOS does not provide.
+          nativeBuildInputs = [ final.makeWrapper ];
           installPhase = ''
             runHook preInstall
             mkdir -p $out/lib
@@ -246,6 +239,25 @@
             Categories=Graphics;Photography;
             MimeType=image/raw;image/x-nikon-nef;image/x-adobe-dng;
             EOF
+            # The bundle ships most of its libs; only the system-expected
+            # GTK/WebKit stack (the exact set `lighttable-desktop-shell`
+            # failed to link against) is missing, so hand it the real thing
+            # from nixpkgs. The CLI (`lighttable`) needs none of this and is
+            # left alone. `wrapProgram` renames the script to `.wrapped`, so
+            # its "dirname of $0" root computation still resolves the bundle.
+            wrapProgram $out/lib/lighttable/bin/lighttable-desktop \
+              --prefix LD_LIBRARY_PATH : "${
+                final.lib.makeLibraryPath [
+                  final.webkitgtk_4_1
+                  final.gtk3
+                  final.cairo
+                  final.gdk-pixbuf
+                  final.libsoup_3
+                  final.glib
+                  final.dbus
+                ]
+              }" \
+              --prefix XDG_DATA_DIRS : "${final.glib.getSchemaPath final.gtk3}"
             runHook postInstall
           '';
           meta.mainProgram = "lighttable";
@@ -353,7 +365,6 @@
               inputs.llm-agents.overlays.shared-nixpkgs
               darktableOverlay
               rapidrawOverlay
-              calibrawOverlay
               filmulatorOverlay
               lighttableOverlay
               clixadOverlay
