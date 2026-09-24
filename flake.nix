@@ -8,7 +8,8 @@
     # ── Unstable for packages that need to run ahead of 26.05 ───────────────
     # Re-added 2026-09-22 for darktable >=5.6: stable is 5.4.1, unstable is
     # 5.6.0 (5.6.1 not yet in nixpkgs). Cost is one extra fetch/lock/eval,
-    # used only via the overlay below so no module needs `unstable.` plumbing.
+    # used only via the overlays below so no module needs `unstable.` plumbing.
+    # 2026-09-24: also the source of rapidraw 1.6.4 (26.05 ships 1.5.8).
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     home-manager = {
@@ -89,6 +90,10 @@
         overlays = [
           inputs.llm-agents.overlays.shared-nixpkgs
           darktableOverlay
+          rapidrawOverlay
+          calibrawOverlay
+          filmulatorOverlay
+          lighttableOverlay
           clixadOverlay
           otzariaOverlay
         ];
@@ -99,22 +104,21 @@
       # is built without it to avoid inflating closure for non-AI users.
       # When unstable bumps to 5.6.1, keep `override { withAi=true; }`.
       # Verified: tar e8b84ac… sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=
+      # One unstable import, N overlays. darktable and rapidraw both want to
+      # run ahead of 26.05; a second `import inputs.nixpkgs-unstable` in each
+      # overlay would mean a second full nixpkgs evaluation to bump one attr.
+      unstablePkgs = import inputs.nixpkgs-unstable {
+        inherit system;
+        config.allowUnfree = true;
+      };
       darktableOverlay = final: _prev: {
-        darktable =
-          (
-            (import inputs.nixpkgs-unstable {
-              inherit system;
-              config.allowUnfree = true;
-            }).darktable.override
-            { withAi = true; }
-          ).overrideAttrs
-            (old: {
-              version = "5.6.1";
-              src = final.fetchurl {
-                url = "https://github.com/darktable-org/darktable/releases/download/release-5.6.1/darktable-5.6.1.tar.xz";
-                hash = "sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=";
-              };
-            });
+        darktable = (unstablePkgs.darktable.override { withAi = true; }).overrideAttrs {
+          version = "5.6.1";
+          src = final.fetchurl {
+            url = "https://github.com/darktable-org/darktable/releases/download/release-5.6.1/darktable-5.6.1.tar.xz";
+            hash = "sha256-6LhKyYsLaJokTkA2xLVjlMHVjOLZq8BeCgYO+fdW3DY=";
+          };
+        };
       };
       # clixad — a free AI coding agent, distributed as a bundled npm CLI. Not in
       # nixpkgs, so this overlay wraps the pinned npm build with node. The
@@ -143,6 +147,109 @@
       # packages/otzaria.nix. Personal-Use license => local fetch, not upstream.
       otzariaOverlay = final: _prev: {
         otzaria = final.callPackage ./packages/otzaria.nix { };
+      };
+      # rapidraw 1.6.4 — nixos-26.05 ships 1.5.8, unstable has 1.6.4. The
+      # toolkit.nix `offInStudy` list keeps its single `rapidraw` statement;
+      # this overlay decides what that name means.
+      rapidrawOverlay = _final: _prev: {
+        inherit (unstablePkgs) rapidraw;
+      };
+      # The three niche raw editors. None are in nixpkgs (checked 2026-09-24,
+      # both branches), and each upstream ships a built Linux bundle, so these
+      # overlays repackage the bundle instead of hand-rolling three GUI stacks:
+      #   calibraw    Duecki1/CalibRaw              1.0.0   AppImage
+      #   filmulator  CarVac/filmulator-gui        v0.12.0 AppImage
+      #   lighttable  reville/lighttable-digital-darkroom 0.7.10  raw tarball
+      # Each pin was verified by unpacking the payload (bin/desktop names,
+      # shebangs) as well as by hash; see the per-overlay comments.
+      #
+      # `wrapType2` only produces the FHS wrapper: its output is just
+      # `bin/<pname>`. The AppImage's own `.desktop` entry and hicolor icon
+      # (both apps keep them in `usr/share/`, Exec and pname match) are merged
+      # in here so the apps reach the session's launchers.
+      wrapAppImage =
+        final:
+        {
+          pname,
+          version,
+          url,
+          hash,
+        }:
+        let
+          src = final.fetchurl { inherit url hash; };
+          payload = final.appimageTools.extractType2 { inherit pname version src; };
+        in
+        final.symlinkJoin {
+          name = "${pname}-${version}";
+          paths = [ (final.appimageTools.wrapType2 { inherit pname version src; }) ];
+          postBuild = ''
+            rm -rf "$out/share"
+            mkdir -p "$out/share/applications"
+            for desktop in ${payload}/usr/share/applications/*.desktop; do
+              install -m444 "$desktop" "$out/share/applications/"
+            done
+            cp -r ${payload}/usr/share/icons "$out/share/icons"
+          '';
+        };
+      calibrawOverlay = final: _prev: {
+        calibraw = wrapAppImage final {
+          pname = "calibraw";
+          version = "1.0.0";
+          url = "https://github.com/Duecki1/CalibRaw/releases/download/1.0.0/CalibRaw-x86_64.AppImage";
+          hash = "sha256-PGSXcQ9wJKZgG5f6AUYcDi6jF+E2h0mp06chCYm3ZPI=";
+        };
+      };
+      filmulatorOverlay = final: _prev: {
+        filmulator = wrapAppImage final {
+          pname = "filmulator";
+          version = "0.12.0";
+          url = "https://github.com/CarVac/filmulator-gui/releases/download/v0.12.0/Filmulator-x86_64.AppImage";
+          hash = "sha256-6FMq2Cjsz5rdCficPfkm3g0tkDpNEevI0EODTzFk4pI=";
+        };
+      };
+      # LightTable's Linux bundle is self-contained (app + bundled Python +
+      # ONNX runtime, hence 458 MB) and its two launchers are `#!/bin/sh`
+      # scripts that locate their siblings relative to `$0`. NixOS has no
+      # /bin/sh, so we patch the shebangs and symlink them from $out/bin; the
+      # symlinks keep the scripts' "dirname of $0" = the bundle dir.
+      lighttableOverlay = final: _prev: {
+        lighttable = final.stdenv.mkDerivation {
+          pname = "lighttable";
+          version = "0.7.10";
+          src = final.fetchurl {
+            url = "https://github.com/reville/lighttable-digital-darkroom/releases/download/v0.7.10/LightTable-0.7.10-linux-x86_64.tar.gz";
+            hash = "sha256-9ZE9R2U67d5OZOfrBJTh7EV0n3wdzzWBs7i4JBVjdls=";
+          };
+          # Repackaging a prebuilt bundle: leave its ELFs and RPATHs alone.
+          dontStrip = true;
+          dontPatchELF = true;
+          installPhase = ''
+            runHook preInstall
+            mkdir -p $out/lib
+            cp -r . $out/lib/lighttable
+            patchShebangs $out/lib/lighttable/bin/lighttable
+            patchShebangs $out/lib/lighttable/bin/lighttable-desktop
+            mkdir -p $out/bin
+            ln -s $out/lib/lighttable/bin/lighttable         $out/bin/lighttable
+            ln -s $out/lib/lighttable/bin/lighttable-desktop $out/bin/lighttable-desktop
+            mkdir -p $out/share/applications $out/share/icons/hicolor/1024x1024/apps
+            cp $out/lib/lighttable/share/icons/lighttable.png \
+              $out/share/icons/hicolor/1024x1024/apps/lighttable.png
+            cat > $out/share/applications/lighttable.desktop <<EOF
+            [Desktop Entry]
+            Type=Application
+            Name=LightTable
+            GenericName=RAW Photo Editor
+            Comment=Digital darkroom for RAW photography
+            Exec=lighttable-desktop %u
+            Icon=lighttable
+            Categories=Graphics;Photography;
+            MimeType=image/raw;image/x-nikon-nef;image/x-adobe-dng;
+            EOF
+            runHook postInstall
+          '';
+          meta.mainProgram = "lighttable";
+        };
       };
       myConfig = {
         username = "shaul";
@@ -245,6 +352,10 @@
             nixpkgs.overlays = [
               inputs.llm-agents.overlays.shared-nixpkgs
               darktableOverlay
+              rapidrawOverlay
+              calibrawOverlay
+              filmulatorOverlay
+              lighttableOverlay
               clixadOverlay
               otzariaOverlay
             ];

@@ -8,6 +8,8 @@
 #   rabauke/darktable-styles @ bebfec2   sha256-hMOw9bequAlKnrC0KTGFntfv/d+4rq1/ehpI/adIhfs=
 #   shetyeshail/dt.styles @ 1b413fa      sha256-yCON8Bn94pa/qFnXgWWahQLv1DB8HBlZdBdy1jwj1wM=
 #   Popul-AR/gmic-luts @ a2ef4c9         sha256-UH0ssqB7CBDbAFqNzgRJPMoSOZMhvMLp884yP5QZIBQ= (tiny, neutral + previews)
+# (t3mujinpack is re-declared in raw-editor-sources.nix — same fetch, same
+#  store path; darktable reads it from config.shaulos.rawEditors.t3mujinpack.)
 #
 # Why these:
 # - You shoot Nikon NEF (DSC_2655.NEF.xmp seen) — film emulation + B&W styles
@@ -20,24 +22,26 @@
 #   ~/.config/darktable/lua -> lua-scripts
 #   ~/.config/darktable/luarc -> generated
 #   ~/.config/darktable/styles/{rabauke,shetyeshail}
+#   ~/.config/darktable/color/in/NIKON D7200.icc -> built from the same DCP
+#       that ART and RawTherapee read directly (raw-editor-sources.nix)
 #   ~/Pictures/LUTs -> t3mujinpack HaldCLUT PNGs (lut3d module browses there)
 #   ~/.config/darktable/luts -> symlink to ~/Pictures/LUTs for convenience
 #
 # Add your own: drop .cube/.png into ~/Pictures/LUTs or extend xdg.configFile
 # below. Styles: drop *.dtstyle into ~/.config/darktable/styles.
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 let
+  t3mujinpack = config.shaulos.rawEditors.t3mujinpack;
   luaScripts = pkgs.fetchFromGitHub {
     owner = "darktable-org";
     repo = "lua-scripts";
     rev = "055ef31b09a4a67671aa51c4b2a5a5ea9d1317c7";
     hash = "sha256-Sd5+ik+Ux4s+5pTYmduhbB9+u4cLakAb2EqL1IThk4k=";
-  };
-  t3mujinpack = pkgs.fetchFromGitHub {
-    owner = "t3mujinpack";
-    repo = "t3mujinpack";
-    rev = "0b421f3e25209ed78253d1724a29cc6255c5e7fe";
-    hash = "sha256-2e0gxQD4fhfw5b7lzyoOo5T4GJotGD7S7o4vudVtLC8=";
   };
   haldClut = pkgs.fetchFromGitHub {
     owner = "cedeber";
@@ -88,6 +92,13 @@ in
     -- require "contrib/fujifilm_ratings"
     -- require "contrib/clear_GPS"
   '';
+
+  # ── Camera color (input ICC) ──────────────────────────────────────────
+  # darktable reads ~/.config/darktable/color/in/*.icc as input profiles. The
+  # D7200 ICC is converted at build time from the very DCP that ART and
+  # RawTherapee read directly (raw-editor-sources.nix), so the three editors
+  # share one camera calibration state for the NEF files you shoot.
+  xdg.configFile."darktable/color/in/NIKON D7200.icc".source = config.shaulos.rawEditors.d7200Icc;
 
   # ── Styles (*.dtstyle) ───────────────────────────────────────────────
   # Both collections are linked read-only into the styles dir.
