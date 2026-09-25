@@ -140,11 +140,22 @@ in
       # Toolbars a point down, which is Plasma's own convention.
       "kdeglobals"."General"."toolBarFont" = qtFont font.sans (uiSize - 1);
       "kdeglobals"."KDE"."widgetStyle" = "Breeze";
-      # Baloo: index filenames only, skip full-text content indexing.
-      # Full-text indexing of the (large) document/seforim library was pinning
-      # the disk — 80k+ files queued for content extraction. Disabling it keeps
-      # search-by-name working and drops the disk/CPU hammering.
+      # Baloo: filenames only, never file content.
+      # `onlyBasicIndexing` IS the Baloo 6 key (still in 6.26) — the slowdown
+      # was not a wrong key but a stale 9.3 GiB content index with ~75k files
+      # still queued: flipping the flag does not purge old content, so the
+      # extractor kept chewing until `balooctl6 disable` + kill + purge.
+      # After this lands: `just switch`, then
+      # `balooctl6 purge && balooctl6 enable && balooctl6 check`.
       "baloofilerc"."General"."onlyBasicIndexing" = true;
+      # `overrideConfig` above rebuilds this file on every activation, so
+      # anything not declared here resets. `folders` defaults to $HOME, which
+      # would otherwise re-queue caches, Firefox storage and nix `result`
+      # links for indexing on every switch.
+      "baloofilerc"."General"."exclude folders" = {
+        value = "$HOME/.cache/,$HOME/.local/share/baloo/,$HOME/.mozilla/,$HOME/result/";
+        shellExpand = true;
+      };
     };
 
     workspace = {
