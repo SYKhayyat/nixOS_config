@@ -249,6 +249,13 @@ let
     llm-agents.opencode
     llm-agents.freebuff
     clixad
+    # Omnirush signs in over HTTPS and runs its whole agent against
+    # omnirush.ai, so it leaves the study airgap like the rest of this block.
+    # It is a local package, not a nixpkgs one — see ../packages/omnirush.nix
+    # for where its two npm tarballs come from. Bumping it means editing the
+    # `version` there and re-hashing both URLs; there is no `just` recipe for
+    # that because nothing outside that file moves when it does.
+    omnirush
     # Otzaria (אוצריא) downloads its seforim library on first run, so it
     # leaves the study airgap like the other network apps above.
     otzaria
@@ -273,14 +280,26 @@ let
     gimpPlugins.resynthesizer
     krita
     krita-plugin-gmic
+    # Photon Studio — a free, offline, PSD-capable photo editor that sits
+    # with gimp and krita rather than with the raw developers below. Not in
+    # nixpkgs (its `photon` is a URL crawler), so it is a local overlay over
+    # the upstream AppImage — see ../packages/photon.nix for the packaging
+    # and for why the attribute is `photon-studio`.
+    #
+    # The app is offline by design but not small: a 756 MB image and a
+    # 1.2 GB extraction, both in the closure, because subject selection runs
+    # here. It is uncached like the raw editors further down, though unlike
+    # them it never compiles — it is a repackaging of a prebuilt bundle.
+    photon-studio
 
     # ── The two that are not downloads ────────────────────────────────────
     #
-    # Everything else in this section is in cache.nixos.org, so it costs a
-    # download and nothing else. These two are not, and "not cached" means
-    # *your machine compiles them*, from source, every time the nixpkgs pin
-    # moves. Measured against the pinned nixpkgs (445d861c) by asking
-    # cache.nixos.org for each derivation's .narinfo:
+    # Everything else in this section that is not a local overlay is in
+    # cache.nixos.org, so it costs a download and nothing else. These two
+    # are not, and "not cached" means *your machine compiles them*, from
+    # source, every time the nixpkgs pin moves. Measured against the pinned
+    # nixpkgs (445d861c) by asking cache.nixos.org for each derivation's
+    # .narinfo:
     #
     #   graphite                    404 — no substitute, Rust, builds locally
     #   inkscape / -with-extensions 404 — no substitute, C++, builds locally

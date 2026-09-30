@@ -94,7 +94,9 @@
           filmulatorOverlay
           lighttableOverlay
           clixadOverlay
+          omnirushOverlay
           otzariaOverlay
+          photonOverlay
         ];
       };
       # darktable 5.6.1 with AI — unstable is 5.6.0 and `withAi=false` by default.
@@ -140,12 +142,27 @@
           meta.mainProgram = "clixad";
         };
       };
+      # Omnirush — a terminal coding agent with free daily tokens. Neither in
+      # nixpkgs nor in numtide's llm-agents.nix, so it is a local package:
+      # two npm tarballs unpacked into npm's own layout, wrapped with node.
+      # The argument is the whole explanation of why it is not built the way
+      # clixad above is. See packages/omnirush.nix.
+      omnirushOverlay = final: _prev: {
+        omnirush = final.callPackage ./packages/omnirush.nix { };
+      };
       # Otzaria (אוצריא) — a Flutter app for the Jewish library, shipped as a
       # prebuilt Linux package. We fetch the app-only .deb and repackage it;
       # the seforim library downloads separately on first run. See
       # packages/otzaria.nix. Personal-Use license => local fetch, not upstream.
       otzariaOverlay = final: _prev: {
         otzaria = final.callPackage ./packages/otzaria.nix { };
+      };
+      # Photon Studio — a free offline photo editor, shipped as an AppImage.
+      # Repackaged with appimageTools rather than installed through Flatpak;
+      # `photon-studio` and not `photon` because nixpkgs' `photon` is a URL
+      # crawler. See packages/photon.nix.
+      photonOverlay = final: _prev: {
+        photon-studio = final.callPackage ./packages/photon.nix { };
       };
       # rapidraw 1.6.4 — nixos-26.05 ships 1.5.8, unstable has 1.6.4. The
       # toolkit.nix `offInStudy` list keeps its single `rapidraw` statement;
@@ -376,7 +393,9 @@
               filmulatorOverlay
               lighttableOverlay
               clixadOverlay
+              omnirushOverlay
               otzariaOverlay
+              photonOverlay
             ];
           }
           ./hosts/desktop/configuration.nix
