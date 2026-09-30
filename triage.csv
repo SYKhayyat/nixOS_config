@@ -1,0 +1,26 @@
+number,title,url,D,R,why,risk
+2,Duplicate and conflicting recoll/plocate setup with two competing indexers,https://github.com/SYKhayyat/nixOS_config/issues/2,3,3,Dedupe locate/recoll units; nondeterministic conf breaks search visibly,Visible search break
+3,Boilerplate modules hardcoded identity 'shaul' packages duplicated,https://github.com/SYKhayyat/nixOS_config/issues/3,3,3,Single identity source + dedupe; stale user paths break visibly,Visible break
+4,activationScripts chown -R over whole home on every switch,https://github.com/SYKhayyat/nixOS_config/issues/4,2,4,Idempotent perms fix; recursive chown stomps ownership every switch,Silent ownership stomp
+5,Two OneDrive clients installed and a service enabled none configured,https://github.com/SYKhayyat/nixOS_config/issues/5,2,2,Pick one client + auth; enabled-but-useless service only,Useless service
+6,Hebrew keyboard input is GUI-configured not declared in the flake,https://github.com/SYKhayyat/nixOS_config/issues/6,2,3,Declare xkb/kwin layout; fresh rebuild lacks Hebrew visibly,Visible missing Hebrew
+7,shellUtilities installs six fuzzy-finders three file managers three editors,https://github.com/SYKhayyat/nixOS_config/issues/7,1,1,Trim to one per want; menu/closure bloat only,Bloat only
+8,[lamdan] Delete scripts/: a search tool that duplicates ripgrep,https://github.com/SYKhayyat/nixOS_config/issues/8,1,1,Delete file; dead-weight duplication only,Dead weight
+9,Version-handling or/fallback shims and global PATH hack silently mask breakage,https://github.com/SYKhayyat/nixOS_config/issues/9,3,4,Pin versions drop shims; silent fallback hides breakage,Silent hidden breakage
+10,Public config declares gh/onedrive/ssh with no secret-management shape,https://github.com/SYKhayyat/nixOS_config/issues/10,4,5,Add sops/agenix shape; next secret lands in plaintext,Plaintext leak
+11,Flake has no checks/formatter/CI; modular structure survives on discipline,https://github.com/SYKhayyat/nixOS_config/issues/11,3,2,Add checks/CI restore structure; broken eval caught late only,Late-caught eval break
+12,[lamdan] Hand-rolled activationScripts per-user layer — adopt home-manager,https://github.com/SYKhayyat/nixOS_config/issues/12,5,3,Migrate user layer to home-manager; root activation races visibly,Visible races
+13,No backup exists for the seforim/org library the whole machine exists to serve,https://github.com/SYKhayyat/nixOS_config/issues/13,4,5,Declare restic/borg target; single-disk notes lost irreversibly,Irreversible loss
+14,Add shell aliases for common nix commands,https://github.com/SYKhayyat/nixOS_config/issues/14,1,1,Add zsh+bash aliases; convenience only,Convenience
+15,[Medium/bug] Destructive auto-GC wipes rollback generations,https://github.com/SYKhayyat/nixOS_config/issues/15,1,5,Weekly + older-than 30d; one bad rebuild leaves no rollback,No rollback
+16,[High/security] OpenSSH internet-exposed with defaults no hardening,https://github.com/SYKhayyat/nixOS_config/issues/16,2,5,Keys-only + fail2ban; brute-force to sudo on open 22/tcp,Brute-force to sudo
+17,[High/bug] Global allowUnfree instead of scoped predicate,https://github.com/SYKhayyat/nixOS_config/issues/17,1,4,Scoped predicate; silently permits any future unfree pkg,Silent permit
+18,[High/bug] hardware-configuration committed + double-imported unportable,https://github.com/SYKhayyat/nixOS_config/issues/18,1,3,Split/disko or gitignore; stage-1 mount fails visibly elsewhere,Visible mount fail
+19,[High/bug] otzaria-library service: non-atomic rm-rf no net ordering,https://github.com/SYKhayyat/nixOS_config/issues/19,3,5,Atomic stage+mv net ordering; rm-rf window destroys library,Destroys library
+20,[High/perf] texlive scheme-full explodes store closure ~4-5GB,https://github.com/SYKhayyat/nixOS_config/issues/20,1,2,Small scheme + collections; 4GB closure bloat only,Bloat only
+21,[Medium/perf] nix-ld + steam-run multiPkgs defeats purity bloats closure,https://github.com/SYKhayyat/nixOS_config/issues/21,3,3,Scope libs per-app; Steam/GTK in closure bloats visibly,Visible bloat
+22,[Medium/bug] Fragile Lix overlay + double nixpkgs eval,https://github.com/SYKhayyat/nixOS_config/issues/22,2,3,Drop overlay single eval; rename breaks eval visibly,Visible eval break
+23,[Medium/bug] Dead seforim.nix bitrotting will conflict if enabled,https://github.com/SYKhayyat/nixOS_config/issues/23,1,2,Delete or dedupe import; enabling collides visibly,Visible collide
+24,[Medium/perf] Boot bloat + silent consents: Ollama/CUPS/X11 + android license,https://github.com/SYKhayyat/nixOS_config/issues/24,2,2,Gate services/license; boot weight + implicit consent,Boot weight
+25,Set vm.swappiness to 60 in kernel sysctl,https://github.com/SYKhayyat/nixOS_config/issues/25,1,3,One sysctl line; kswapd churn slows box visibly,Visible slowdown
+26,CPU governor stuck at powersave — power-profiles-daemon not controlling frequency,https://github.com/SYKhayyat/nixOS_config/issues/26,2,3,Fix pstate/profile wiring; 3x slowdown is visible,Visible slowdown
