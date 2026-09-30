@@ -31,6 +31,40 @@ _:
 {
   networking.networkmanager.enable = true;
 
+  # The one name the router refuses to give out.
+  #
+  # Every lookup here goes to `192.168.1.1`, and it answers `omnirush.ai` with
+  # `208.91.112.55` — a Fortiguard SDNS sinkhole, the address that serves a
+  # "blocked" page rather than the site. So `omnirush` opens 443 against a
+  # machine that never answers one and dies with ETIMEDOUT, while Firefox,
+  # switched to DNS-over-HTTPS, gets the real address and works. The browser
+  # and the CLI were never asking the same resolver, which is why one could
+  # reach it and the other could not.
+  #
+  # The resolver is the whole problem: `1.1.1.1`, `8.8.8.8` and `9.9.9.9` all
+  # return the correct address over ordinary UDP 53, so nothing is hijacking
+  # port 53 and no tunnel, DoH or DoT is needed to work around it. Firefox's
+  # setting was a heavier version of this same line.
+  #
+  # This is a workaround, not a fix, and it is meant to be deleted. The address
+  # belongs to Cloudflare, carries a 300 second TTL and will rotate out from
+  # under it in time; when `omnirush doctor` next reports the manager
+  # unreachable, fetch a fresh one with:
+  #
+  #   curl --doh-url https://1.1.1.1/dns-query -H 'accept: application/dns-json' \
+  #        'https://1.1.1.1/dns-query?name=omnirush.ai&type=A'
+  #
+  # The wider fix — pointing the machine at a clean resolver, or letting
+  # systemd-resolved do DNS-over-TLS — would work for every program on the box,
+  # and that is the reason it was not taken: the sinkhole is this router's
+  # filtering, and a one-host entry narrows the change to the one host that
+  # needs it.
+  #
+  # It lives here rather than in ./core.nix for the reason the file gives
+  # above: `focus` does not import this file, and `focus` has no network
+  # stack to resolve against.
+  networking.hosts."104.21.65.38" = [ "omnirush.ai" ];
+
   # 22 is sshd, below, and it is the only port this repo has an opinion about.
   #
   # There used to be 1714 and 1764 here too, on both protocols — the two
