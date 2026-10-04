@@ -96,6 +96,7 @@
           clixadOverlay
           omnirushOverlay
           otzariaOverlay
+          lightcraftOverlay
           photonOverlay
         ];
       };
@@ -156,6 +157,14 @@
       # packages/otzaria.nix. Personal-Use license => local fetch, not upstream.
       otzariaOverlay = final: _prev: {
         otzaria = final.callPackage ./packages/otzaria.nix { };
+      };
+      # LightCraft — a photo library and raw developer, a Rust/wgpu
+      # reimplementation of Lightroom. Not in nixpkgs, so we repackage the
+      # prebuilt .deb. The binaries dlopen the graphics stack rather than
+      # linking it, so nothing is patched; the libs come from the closure via
+      # LD_LIBRARY_PATH. See packages/lightcraft.nix.
+      lightcraftOverlay = final: _prev: {
+        lightcraft = final.callPackage ./packages/lightcraft.nix { };
       };
       # Photon Studio — a free offline photo editor, shipped as an AppImage.
       # Repackaged with appimageTools rather than installed through Flatpak;
@@ -395,6 +404,7 @@
               clixadOverlay
               omnirushOverlay
               otzariaOverlay
+          lightcraftOverlay
               photonOverlay
             ];
           }

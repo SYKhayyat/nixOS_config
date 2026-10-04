@@ -343,12 +343,17 @@ let
     sly
     rapidraw
     art
-    # The two niche raw editors — not in nixpkgs (neither branch), so each is
-    # a flake overlay that repackages the upstream Linux bundle; see flake.nix.
+    # These niche raw editors are not in nixpkgs (neither branch), so each is a
+    # flake overlay that repackages the upstream Linux bundle; see flake.nix.
     # Version state lives there, this list only decides presence.
     filmulator
     lighttable
     aaphoto
+    # LightCraft — a Rust/wgpu reimplementation of Lightroom. Young (0.1.1) and
+    # the only one here with an MCP server, which is why it is here to try
+    # rather than because it displaces darktable. Same local-package story as
+    # the two above; see flake.nix and packages/lightcraft.nix.
+    lightcraft
     # See "The two that are not downloads" above — uncached, compiles locally.
     # graphite
     graphicsmagick_q16
