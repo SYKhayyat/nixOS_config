@@ -1,7 +1,7 @@
 # packages/omnirush.nix
 #
 # Omnirush — a coding-agent CLI for the terminal (free daily tokens, sign-in
-# with GitHub).   upstream: https://omnirush.ai
+# with an Omnirush account).   upstream: https://omnirush.ai
 #
 # Not in nixpkgs (checked against `pkgs/by-name/om`, 2026-09-29) and not in
 # numtide's llm-agents.nix either, which is where opencode and freebuff come
@@ -60,7 +60,7 @@
 }:
 
 let
-  version = "1.0.2";
+  version = "1.0.15";
 in
 stdenv.mkDerivation {
   pname = "omnirush";
@@ -69,16 +69,17 @@ stdenv.mkDerivation {
   # The launcher, the agent core and the omnirush extensions.
   src = fetchurl {
     url = "https://registry.npmjs.org/omnirush/-/omnirush-${version}.tgz";
-    hash = "sha256-KOsR3VAHPmMIujRSKBUUsKW5uk43k2j/z1TfVS97oPk=";
+    hash = "sha256-eJUU+1OcFfFEGLaC5Aisfvw27oERs6PusCnpEl9BLyg=";
   };
 
   # The glibc/x86_64 runtime that npm would have selected from
-  # optionalDependencies: bin/bun, bin/fd, bin/rg and voice mode's recorder.
+  # optionalDependencies: bin/bun, bin/fd, bin/rg, bin/opencode and voice mode's
+  # recorder.
   # A second attribute rather than a second src so the unpack phase only ever
   # has to understand one tarball.
   runtime = fetchurl {
     url = "https://registry.npmjs.org/@omnirush-ai/cli-linux-x64/-/cli-linux-x64-${version}.tgz";
-    hash = "sha256-jBs1YTc2QIpI4kq4ilXMrkETCnfsBwyLsJGR7LTaO2A=";
+    hash = "sha256-NDViVUo6TMq2E1gQKNNiHehXeL81bFjRlk+7tyASjlk=";
   };
 
   nativeBuildInputs = [ makeWrapper ];
