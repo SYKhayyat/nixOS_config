@@ -34,6 +34,21 @@
   # sops writes it. See ./secrets.nix.
   nix.extraOptions = "!include /etc/nix/tokens.conf";
 
+  # Which netrc nix authenticates GitHub *tarball* downloads with. Left alone
+  # this is nixpkgs' default, /etc/nix/netrc — a file this config neither writes
+  # nor owns, so whatever is in it wins. It held an expired api.github.com
+  # token, and `nixos-rebuild` failed with:
+  #
+  #   error: unable to download 'https://api.github.com/repos/.../tarball/...'
+  #   HTTP error 401 (Bad credentials)
+  #
+  # even though `access-tokens` (via /etc/nix/tokens.conf, sops) was current and
+  # ~/.netrc was current. access-tokens only covers the github.com host; the
+  # tarball fetches go to api.github.com, which nix authenticates from the
+  # netrc instead. One current file, pointed at explicitly, beats three
+  # credentials where the one nix reads for tarballs is the forgotten one.
+  nix.settings.netrc-file = "/home/${myConfig.username}/.netrc";
+
   # Lix is a drop-in fork of Nix 2.18: same store, same store DB, same flake
   # semantics — so no /nix migration and no re-download. `stable` is what the
   # Lix project recommends for a release NixOS; nixpkgs 26.05 points it at
