@@ -256,6 +256,11 @@ let
     # `version` there and re-hashing both URLs; there is no `just` recipe for
     # that because nothing outside that file moves when it does.
     omnirush
+    # The OmniRush desktop app — the Electron shell around the CLI above, from
+    # the same project but versioned separately (CLI 1.0.15, app 3.1.1) and
+    # published to GitHub releases rather than npm. Same network story, same
+    # airgap reasoning; see ../packages/omnirush-gui.nix.
+    omnirush-gui
     # Otzaria (אוצריא) downloads its seforim library on first run, so it
     # leaves the study airgap like the other network apps above.
     otzaria
@@ -349,11 +354,16 @@ let
     filmulator
     lighttable
     aaphoto
-    # LightCraft — a Rust/wgpu reimplementation of Lightroom. Young (0.1.1) and
-    # the only one here with an MCP server, which is why it is here to try
-    # rather than because it displaces darktable. Same local-package story as
-    # the two above; see flake.nix and packages/lightcraft.nix.
+    # The ArtCraft apps (see flake.nix's artcraftOverlay, packages/artcraft.nix):
+    # the Rust/wgpu reimplementations of Lightroom, Photoshop and InDesign, and
+    # a PDF workbench. All four are 0.1.1 and self-described "young & moving
+    # fast", so they are here to try rather than because they displace the apps
+    # above them. lightcraft additionally needs LIGHTCRAFT_GPU=0 on this
+    # machine — its exports are pure black on the Intel iGPU.
     lightcraft
+    photocraft
+    designcraft
+    printcraft
     # See "The two that are not downloads" above — uncached, compiles locally.
     # graphite
     graphicsmagick_q16

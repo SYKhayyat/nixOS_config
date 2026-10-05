@@ -96,7 +96,7 @@
           clixadOverlay
           omnirushOverlay
           otzariaOverlay
-          lightcraftOverlay
+          artcraftOverlay
           photonOverlay
         ];
       };
@@ -150,6 +150,11 @@
       # clixad above is. See packages/omnirush.nix.
       omnirushOverlay = final: _prev: {
         omnirush = final.callPackage ./packages/omnirush.nix { };
+        # The Electron desktop app for the CLI above. Separate package because
+        # the two version independently and ship differently: the CLI is on
+        # npm as a bun/node bundle, the app is a 690 MB Electron tarball on
+        # GitHub releases. See packages/omnirush-gui.nix.
+        omnirush-gui = final.callPackage ./packages/omnirush-gui.nix { };
       };
       # Otzaria (אוצריא) — a Flutter app for the Jewish library, shipped as a
       # prebuilt Linux package. We fetch the app-only .deb and repackage it;
@@ -158,13 +163,41 @@
       otzariaOverlay = final: _prev: {
         otzaria = final.callPackage ./packages/otzaria.nix { };
       };
-      # LightCraft — a photo library and raw developer, a Rust/wgpu
-      # reimplementation of Lightroom. Not in nixpkgs, so we repackage the
-      # prebuilt .deb. The binaries dlopen the graphics stack rather than
-      # linking it, so nothing is patched; the libs come from the closure via
-      # LD_LIBRARY_PATH. See packages/lightcraft.nix.
-      lightcraftOverlay = final: _prev: {
-        lightcraft = final.callPackage ./packages/lightcraft.nix { };
+      # The ArtCraft apps — PhotoCraft, PrintCraft, DesignCraft and
+      # LightCraft. Not in nixpkgs, so each repackages the prebuilt .deb. One
+      # builder for all four because the .debs unpack to the same shape and the
+      # binaries dlopen the graphics stack rather than linking it, so nothing is
+      # patched; the libs come from the closure via LD_LIBRARY_PATH.
+      # See packages/artcraft.nix for the per-app version, hash and the
+      # LIGHTCRAFT_GPU workaround (lightcraft only — its exports are black on
+      # this machine's Intel iGPU).
+      artcraftOverlay = final: _prev: {
+        photocraft = final.callPackage ./packages/artcraft.nix {
+          app = "photocraft";
+          version = "0.1.1";
+          hash = "sha256-4ZTxz+SynoUCQkX8OgQei2Nz8D2CwwRN1sfbGom2Xys=";
+          description = "Image editor: layers, masks, type and PSD/PSB files";
+        };
+        printcraft = final.callPackage ./packages/artcraft.nix {
+          app = "printcraft";
+          version = "0.1.1";
+          hash = "sha256-aMX4OXyhP6UljFYY/n7+iHAO4QZdMIJxShFde4eCdkk=";
+          description = "PDF workbench: read, organise, edit and protect PDFs";
+        };
+        designcraft = final.callPackage ./packages/artcraft.nix {
+          app = "designcraft";
+          version = "0.1.1";
+          hash = "sha256-fQRidGqxwmO6q8NWPhUebYaO2tjf0GKgkZkca2f7CBk=";
+          description = "Page layout and publishing for print and screen";
+        };
+        lightcraft = final.callPackage ./packages/artcraft.nix {
+          app = "lightcraft";
+          version = "0.1.1";
+          hash = "sha256-UfLRhWZHI6pLfOWltXPkEN1XQxlUoy2YOwL5wGCjWpo=";
+          description = "Photo library and raw developer";
+          # Exports are pure black on the Intel iGPU; see the file's header.
+          disableGpu = true;
+        };
       };
       # Photon Studio — a free offline photo editor, shipped as an AppImage.
       # Repackaged with appimageTools rather than installed through Flatpak;
@@ -404,7 +437,7 @@
               clixadOverlay
               omnirushOverlay
               otzariaOverlay
-          lightcraftOverlay
+          artcraftOverlay
               photonOverlay
             ];
           }
