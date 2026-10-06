@@ -7,7 +7,7 @@
 # Not in nixpkgs, so this is a local package like omnirush.nix itself. The two
 # are deliberately separate: the CLI is a bun/node CLI published to npm, the
 # desktop app is a 690 MB Electron bundle published to GitHub releases, and
-# they version independently (CLI 1.0.15, app 3.1.1 at the time of writing).
+# they version independently (CLI 2.1.3, app 3.1.3 at the time of writing).
 # One account signs in to both.
 #
 # ── Why the .deb ───────────────────────────────────────────────────────────
@@ -70,13 +70,13 @@
 
 stdenv.mkDerivation {
   pname = "omnirush-gui";
-  version = "3.1.1";
+  version = "3.1.3";
 
   src = fetchurl {
-    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.1.1/omnirush-linux-amd64-3.1.1.deb";
+    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.1.3/omnirush-linux-amd64-3.1.3.deb";
     # From the release's own SHA256SUMS.txt:
-    #   0b29b2d5301d10e2fd81f6dde8b3567346497d25f87d82eea3b9e0cc8d25cd6f
-    hash = "sha256-Cymy1TAdEOL9gfbd6LNWc0ZJfSX4fYLuo7ngzI0lzW8=";
+    #   ef397d7062ebd0c1aac09f953e0e5f1a91803b9bc78c532346c83c8ccefd3716
+    hash = "sha256-7zl9cGLr0MGqwJ+VPg5fGpGAO5vHjFMjRsg8jM79NxY=";
   };
 
   nativeBuildInputs = [

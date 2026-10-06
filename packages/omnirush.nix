@@ -60,7 +60,7 @@
 }:
 
 let
-  version = "1.0.15";
+  version = "2.1.3";
 in
 stdenv.mkDerivation {
   pname = "omnirush";
@@ -69,7 +69,7 @@ stdenv.mkDerivation {
   # The launcher, the agent core and the omnirush extensions.
   src = fetchurl {
     url = "https://registry.npmjs.org/omnirush/-/omnirush-${version}.tgz";
-    hash = "sha256-eJUU+1OcFfFEGLaC5Aisfvw27oERs6PusCnpEl9BLyg=";
+    hash = "sha256-1rCUZrjJG68MUjbMPFr7SR5Bv5mZSr26iBpINKHQ86E=";
   };
 
   # The glibc/x86_64 runtime that npm would have selected from
@@ -79,7 +79,7 @@ stdenv.mkDerivation {
   # has to understand one tarball.
   runtime = fetchurl {
     url = "https://registry.npmjs.org/@omnirush-ai/cli-linux-x64/-/cli-linux-x64-${version}.tgz";
-    hash = "sha256-NDViVUo6TMq2E1gQKNNiHehXeL81bFjRlk+7tyASjlk=";
+    hash = "sha256-UoDNvDiI3UYmJRCTfzSTVcxGagsGF9FIxJUy2kgy8+4=";
   };
 
   nativeBuildInputs = [ makeWrapper ];
