@@ -316,14 +316,38 @@ in
   services.emacs = {
     enable = true;
     package = emacs;
+
+    # "graphical", not `true`. `true` is WantedBy=default.target, which under
+    # `linger=yes' is reached at boot — before any display server exists. The
+    # daemon then starts with NO DISPLAY, NO WAYLAND_DISPLAY and NO
+    # XAUTHORITY, and never gets them: a unit's environment is fixed at start.
+    # `emacsclient -c' then hangs forever, because it asks the daemon for a
+    # frame it has no way to open. Setting these variables on a live daemon does
+    # not help either — GTK has to be initialized at startup, not afterwards.
+    #
+    # `graphical' makes it WantedBy/After=graphical-session.target, which on a
+    # Plasma session is active and pulls in the display variables, so the
+    # daemon starts with a working display and `-c' gets its frame. It is still
+    # automatic: nothing has to be launched by hand at login.
+    #
+    # Side effect worth stating: PartOf=graphical-session.target, so the daemon
+    # stops when the graphical session stops. `linger=yes' keeps the *manager*
+    # alive across logout, but not this daemon; it is fresh again next login.
+    startWithUserSession = "graphical";
+
     client = {
       enable = true;
-      # Each list element is a distinct argv token; "-a ''" as one token would
-      # be passed to emacsclient literally and mis-parsed. Split them.
+      # "-c" only. This used to be ["-c" "-a" ""], and the empty string was the
+      # whole bug: `-a' takes an argument, and a .desktop Exec line cannot
+      # express an empty argv token. Launched from the KDE menu with no file,
+      # %F expands to nothing, so `-a' was left dangling and emacsclient died
+      # with "option requires an argument -- 'a'" — the menu entry did nothing.
+      #
+      # `-a' existed only to start a daemon on demand. It is unnecessary now
+      # that the daemon reliably starts with the session, and no .desktop Exec
+      # line can carry it regardless.
       arguments = [
         "-c"
-        "-a"
-        ""
       ];
     };
   };
