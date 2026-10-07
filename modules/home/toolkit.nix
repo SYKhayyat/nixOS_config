@@ -257,7 +257,7 @@ let
     # that because nothing outside that file moves when it does.
     omnirush
     # The OmniRush desktop app — the Electron shell around the CLI above, from
-    # the same project but versioned separately (CLI 2.1.3, app 3.1.3) and
+    # the same project but versioned separately (CLI 2.2.1, app 3.2.1) and
     # published to GitHub releases rather than npm. Same network story, same
     # airgap reasoning; see ../packages/omnirush-gui.nix.
     omnirush-gui
