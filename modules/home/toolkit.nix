@@ -203,6 +203,14 @@ let
     rustc
     cargo
     clippy
+    # `sbcl` is the only Lisp compiler here, and `quicklisp` is its library
+    # installer — not in nixpkgs, so ../..//flake.nix carries a local overlay
+    # over packages/quicklisp.nix. The two are a pair and neither is much use
+    # alone: sbcl has no package manager, so there is nothing to install a
+    # library with. modules/home/lisp.nix wires up the init file that loads
+    # quicklisp's setup.lisp, and is why the store path is reachable from here.
+    sbcl
+    quicklisp
     (python3.withPackages (
       ps: with ps; [
         python-docx

@@ -98,6 +98,7 @@
           otzariaOverlay
           artcraftOverlay
           photonOverlay
+          quicklispOverlay
         ];
       };
       # darktable 5.6.1 with AI — unstable is 5.6.0 and `withAi=false` by default.
@@ -205,6 +206,12 @@
       # crawler. See packages/photon.nix.
       photonOverlay = final: _prev: {
         photon-studio = final.callPackage ./packages/photon.nix { };
+      };
+      # Quicklisp — Common Lisp's library installer. `sbcl` is in nixpkgs and
+      # goes in toolkit.nix; Quicklisp is not in nixpkgs (checked 2026-10-07),
+      # so it is a local package. See packages/quicklisp.nix.
+      quicklispOverlay = final: _prev: {
+        quicklisp = final.callPackage ./packages/quicklisp.nix { };
       };
       # rapidraw 1.6.4 — nixos-26.05 ships 1.5.8, unstable has 1.6.4. The
       # toolkit.nix `offInStudy` list keeps its single `rapidraw` statement;
@@ -437,8 +444,9 @@
               clixadOverlay
               omnirushOverlay
               otzariaOverlay
-          artcraftOverlay
+              artcraftOverlay
               photonOverlay
+              quicklispOverlay
             ];
           }
           ./hosts/desktop/configuration.nix
