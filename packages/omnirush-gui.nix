@@ -7,7 +7,7 @@
 # Not in nixpkgs, so this is a local package like omnirush.nix itself. The two
 # are deliberately separate: the CLI is a bun/node CLI published to npm, the
 # desktop app is a 690 MB Electron bundle published to GitHub releases, and
-# they version independently (CLI 2.2.1, app 3.2.1 at the time of writing).
+# they version independently (CLI 2.3.11, app 3.3.6 at the time of writing).
 # One account signs in to both.
 #
 # ── Why the .deb ───────────────────────────────────────────────────────────
@@ -70,13 +70,13 @@
 
 stdenv.mkDerivation {
   pname = "omnirush-gui";
-  version = "3.2.1";
+  version = "3.3.6";
 
   src = fetchurl {
-    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.2.1/omnirush-linux-amd64-3.2.1.deb";
+    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.3.6/omnirush-linux-amd64-3.3.6.deb";
     # From the release's own SHA256SUMS.txt:
-    #   572729d8de68f05eea377f7e1287edc07400d532bc6f770740ced05495d4f10e
-    hash = "sha256-Vycp2N5o8F7qN39+EoftwHQA1TK8b3cHQM7QVJXU8Q4=";
+    #   feedb9836e3e81ddc268c9085d6b95f50835828d6a8e8abf2aa2aeda0a86a563
+    hash = "sha256-/u25g24+gd3CaMkIXWuV9Qg1go1qjoq/KqKu2gqGpWM=";
   };
 
   nativeBuildInputs = [
@@ -140,21 +140,28 @@ stdenv.mkDerivation {
     tar xf data.tar.*
   '';
 
+  # The install prefix upstream renamed between 3.2.x and 3.3.x: the bundle used
+  # to land in /opt/OmniRush.ai and is now /opt/omnirush, and the binary inside
+  # it is lowercase `omnirush' rather than the old capitalised name. Both are
+  # spelled out in exactly one place each — the unpack path below and the
+  # Exec= rewrite in postFixup — because the two have to agree and a
+  # disagreement shows up as a desktop entry that silently launches nothing.
   installPhase = ''
     runHook preInstall
 
     mkdir -p "$out/lib/omnirush-gui" "$out/bin" "$out/share"
-    # ./. rather than ./* : the bundle carries hidden files that Electron reads
-    # (the crashpad handler's manifests), and a missing one fails at start-up
-    # rather than at build time.
-    cp -a ./opt/OmniRush.ai/. "$out/lib/omnirush-gui/"
+    # ./. rather than ./* : a bundle that carries hidden files would drop them
+    # here, and Electron reads the crashpad handler's manifests from among them.
+    # 3.3.6 ships none, but the cost of ./. over ./* is nil.
+    cp -a ./opt/omnirush/. "$out/lib/omnirush-gui/"
     cp -r ./usr/share/applications "$out/share/"
     cp -r ./usr/share/icons "$out/share/"
 
     # chrome-sandbox is only consulted when the Chromium sandbox is enabled;
     # the wrapper passes --no-sandbox, so it is dead weight in the store. Not
-    # removing it would also leave a 4755-mode binary that nobody wants in a
-    # read-only store path.
+    # removing it would also leave a setuid-root binary that nobody wants in a
+    # read-only store path. (Upstream ships it 0755 as of 3.3.6 — the setuid bit
+    # these notes described was 3.2.x's doing — so this is hygiene either way.)
     rm -f "$out/lib/omnirush-gui/chrome-sandbox"
 
     makeWrapper "$out/lib/omnirush-gui/omnirush" "$out/bin/omnirush-gui" \
@@ -173,10 +180,13 @@ stdenv.mkDerivation {
   '';
 
   # The .desktop file points at the absolute /opt path the .deb would have
-  # installed to, which does not exist here.
+  # installed to, which does not exist here. 3.3.6 renamed the app: the entry is
+  # now ai.omnirush.desktop running /opt/omnirush/omnirush, where 3.2.x had
+  # /opt/OmniRush.ai. --replace-fail so a future rename that this forgets to
+  # follow fails the build instead of shipping a launcher that runs nothing.
   postFixup = ''
     substituteInPlace "$out/share/applications/"*.desktop \
-      --replace-fail "/opt/OmniRush.ai/omnirush" "$out/bin/omnirush-gui"
+      --replace-fail "/opt/omnirush/omnirush" "$out/bin/omnirush-gui"
   '';
 
   meta = {
