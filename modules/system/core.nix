@@ -23,6 +23,7 @@
 #     rest of the hardware is.
 {
   pkgs,
+  lib,
   myConfig,
   ...
 }:
@@ -48,6 +49,44 @@
   # netrc instead. One current file, pointed at explicitly, beats three
   # credentials where the one nix reads for tarballs is the forgotten one.
   nix.settings.netrc-file = "/home/${myConfig.username}/.netrc";
+
+  # Both settings above are correct and were already deployed. They were still
+  # being ignored, because nix merges config in this order, later winning:
+  #
+  #   NIX_CONFIG env  >  ~/.config/nix/nix.conf  >  /etc/nix/nix.conf
+  #
+  # `sudo nixos-rebuild` runs as root, so it reads root's user-level config —
+  # and a hand-written /root/.config/nix/nix.conf was sitting there with an
+  # `access-tokens = github.com=ghp_...` that had since been revoked. That
+  # shadowed the current sops token in /etc/nix/tokens.conf for every root
+  # invocation, which is every rebuild, and produced exactly the 401 quoted
+  # above while a plain `nix ...` as the user worked fine — the tell that the
+  # stale credential was root's, not the project's.
+  #
+  # So the fix is not another credential to keep current; it is to remove the
+  # second, shadowing place for one. Nix reads a *user* config from
+  # $XDG_CONFIG_HOME, and for root that is /root/.config — a path NixOS does not
+  # manage and no NixOS option writes to, which is exactly why a file there
+  # survived every rebuild and kept overriding the managed ones. `nix.settings`
+  # only ever writes /etc/nix/nix.conf, so the file has to be removed from here.
+  #
+  # Backed up rather than deleted: it is the only record of the revoked token,
+  # and if the 401 ever comes back, this is what explains it.
+  #
+  # Scoped to this one path on purpose. Pointing root's XDG_CONFIG_HOME at an
+  # empty directory would also work and would survive recreation of the file,
+  # but `environment.variables` is global — it would apply to every `sudo`
+  # command and quietly relocate XDG config for every root-run tool, to fix a
+  # single file. `system.activationScripts` touches only what is broken.
+  system.activationScripts.nix-root-user-config = lib.stringAfter [ "etc" ] ''
+    if [ -e /root/.config/nix/nix.conf ]; then
+      mkdir -p /var/lib/nix/backups
+      cp -a /root/.config/nix/nix.conf \
+        "/var/lib/nix/backups/root-nix.conf.$(date +%Y%m%d%H%M%S)"
+      rm -f /root/.config/nix/nix.conf
+      echo "nix: removed shadowing /root/.config/nix/nix.conf (backed up)" >&2
+    fi
+  '';
 
   # Lix is a drop-in fork of Nix 2.18: same store, same store DB, same flake
   # semantics — so no /nix migration and no re-download. `stable` is what the
