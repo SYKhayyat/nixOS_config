@@ -152,6 +152,29 @@ update-opencode:
     nix flake update llm-agents
     @git diff --stat flake.lock
 
+# OmniRush is the third non-nixpkgs package, and the only one whose update is
+# not a `nix flake update` away: both of its halves are local derivations
+# carrying a hand-pinned version, URL and SRI hash, so a bump is six edits.
+# Upstream releases faster than that can be done by hand — the GUI went
+# 3.3.3 → 3.4.1 in two days — and past its deadline the gateway answers model
+# requests with HTTP 426, so falling behind is not a slow drift but a stop.
+#
+# The hashes are read, never computed: npm's `dist.integrity` is the digest Nix
+# checks, and the GUI publishes a SHA256SUMS.txt. See tools/bump-omnirush.py.
+#
+# The two halves version independently (app 3.x on GitHub, CLI 2.x on npm), so
+# `--version` would pin both to the same number; `just update-omnirush` sends
+# each to its own `latest` instead, which is almost always what is wanted.
+
+# Bump the OmniRush CLI and desktop app to their newest upstream releases
+update-omnirush:
+    python3 tools/bump-omnirush.py
+    @git diff --stat packages/omnirush.nix packages/omnirush-gui.nix
+
+# Show what a bump would do without writing, for when latest looks wrong
+omnirush-check:
+    python3 tools/bump-omnirush.py --check
+
 # The version in the comment beside `llm-agents.opencode` goes stale the day
 # after it is written, and there is no other way to see what you are running
 # without switching to find out. So: what the lock installs, then upstream's

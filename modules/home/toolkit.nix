@@ -260,14 +260,14 @@ let
     # Omnirush signs in over HTTPS and runs its whole agent against
     # omnirush.ai, so it leaves the study airgap like the rest of this block.
     # It is a local package, not a nixpkgs one — see ../packages/omnirush.nix
-    # for where its two npm tarballs come from. Bumping it means editing the
-    # `version` there and re-hashing both URLs; there is no `just` recipe for
-    # that because nothing outside that file moves when it does.
+    # for where its two npm tarballs come from. `just update-omnirush` moves
+    # this and the app below together; it reads the hashes out of npm rather
+    # than downloading the tarballs to compute them.
     omnirush
     # The OmniRush desktop app — the Electron shell around the CLI above, from
-    # the same project but versioned separately (CLI 2.3.11, app 3.3.6) and
-    # published to GitHub releases rather than npm. Same network story, same
-    # airgap reasoning; see ../packages/omnirush-gui.nix.
+    # the same project but versioned separately — the CLI is 2.x on npm, the app
+    # 3.x on GitHub releases. Same network story, same airgap reasoning; see
+    # ../packages/omnirush-gui.nix.
     omnirush-gui
     # Otzaria (אוצריא) downloads its seforim library on first run, so it
     # leaves the study airgap like the other network apps above.
