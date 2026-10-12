@@ -7,7 +7,9 @@
 # Not in nixpkgs, so this is a local package like omnirush.nix itself. The two
 # are deliberately separate: the CLI is a bun/node CLI published to npm, the
 # desktop app is a 690 MB Electron bundle published to GitHub releases, and
-# they version independently (CLI 2.3.11, app 3.3.6 at the time of writing).
+# they version independently, on different cadences and from different places —
+# the app released seven times in two days once, so neither number is quoted
+# here on purpose. `just update-omnirush` moves both; see tools/bump-omnirush.py.
 # One account signs in to both.
 #
 # ── Why the .deb ───────────────────────────────────────────────────────────
@@ -70,13 +72,13 @@
 
 stdenv.mkDerivation {
   pname = "omnirush-gui";
-  version = "3.3.6";
+  version = "3.4.1";
 
   src = fetchurl {
-    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.3.6/omnirush-linux-amd64-3.3.6.deb";
+    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.4.1/omnirush-linux-amd64-3.4.1.deb";
     # From the release's own SHA256SUMS.txt:
-    #   feedb9836e3e81ddc268c9085d6b95f50835828d6a8e8abf2aa2aeda0a86a563
-    hash = "sha256-/u25g24+gd3CaMkIXWuV9Qg1go1qjoq/KqKu2gqGpWM=";
+    #   d22d25b63b822d805b05277c42e5f40a44a308cf69b89d73d6a1448e8125de00
+    hash = "sha256-0i0ltjuCLYBbBSd8QuX0CkSjCM9puJ1z1qFEjoEl3gA=";
   };
 
   nativeBuildInputs = [
