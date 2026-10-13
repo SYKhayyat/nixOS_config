@@ -423,6 +423,9 @@ just build           # nixos-rebuild build --flake .#desktop  (build only, no ac
 just specialisations # list specialisations available for next boot (`study`, `focus`)
 just update          # nix flake update
 just update-emacs    # bump the emacs-config input only
+just update-opencode # bump opencode and freebuff from the llm-agents input
+just update-omnirush # bump the OmniRush CLI and app (also done by every rebuild)
+just omnirush-check  # what that bump would do, writing nothing
 just lock            # lock a newly added input, and nothing else
 just emacs-dev PATH  # rebuild against a local emacs-config checkout
 just bootstrap-data  # fetch ~/Documents from Google Drive + GitHub (idempotent)
@@ -434,6 +437,13 @@ just closure         # build the closure and assert what it claims about itself
 just gc              # nix-collect-garbage --delete-older-than 14d
 just bundle          # dump all *.nix into combined.txt (e.g. to paste)
 ```
+
+`just switch`, `just test` and `just build` each refresh the two OmniRush pins
+before they rebuild, and so do `nrs` and `nrt`. That is what "always on the
+latest" can mean here: a pure flake cannot resolve a moving target at eval
+time, so the rebuild command moves the pin instead — the version still lands in
+this repo and shows up in `git diff`, and `nixos-rebuild rollback` still
+returns to a known-good build.
 
 Shell aliases (from `home/common.nix`): `nrs` (switch), `nrt` (test),
 `nfu` (flake update) — these use `myConfig.flakePath` so they work regardless of

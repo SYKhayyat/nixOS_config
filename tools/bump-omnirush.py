@@ -23,6 +23,13 @@ Verified against the tree: for `omnirush@2.3.11` and
     python3 tools/bump-omnirush.py --version 3.4.0
     python3 tools/bump-omnirush.py --only cli
 
+This is also what `nrs`, `nrt`, `just switch`, `just test` and `just build` run
+before they rebuild, which is how "always on the latest release" is expressed
+without an impure flake: a pure flake cannot name a moving target at eval time,
+so the rebuild command moves the pin instead. Nothing here is required for that
+to work — the aliases call it directly — but it is why a bump that fails has to
+warn rather than abort (see the justfile).
+
 `--version` pins an explicit release for both, which is the escape hatch when
 `latest` points at something broken or a release has been yanked. The GUI reads
 its tag off the same number, so `--version 3.4.0` means app 3.4.0 and CLI 3.4.0
@@ -228,15 +235,18 @@ def main() -> int:
 
     want_gui = args.only in (None, "gui")
     want_cli = args.only in (None, "cli")
+    changed = False
 
     try:
         if want_gui:
             target = args.version or gui_latest()
             current, moved = bump_gui(target, args.check)
+            changed = changed or moved.partition(" ")[0] != current
             print(f"gui  {current} -> {moved}{'  (--check, not written)' if args.check else ''}")
         if want_cli:
             target = args.version or cli_latest()
             current, moved = bump_cli(target, args.check)
+            changed = changed or moved.partition(" ")[0] != current
             print(f"cli  {current} -> {moved}{'  (--check, not written)' if args.check else ''}")
     except SystemExit as error:
         print(f"error: {error}", file=sys.stderr)
@@ -245,9 +255,14 @@ def main() -> int:
         print(f"error: {error.reason}", file=sys.stderr)
         return 1
 
-    if not args.check:
+    # Only when something moved, and naming a recipe that exists. This script
+    # runs at the front of every `nrs` / `just switch`, where "Rebuild and
+    # switch" is what the caller is already doing, and `.#homeConfigurations`
+    # is not an output this flake has — the hint used to send people to a
+    # command that cannot resolve.
+    if changed and not args.check:
         print("\nBumped. Rebuild and switch:")
-        print("  nix build .#homeConfigurations.shaul.home-manager  # or: just switch")
+        print("  just switch          # or: nrs")
     return 0
 
 

@@ -214,9 +214,27 @@ in
   #
   # `nfu` is deliberately without it: updating the lock is that alias's entire
   # job, which is the same reason `just lock` is the one recipe exempted.
+  #
+  # The omnirush bump at the front of `nrs`/`nrt` is the same argument one level
+  # up. `just switch` and `just build` refresh both Omnirush pins first, so
+  # every rebuild gets the newest CLI and desktop app; these two are presented
+  # in README.md as the ergonomic equivalent, and without it the guarantee has
+  # a hole in exactly the path you actually type — which is the sentence that
+  # already applies to the flag above, and was the reason it was added.
+  #
+  # The pins move, the flake does not: a pure flake cannot name a moving target
+  # at eval time (`builtins.fetchurl` on npm's `latest` fails with "in pure
+  # evaluation mode, 'fetchurl' requires a 'sha256' argument"), so "latest" is
+  # expressed by refreshing the pin from the command you rebuild with. The
+  # subshell is there so the `cd` does not become the shell's cwd.
+  #
+  # `|| echo` rather than `&&`: the two ways this fails want opposite answers.
+  # A dead network is exactly when you most need to rebuild, and a release that
+  # no longer resolves is what `just update-omnirush --version` is for. Neither
+  # should cost you a rebuild.
   home.shellAliases = {
-    nrs = "sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
-    nrt = "sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
+    nrs = "(cd ${myConfig.flakePath} && python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
+    nrt = "(cd ${myConfig.flakePath} && python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
     nfu = "nix flake update --flake ${myConfig.flakePath}";
     # Carried over from the flat tree, where `clean` was a *system-wide* alias
     # in shellUtilities.nix — so it survived every switch of that tree and

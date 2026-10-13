@@ -18,17 +18,21 @@ default:
 # nixos-rebuild does not parse this flag itself; it forwards what it does not
 # recognise to `nix build`, which is the same route `emacs-dev` below already
 # takes with `--override-input`.
+#
+# The other thing these recipes may touch is the two OmniRush pins in
+# packages/, and that is deliberate — see `_omnirush-bump` below for why the
+# refresh lives here and not in the flake.
 
 # Rebuild and switch the running system
-switch:
+switch: _omnirush-bump
     sudo nixos-rebuild switch --flake .#{{host}} --no-update-lock-file
 
 # Activate without adding a bootloader entry (safe to try things)
-test:
+test: _omnirush-bump
     sudo nixos-rebuild test --flake .#{{host}} --no-update-lock-file
 
 # Build only — no activation
-build:
+build: _omnirush-bump
     nixos-rebuild build --flake .#{{host}} --no-update-lock-file
 
 # The compositors are NOT here — they are greeter sessions, pick them at login.
@@ -165,6 +169,41 @@ update-opencode:
 # The two halves version independently (app 3.x on GitHub, CLI 2.x on npm), so
 # `--version` would pin both to the same number; `just update-omnirush` sends
 # each to its own `latest` instead, which is almost always what is wanted.
+#
+# And every rebuild moves them, which is the whole point of the next recipe.
+
+# ── Why "latest on rebuild" is a recipe and not a line in flake.nix ─────────
+#
+# The request is "every time I rebuild I should get the latest one", and in a
+# pure flake that cannot be written down. Naming a moving target at eval time
+# needs the content's hash before you have the content:
+#
+#   $ nix eval .#v        # v = builtins.fetchurl { url = ".../omnirush/latest"; }
+#   error: in pure evaluation mode, 'fetchurl' requires a 'sha256' argument
+#
+# Two ways around it, both worse than the command they replace:
+#
+#   --impure     every recipe that reads the flake needs the flag, forever,
+#                including CI, and the pin stops being a fact in the tree.
+#   IFD          a curl derivation read during eval. Every `nix eval` becomes a
+#                network fetch, `--offline` and the study airgap stop working,
+#                and a hash cannot be checked against anything.
+#
+# What the pin buys is the thing worth having: when upstream ships a broken
+# release or renames the bundle layout again (3.2.x → 3.3.x moved /opt), the
+# build fails and reverting one line un-breaks it. Taking that away to save one
+# command is a bad trade. So the pin stays, and the recipe that rebuilds is the
+# recipe that moves it — the version still lands in git, still shows in
+# `git diff`, and `nixos-rebuild rollback` still returns to a known-good build.
+#
+# A failed bump warns and carries on instead of aborting, because the two
+# causes want opposite answers: a dead network is exactly when you most need to
+# rebuild, and an upstream release that no longer resolves is what
+# `update-omnirush --version` is for.
+
+# Private: a dependency of switch/build/test, not something to type
+_omnirush-bump:
+    @python3 tools/bump-omnirush.py || echo "warning: could not bump omnirush — this build is stale by however far upstream moved. See 'just update-omnirush'."
 
 # Bump the OmniRush CLI and desktop app to their newest upstream releases
 update-omnirush:
