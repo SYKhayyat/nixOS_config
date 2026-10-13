@@ -50,7 +50,10 @@
 # new release in the background and swap it in behind the launcher's back,
 # which for a store path means a write that cannot happen and a version that
 # silently disagrees with the one this file pins. Bump the version below
-# instead.
+# instead — which is what `nrs`, `just switch` and friends do before they
+# rebuild, by reading npm's registry rather than by asking for `latest` here.
+# A pure flake cannot do that: naming a moving target at eval time needs the
+# content's hash before it has the content.
 {
   lib,
   stdenv,
@@ -60,7 +63,7 @@
 }:
 
 let
-  version = "2.4.1";
+  version = "2.4.9";
 in
 stdenv.mkDerivation {
   pname = "omnirush";
@@ -69,7 +72,7 @@ stdenv.mkDerivation {
   # The launcher, the agent core and the omnirush extensions.
   src = fetchurl {
     url = "https://registry.npmjs.org/omnirush/-/omnirush-${version}.tgz";
-    hash = "sha512-tIYUAN0WmWNrcTuuRBl/6K3dxaNsAccCxo40MkHUQt6OwvvJgVkoLYIqA/J7uNUHv/ebBIL+24aBX2FHtWQCzA==";
+    hash = "sha512-Q4PsOatAgGSFXo+Ml72mm0iFLjYeWYjhr4PiNALSuDcramFyScpdRkRa2QiB5UwyRML10aPgmnitDfG64ZVsuA==";
   };
 
   # The glibc/x86_64 runtime that npm would have selected from
@@ -79,7 +82,7 @@ stdenv.mkDerivation {
   # has to understand one tarball.
   runtime = fetchurl {
     url = "https://registry.npmjs.org/@omnirush-ai/cli-linux-x64/-/cli-linux-x64-${version}.tgz";
-    hash = "sha512-khZokOacjLGyi7buXoT6QOacLlCzonSS/5l3EHcu2GmWyzIZMZk+zDTG82Mj4pmXIks4dgNX51XercJ8sFlwtA==";
+    hash = "sha512-xjCQIp1iJZfWmhlZzrkILj1+iQTpNeKCJ4difGJ//PIUlbNqiJnSDixAUQ7ILqI2eW8BxHeH4FPg1KhPRrby7g==";
   };
 
   nativeBuildInputs = [ makeWrapper ];
