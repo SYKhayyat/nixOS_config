@@ -141,18 +141,57 @@ in
       # Toolbars a point down, which is Plasma's own convention.
       "kdeglobals"."General"."toolBarFont" = qtFont font.sans (uiSize - 1);
       "kdeglobals"."KDE"."widgetStyle" = "Breeze";
-      # Baloo: filenames only, never file content.
-      # `onlyBasicIndexing` IS the Baloo 6 key (still in 6.26) — the slowdown
-      # was not a wrong key but a stale 9.3 GiB content index with ~75k files
-      # still queued: flipping the flag does not purge old content, so the
-      # extractor kept chewing until `balooctl6 disable` + kill + purge.
-      # After this lands: `just switch`, then
-      # `balooctl6 purge && balooctl6 enable && balooctl6 check`.
-      "baloofilerc"."General"."onlyBasicIndexing" = true;
+      # Baloo: off. Not "filenames only" — off.
+      #
+      # The key is `[Basic Settings] Indexing-Enabled`, and it is the one
+      # that matters, because it is the only one the daemon reads before it
+      # starts. `kde-baloo.service` ships
+      #
+      #     ExecCondition=… kde-systemd-start-condition \
+      #         --condition "baloofilerc:Basic Settings:Indexing-Enabled:true"
+      #
+      # so a false here means the unit never starts at all — no basic pass, no
+      # content pass, no extractor. That is the whole shutdown, in one line.
+      #
+      # The previous comment here claimed `onlyBasicIndexing` was "IS the Baloo
+      # 6 key (still in 6.26)". It is not. `balooctl6 config ls` lists the
+      # parameters baloo 6.26 actually reads —
+      #
+      #     hidden  contentIndexing  includeFolders
+      #     excludeFolders  excludeFilters  excludeMimetypes
+      #
+      # — and `onlyBasicIndexing` is not among them, nor is it in the shipped
+      # config's `General` group. KConfig ignores keys it does not know, so the
+      # line wrote itself out faithfully on every `just switch` and did
+      # nothing at all. That is the whole reason this kept coming back: a
+      # previous fix (`balooctl6 purge && balooctl6 enable && balooctl6 check`)
+      # cleaned up, then the next activation wrote the dead key again and the
+      # indexer resumed from scratch.
+      #
+      # For the record, `contentIndexing` is the key that governs *content*
+      # extraction specifically, and it was `yes` the whole time:
+      #
+      #     $ balooctl6 config ls contentIndexing
+      #     yes
+      #     $ balooctl6 status
+      #     Indexer state: Indexing file content
+      #     Files waiting for content indexing: 191,878
+      #     Current size of index is 13.32 GiB
+      #
+      # which is also why `baloo_file_extractor` — a binary that only ever
+      # runs for content extraction, and was holding 2.1 GB — was resident at
+      # all. Do not read that as a reason to set this key to `true` and go
+      # back to filenames-only: filenames-only still meant ~300k documents,
+      # ~192k of them queued for extraction, and a multi-gigabyte index rebuilt
+      # on every switch. Search is served by the runner
+      # (`plasma-baloorunner`), which is not indexing.
+      "baloofilerc"."Basic Settings"."Indexing-Enabled" = false;
       # `overrideConfig` above rebuilds this file on every activation, so
       # anything not declared here resets. `folders` defaults to $HOME, which
       # would otherwise re-queue caches, Firefox storage and nix `result`
-      # links for indexing on every switch.
+      # links for indexing on every switch. Kept even though the daemon is
+      # now off: it is the state to be in if the switch above is ever undone,
+      # and a stale un-excluded $HOME is a 13 GiB surprise waiting to happen.
       "baloofilerc"."General"."exclude folders" = {
         value = "$HOME/.cache/,$HOME/.local/share/baloo/,$HOME/.mozilla/,$HOME/result/";
         shellExpand = true;
