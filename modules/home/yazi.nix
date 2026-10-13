@@ -26,7 +26,13 @@ _:
       opener = {
         edit = [
           {
-            run = ''emacsclient -c -a "" "$@"'';
+            # `--no-wait` is what makes `block = true` below survivable.
+            # Without it emacsclient waits for a completion reply that Emacs
+            # 30.2's server never sends on this machine — the frame opens and
+            # the client blocks in recvfrom() forever — so yazi would sit on
+            # a subprocess that never returns and the file manager would look
+            # frozen. Same reason as EDITOR/VISUAL in ../emacs/default.nix.
+            run = ''emacsclient --no-wait -c -a "" "$@"'';
             block = true;
             desc = "Edit in Emacs";
           }

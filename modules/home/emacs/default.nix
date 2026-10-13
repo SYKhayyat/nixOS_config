@@ -305,9 +305,36 @@ in
   #   EMACS_MODULE_GROUPS="essentials extras" emacs
   #   systemctl --user set-environment EMACS_MODULE_GROUPS="essentials extras"
   #   systemctl --user restart emacs.service
+  #
+  # `--no-wait` on both, and it is not a politeness flag — it is the whole
+  # difference between "opening a file works" and "opening a file hangs
+  # forever". Measured on this machine, Emacs 30.2, `emacs-pgtk`:
+  #
+  #   $ emacsclient -c FILE
+  #   Waiting for Emacs...           <- and then blocks, indefinitely
+  #
+  # The frame is *not* the problem. Instrumenting the daemon (advice on
+  # `server-process-filter`, `make-frame` and `server-send-string`) shows the
+  # request arriving, `make-frame` returning a real pgtk frame, the filter
+  # returning without an error — and then no `-done` ever going back. `strace`
+  # on the client agrees: it connects to /run/user/$UID/emacs/server, sends
+  # `-display wayland-0 -window-system -file FILE`, reads `-emacs-pid 128899`
+  # and then sits in `recvfrom()` until something kills it. The window opens;
+  # the client just never learns that it did.
+  #
+  # Why that matters here and not on some other machine: every desktop entry
+  # point for "open this file" is this string. A yazi opener with
+  # `block = true` (../yazi.nix) sits on it, and `services.cage` execs it as
+  # the session program (../system/focus.nix), which exits when it exits. One
+  # missing flag is a hung file manager and a session that will not hand back
+  # the screen.
+  #
+  # `--no-wait` tells emacsclient not to wait for the completion reply. The
+  # daemon still creates the frame and visits the file, which is all the
+  # caller wanted. Verified: 0.48s wall, exit 0, frame present.
   home.sessionVariables = {
-    EDITOR = "emacsclient -c -a ''";
-    VISUAL = "emacsclient -c -a ''";
+    EDITOR = "emacsclient --no-wait -c -a ''";
+    VISUAL = "emacsclient --no-wait -c -a ''";
     EMACS_MODULE_GROUPS = "essentials extras";
   };
 
@@ -351,6 +378,32 @@ in
       ];
     };
   };
+
+  # ── Bounding the daemon's life ───────────────────────────────────────────
+  #
+  # `services.emacs` has no option for systemd settings, but its unit
+  # submodule is freeform, so the Service stanza can be extended here.
+  #
+  # The reason is emacs-config#30. Two SIGSEGVs, 2026-10-11 and 2026-10-13,
+  # both in `ftcrfont_glyph_extents` during idle redisplay, both from the same
+  # proven cause: Emacs frees a font's glyph-metrics cache and then keeps
+  # drawing through it. The array it walks is provably freed memory — in the
+  # 10-11 core, `metrics[row]` is the ASCII byte `0x61`, and the slot before it
+  # holds `"cB6AL!"`. It is upstream (redisplay's periodic
+  # `clear_font_cache`, xfaces.c:776, via `ftcrfont_close`,
+  # ftcrfont.c:344) and unfixed in 30.2, so nothing in this repo prevents it.
+  #
+  # A scheduled restart cannot prevent it either, but it caps what one costs.
+  # Both crashes happened after hours of uptime, because redisplay counts the
+  # passes: `CLEAR_FONT_TABLE_COUNT` (100) x `CLEAR_FACE_CACHE_COUNT` (500) is
+  # ~50 000 full redisplays before the font cache is flushed. A daemon younger
+  # than a few hours has not reached it.
+  #
+  # Only worth having once #38's auto-save fix is actually deployed —
+  # otherwise this is a timer that throws work away on schedule instead of on
+  # a crash. `nix flake update emacs-config` is that switch; see the comment on
+  # EDITOR above for why the pin is behind the checkout.
+  systemd.user.services.emacs.Service.RuntimeMaxSec = "6h";
 
   # ── The config, pinned ──────────────────────────────────────────────────
   # `${emacsConfig}` is the emacs-config repo after its flake ran tangle.sh, so

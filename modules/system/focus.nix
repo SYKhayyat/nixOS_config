@@ -170,8 +170,14 @@
     # home-manager's `emacs.service`, which the user systemd manager starts
     # from its own default.target — whichever wins, there is one daemon and
     # this is a frame on it.
+    # `--no-wait` because this is cage's `program`: cage exits when the
+    # program exits. Emacs 30.2's server never sends emacsclient the
+    # completion reply for a `-c` request on this machine (the frame is made,
+    # then the client blocks in recvfrom() forever — see the measurement in
+    # ../home/emacs/default.nix where $EDITOR is set), so without the flag the
+    # session comes up, works, and can never be handed back.
     program = pkgs.writeShellScript "focus-session" ''
-      exec ${myConfig.emacsPackage}/bin/emacsclient -c -a ""
+      exec ${myConfig.emacsPackage}/bin/emacsclient --no-wait -c -a ""
     '';
   };
 
