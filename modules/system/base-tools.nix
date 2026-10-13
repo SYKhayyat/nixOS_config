@@ -51,6 +51,18 @@ in
     nh
     home-manager
 
+    # `just` is here for the same reason, and the dependency runs the other way:
+    # `just switch` is `nixos-rebuild switch`, which rebuilds the home profile
+    # too. A home profile that does not build cannot be repaired from inside
+    # itself — the entry point to fixing it has to already exist, or the failure
+    # mode is a machine whose documented repair command is missing.
+    #
+    # This was not hypothetical: ./justfile, README.md and CI all document
+    # `just switch` / `just lint` / `just check` as the interface, and `just`
+    # was in no closure on this machine. Every documented command in this repo
+    # was unrunnable.
+    just
+
     # ── The one exception ─────────────────────────────────────────────────
     # The spell-checking stack stays machine-wide because `DICPATH` below has
     # to. environment.sessionVariables is set by PAM, so every process in the
