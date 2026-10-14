@@ -333,8 +333,8 @@ in
   # daemon still creates the frame and visits the file, which is all the
   # caller wanted. Verified: 0.48s wall, exit 0, frame present.
   home.sessionVariables = {
-    EDITOR = "emacsclient --no-wait -c -a ''";
-    VISUAL = "emacsclient --no-wait -c -a ''";
+    EDITOR = "env -u WAYLAND_DISPLAY emacsclient --no-wait -c -a ''";
+    VISUAL = "env -u WAYLAND_DISPLAY emacsclient --no-wait -c -a ''";
     EMACS_MODULE_GROUPS = "essentials extras";
   };
 
@@ -370,11 +370,13 @@ in
       # %F expands to nothing, so `-a' was left dangling and emacsclient died
       # with "option requires an argument -- 'a'" — the menu entry did nothing.
       #
+      # `--no-wait' is the other half of the `-c' fix; see EDITOR below.
       # `-a' existed only to start a daemon on demand. It is unnecessary now
       # that the daemon reliably starts with the session, and no .desktop Exec
       # line can carry it regardless.
       arguments = [
         "-c"
+        "--no-wait"
       ];
     };
   };

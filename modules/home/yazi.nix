@@ -32,7 +32,7 @@ _:
             # the client blocks in recvfrom() forever — so yazi would sit on
             # a subprocess that never returns and the file manager would look
             # frozen. Same reason as EDITOR/VISUAL in ../emacs/default.nix.
-            run = ''emacsclient --no-wait -c -a "" "$@"'';
+            run = ''env -u WAYLAND_DISPLAY emacsclient --no-wait -c -a "" "$@"'';
             block = true;
             desc = "Edit in Emacs";
           }
