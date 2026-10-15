@@ -362,8 +362,16 @@ in
     # alive across logout, but not this daemon; it is fresh again next login.
     startWithUserSession = "graphical";
 
+    # The generated `Emacs Client' entry is replaced below, under
+    # xdg.desktopEntries.  `client.arguments' can only carry emacsclient
+    # flags -- it cannot run `env -u WAYLAND_DISPLAY ...', and without that
+    # the entry does not work: the daemon ends up on XWayland, so a client
+    # that asks for Wayland by name is refused and the menu entry silently
+    # opens nothing.  --no-wait is here for the same reason as on $EDITOR:
+    # without it the client blocks forever waiting for a reply that Emacs
+    # 30.2 never sends.
     client = {
-      enable = true;
+      enable = false;
       # "-c" only. This used to be ["-c" "-a" ""], and the empty string was the
       # whole bug: `-a' takes an argument, and a .desktop Exec line cannot
       # express an empty argv token. Launched from the KDE menu with no file,
@@ -379,6 +387,48 @@ in
         "--no-wait"
       ];
     };
+  };
+
+  # The menu entry, written here rather than generated.  Two things have to be
+  # true and only one of them is a flag:
+  #
+  #   * --no-wait, because Emacs 30.2's server never sends the completion
+  #     reply for a -c request.  The window opens; the client just never
+  #     learns it worked.  Measured: 0.95s and a window with it, an
+  #     indefinite block without it.
+  #   * the client must ask for the X display, not Wayland.  Emacs skips
+  #     display setup for every daemon (dispnew.c:6561), and when it does
+  #     finally open a display it lands on XWayland, so its
+  #     display-format-alist holds only the X pattern and
+  #     (window-system-for-display "wayland-0") is nil.  A desktop Exec line
+  #     is not a shell, but `env -u' is a program, so this needs no shell --
+  #     which is also why `client.arguments' could not carry it.
+  #
+  # `%F' is the file list from the file manager; with nothing selected it
+  # expands to nothing and you get a plain window.
+  xdg.desktopEntries.emacs = {
+    name = "Emacs";
+    genericName = "Text Editor";
+    comment = "Open a file in the running Emacs";
+    exec = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient --no-wait -c %F";
+    icon = "accessories-text-editor";
+    terminal = "false";
+    categories = [ "Utility" "TextEditor" ];
+    mimeType = [
+      "text/plain"
+      "text/org"
+      "text/x-org"
+      "text/markdown"
+      "text/x-markdown"
+      "text/x-patch"
+      "application/x-shellscript"
+      "application/json"
+      "text/x-python"
+      "text/x-c++"
+      "text/x-csrc"
+      "text/x-makefile"
+      "text/x-emacs-lisp"
+    ];
   };
 
   # ── Bounding the daemon's life ───────────────────────────────────────────
