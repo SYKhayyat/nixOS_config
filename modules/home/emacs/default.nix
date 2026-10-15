@@ -412,7 +412,7 @@ in
     comment = "Open a file in the running Emacs";
     exec = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient --no-wait -c %F";
     icon = "accessories-text-editor";
-    terminal = "false";
+    terminal = false;
     categories = [ "Utility" "TextEditor" ];
     mimeType = [
       "text/plain"
