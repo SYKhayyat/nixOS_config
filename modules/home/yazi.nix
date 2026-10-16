@@ -3,7 +3,12 @@
 # home-manager `programs.yazi` module. The previous version used a Lua API
 # (`Manager.*`, `Opener:rule`) that yazi does not expose for configuration —
 # that surface only exists inside plugins' init.lua. This is the supported one.
-_:
+# `myConfig` is here for `emacsFrame`, so the Emacs opener below cannot drift
+# away from $EDITOR or from the menu entry. See ../../flake.nix.
+{
+  myConfig,
+  ...
+}:
 
 {
   programs.yazi = {
@@ -26,13 +31,26 @@ _:
       opener = {
         edit = [
           {
+            # `myConfig.emacsFrame' plus the file yazi is opening — the same
+            # command as $EDITOR and as the menu entry, so this cannot drift
+            # from either of them.
+            #
             # `--no-wait` is what makes `block = true` below survivable.
             # Without it emacsclient waits for a completion reply that Emacs
             # 30.2's server never sends on this machine — the frame opens and
             # the client blocks in recvfrom() forever — so yazi would sit on
             # a subprocess that never returns and the file manager would look
             # frozen. Same reason as EDITOR/VISUAL in ../emacs/default.nix.
-            run = ''env -u WAYLAND_DISPLAY emacsclient --no-wait -c -a "" "$@"'';
+            #
+            # It used to end in `-a ""' as well, with the same effect as
+            # everywhere else it appeared: a cold start forked
+            # `emacs --fg-daemon' into yazi's subprocess and printed Emacs's
+            # whole startup into a file manager nobody can see stderr of.
+            # A plain `"' string, and the `$' of `"$@"' is written `\$' —
+            # a bare `$' not followed by `{' is a syntax error in one. It
+            # cannot go back to `''…''`, because a leading `${' is the escape
+            # for a literal `${' there and would interpolate nothing.
+            run = "${myConfig.emacsFrame} \"\$@\"";
             block = true;
             desc = "Edit in Emacs";
           }

@@ -39,6 +39,7 @@ let
   emacs = myConfig.emacsPackage; # Emacs + the package set the config expects
   inherit (myConfig)
     emacsConfig # that repo, with every module pre-tangled
+    emacsFrame # THE way this machine asks the daemon for a frame
     ;
   # `seforimPath` used to be inherited here too, for recoll.conf and the
   # ~/Documents/seforim/Bavli scaffold. Both are switched off below with
@@ -332,9 +333,41 @@ in
   # `--no-wait` tells emacsclient not to wait for the completion reply. The
   # daemon still creates the frame and visits the file, which is all the
   # caller wanted. Verified: 0.48s wall, exit 0, frame present.
+  #
+  # ── Why `-a' is gone, which is the newer half ───────────────────────────
+  #
+  # This string used to end in `-a ''`. That asks emacsclient to start a
+  # daemon itself when there is no socket, and it was the source of the
+  # "wayland warning" — not because of Wayland, but because of what `-a' does.
+  # Measured, with the socket pointed at a path that does not exist:
+  #
+  #   $ emacsclient -s /tmp/nope -c -a ""
+  #   emacsclient: can't find socket; have you started the server?
+  #   Due to a limitation in GTK 3, Emacs built with PGTK will simply exit
+  #   when a display connection is closed. ...
+  #   Loading /home/shaul/.config/emacs/early-init.el (source)...
+  #   Loading /home/shaul/.config/emacs/init.el (source)...done
+  #   Starting Emacs daemon.
+  #
+  # `-a' forks `emacs --fg-daemon' as a child of the caller. That child is not
+  # the systemd unit, so it is not restarted when it crashes, not restarted by
+  # RuntimeMaxSec, and has no journal of its own — and it writes its entire
+  # startup, banner and all, into whatever terminal happened to launch it.
+  # Emacs's own banner is the second half of this: it is an unconditional
+  # `fputs` at src/emacs.c:1828, gated only on `HAVE_PGTK', printed by every
+  # daemon start on every machine running a PGTK build. There is no runtime
+  # variable and nothing in Lisp or Nix can suppress it. This machine's journal
+  # has carried it since 2026-05-13, once per daemon start, unchanged by any
+  # commit here. It was never a symptom of anything; `-a ''` is what made it
+  # land in a terminal instead of in the journal.
+  #
+  # So the daemon is started in exactly one place — the unit below, which is
+  # WantedBy the graphical session with Restart=on-failure — and a client that
+  # finds no socket says so and exits. The gap that exposes is systemd's
+  # RuntimeMaxSec restart, about a second every six hours.
   home.sessionVariables = {
-    EDITOR = "env -u WAYLAND_DISPLAY emacsclient --no-wait -c -a ''";
-    VISUAL = "env -u WAYLAND_DISPLAY emacsclient --no-wait -c -a ''";
+    EDITOR = emacsFrame;
+    VISUAL = emacsFrame;
     EMACS_MODULE_GROUPS = "essentials extras";
   };
 
@@ -363,25 +396,30 @@ in
     startWithUserSession = "graphical";
 
     # The generated `Emacs Client' entry is replaced below, under
-    # xdg.desktopEntries.  `client.arguments' can only carry emacsclient
-    # flags -- it cannot run `env -u WAYLAND_DISPLAY ...', and without that
-    # the entry does not work: the daemon ends up on XWayland, so a client
-    # that asks for Wayland by name is refused and the menu entry silently
-    # opens nothing.  --no-wait is here for the same reason as on $EDITOR:
-    # without it the client blocks forever waiting for a reply that Emacs
-    # 30.2 never sends.
+    # xdg.desktopEntries. `client.arguments' can only carry emacsclient flags
+    # -- it cannot run `env -u WAYLAND_DISPLAY ...', and without that the entry
+    # asks the daemon for a native Wayland frame, which never resizes on this
+    # Plasma (bug#81580; see `emacsFrame' in flake.nix for the measurement).
+    #
+    # The stated reason this was disabled said something different and wrong:
+    # that the daemon "lands on XWayland, so display-format-alist holds only
+    # the X pattern and (window-system-for-display "wayland-0") is nil", and
+    # that such a request is answered `-window-system-unsupported'. Measured
+    # against the daemon that has been running since 11:32 today:
+    #
+    #   $ emacsclient --no-wait -c FILE
+    #   => a frame whose (frame-parameter 'display) is "wayland-0"
+    #
+    # It answers it. `display-format-alist' is indeed void in a daemon, but
+    # that does not stop `window-system-for-display' from working; the
+    # conclusion drawn from it was one step too far. The entry needed to
+    # change anyway -- for the resize bug -- so it changed, but it changed for
+    # the reason recorded in flake.nix rather than this one.
     client = {
       enable = false;
-      # "-c" only. This used to be ["-c" "-a" ""], and the empty string was the
-      # whole bug: `-a' takes an argument, and a .desktop Exec line cannot
-      # express an empty argv token. Launched from the KDE menu with no file,
-      # %F expands to nothing, so `-a' was left dangling and emacsclient died
-      # with "option requires an argument -- 'a'" — the menu entry did nothing.
-      #
-      # `--no-wait' is the other half of the `-c' fix; see EDITOR below.
-      # `-a' existed only to start a daemon on demand. It is unnecessary now
-      # that the daemon reliably starts with the session, and no .desktop Exec
-      # line can carry it regardless.
+      # Unused while `enable = false'; kept honest in case it is ever turned
+      # back on. Note that it could not reproduce the entry below even then:
+      # no way to express `env -u' as an emacsclient argument.
       arguments = [
         "-c"
         "--no-wait"
@@ -389,29 +427,37 @@ in
     };
   };
 
-  # The menu entry, written here rather than generated.  Two things have to be
-  # true and only one of them is a flag:
-  #
-  #   * --no-wait, because Emacs 30.2's server never sends the completion
-  #     reply for a -c request.  The window opens; the client just never
-  #     learns it worked.  Measured: 0.95s and a window with it, an
-  #     indefinite block without it.
-  #   * the client must ask for the X display, not Wayland.  Emacs skips
-  #     display setup for every daemon (dispnew.c:6561), and when it does
-  #     finally open a display it lands on XWayland, so its
-  #     display-format-alist holds only the X pattern and
-  #     (window-system-for-display "wayland-0") is nil.  A desktop Exec line
-  #     is not a shell, but `env -u' is a program, so this needs no shell --
-  #     which is also why `client.arguments' could not carry it.
+  # The menu entry, written here rather than generated.
   #
   # `%F' is the file list from the file manager; with nothing selected it
   # expands to nothing and you get a plain window.
+  #
+  # `exec' is `emacsFrame` verbatim — the same string $EDITOR is, and the same
+  # one the keybindings build — plus `%F'. It used to be spelled out again
+  # here, which is how the three entry points drifted apart in the first
+  # place; see the `emacsFrame` definition in flake.nix.
+  #
+  # `icon' is the Emacs icon the package actually ships, by absolute path:
+  #
+  #   ${emacs}/share/icons/hicolor/scalable/apps/emacs.svg
+  #
+  # It said "accessories-text-editor", which is a generic KDE text-editor
+  # icon and is what a launcher shows when it has no icon of its own — that
+  # was the "weird icon". The generated `Emacs Client' entry this replaced
+  # (commit d8ee44d) had `Icon=emacs', which resolved through the session's
+  # icon theme to exactly this file.
+  #
+  # Named by path rather than as the bare name `emacs' on purpose. The package
+  # installs into its own hicolor theme, so the bare name only resolves if
+  # that store path happens to be in XDG_DATA_DIRS; the absolute path is the
+  # same file every time and does not depend on the icon cache being rebuilt.
   xdg.desktopEntries.emacs = {
     name = "Emacs";
     genericName = "Text Editor";
     comment = "Open a file in the running Emacs";
-    exec = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient --no-wait -c %F";
-    icon = "accessories-text-editor";
+    startupNotify = true;
+    exec = "${emacsFrame} %F";
+    icon = "${emacs}/share/icons/hicolor/scalable/apps/emacs.svg";
     terminal = false;
     categories = [ "Utility" "TextEditor" ];
     mimeType = [

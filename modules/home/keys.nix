@@ -187,19 +187,25 @@ let
       group = "Launch";
     }
     {
-      # emacsclient against the daemon in modules/home/emacs/default.nix, not a
-      # cold `emacs`. `-a ""` starts the daemon if it is somehow not up.
+      # `myConfig.emacsFrameArgv', the same command as $EDITOR and as the menu
+      # entry. This used to be `emacsclient -c -a ""', which was wrong in all
+      # three ways `emacsFrame' in flake.nix describes:
+      #
+      #   no --no-wait            so it printed "Waiting for Emacs..." and
+      #                            blocked in recvfrom() forever. Measured.
+      #   no `env -u WAYLAND_…'   so the daemon made a native Wayland frame,
+      #                            which does not resize on Plasma 6 — the
+      #                            "skinny window". Measured: KWin window
+      #                            1364x732, Emacs reporting 580x560.
+      #   `-a ""'                 so a cold start forked `emacs --fg-daemon'
+      #                            into this session's terminal, banner and
+      #                            all. Measured.
       mods = [
         "Mod"
         "Shift"
       ];
       key = "E";
-      spawn = [
-        "emacsclient"
-        "-c"
-        "-a"
-        ""
-      ];
+      spawn = myConfig.emacsFrameArgv;
       desc = "Emacs frame";
       group = "Launch";
     }
@@ -272,13 +278,8 @@ let
         "Shift"
       ];
       key = "Slash";
-      spawn = [
-        "emacsclient"
-        "-c"
-        "-a"
-        ""
-        guidePath
-      ];
+      # Same correction as Mod+Shift+E above, with the guide as its argument.
+      spawn = myConfig.emacsFrameArgv ++ [ guidePath ];
       desc = "Open this guide";
       group = "Session";
     }

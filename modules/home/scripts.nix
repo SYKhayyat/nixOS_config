@@ -35,10 +35,18 @@ let
   # so it works, and it works for a reason nothing in this repo states or
   # checks. Bump one side and it stops.
   #
-  # ../home/keys.nix already binds Emacs as bare `emacsclient`, i.e. the one on
-  # $PATH, i.e. this one. This is the same fact, spelled the way this file
-  # spells facts.
-  emacsclient = "${myConfig.emacsPackage}/bin/emacsclient";
+  # ../home/keys.nix binds Emacs as `myConfig.emacsFrameArgv', and
+  # ../home/emacs/default.nix sets $EDITOR to `myConfig.emacsFrame'. All of
+  # them come from ../../flake.nix, so the binary, the `env -u
+  # WAYLAND_DISPLAY' and the `--no-wait' are stated once for the whole repo.
+  #
+  # Two spellings, both from ../../flake.nix. `emacsFrame' keeps `-c' and the
+  # scratchpad appends `-e', because it needs the frame: `make-frame' called
+  # from the daemon's tty frame has no display to copy and dies with "Unknown
+  # terminal type". `emacsEval' drops `-c' and is for the second call, which
+  # only tidies up — and which must NOT make a frame of its own.
+  emacsclient = myConfig.emacsFrame;
+  emacsclientEval = myConfig.emacsEval;
 
   # ── The detection, which could not detect Hyprland ───────────────────────
   #
@@ -358,13 +366,45 @@ let
     fi
   '';
 
+  # Four separate defects, all measured against the running daemon:
+  #
+  #   * no --no-wait, so the script blocked in recvfrom() forever on a reply
+  #     Emacs 30.2's server does not send.
+  #   * no `env -u WAYLAND_DISPLAY', so the daemon made a native Wayland
+  #     frame, which does not resize on Plasma 6 — the "skinny window".
+  #     Measured: KWin window 1364x732, Emacs reporting 580x560.
+  #   * `-a ""', so a cold start forked `emacs --fg-daemon' into this script,
+  #     printing Emacs's whole startup, GTK Wayland banner included, into a
+  #     terminal.
+  #   * the elisp was spread over eight lines. The Emacs server protocol is
+  #     line oriented, so what arrived was `(prog' and the daemon answered
+  #     *ERROR*: End of file during parsing — every press, and nothing in the
+  #     script said so.
+  #
+  # `emacsclient` below is `myConfig.emacsFrame`, so the first three are fixed
+  # by naming it and the fourth by keeping the form on one line.
   toggleEmacs = pkgs.writeShellScriptBin "toggle-scratchpad-emacs" ''
     ${compositorDetect}
     NAME="emacs-scratch"
-    ${emacsclient} -c -a "" -e "(progn
-      (unless (seq-find (lambda (f) (string= (frame-parameter f 'name) \"$NAME\")) (frame-list))
-        (make-frame '((name . \"$NAME\") (width . 110) (height . 30))))
-      (select-frame-by-name \"$NAME\"))"
+    # One line, no comments inside it, no backticks, no bare dollar signs:
+    # the whole form is a single shell double-quoted argument. The reasoning
+    # is above, where it can be read.
+    #
+    # The frame is built by `make-frame' with its display copied from the
+    # frame `-c' made, rather than by resizing that frame after the fact.
+    # Width and height have to arrive in the same call to both stick: setting
+    # one makes the other re-derive itself from the window the compositor
+    # granted, so (set-frame-width f 110) followed by (set-frame-height f 30)
+    # ends at 80x30 and the reverse order ends at 110x35. `make-frame' takes
+    # both in one request and gets 110x30. Measured, all three.
+    ${emacsclient} -e "(progn (let ((d (frame-parameter (selected-frame) (quote display)))) (dolist (o (frame-list)) (when (string= (frame-parameter o (quote name)) \"$NAME\") (delete-frame o))) (let ((f (make-frame (list (cons (quote display) d) (cons (quote name) \"$NAME\") (cons (quote width) 110) (cons (quote height) 30))))) (select-frame f))))"
+    sleep 0.2
+    # The frame `-c' made is the one this form was evaluated in, and Emacs
+    # refuses to delete the frame a form is running in — so closing it here
+    # from a second call, once the first has returned, is the only way. Left
+    # in, it was a spare *scratch* window on every press; attempted from the
+    # first call it succeeded about half the time.
+    ${emacsclientEval} "(progn (dolist (o (frame-list)) (when (string= (frame-parameter o (quote name)) \"*scratch*\") (delete-frame o))) nil)"
     sleep 0.2
     if [ "$COMPOSITOR" = "niri" ]; then
       # By id, for the reason spelled out above toggleTerm: niri's

@@ -337,7 +337,10 @@
           meta.mainProgram = "lighttable";
         };
       };
-      myConfig = {
+      # `rec' so `emacsFrame' below can be written in terms of `emacsPackage'
+      # rather than repeating its store path. Everything else here is a leaf
+      # or, where it needs to be, its own `rec'.
+      myConfig = rec {
         username = "shaul";
         fullName = "Shaul";
         email = "shaul.khayyat@cloudresearch.com";
@@ -422,6 +425,62 @@
         # `myConfig` already reaches every home module.
         emacsConfig = inputs.emacs-config.packages.${system}.default; # pre-tangled
         emacsPackage = inputs.emacs-config.packages.${system}.emacs; # emacs + packages
+
+        # ── The one way this machine asks the Emacs daemon for a frame ─────
+        #
+        # This used to be written out seven times, in five files, and three of
+        # those copies were wrong in ways that produced three different bugs
+        # from one cause. See modules/home/emacs/default.nix for the long
+        # version; the short version is that `emacsclient -c' has three
+        # independent ways to go wrong here and nothing in the system would
+        # have noticed any of them.
+        #
+        #   env -u WAYLAND_DISPLAY   Emacs 30.2's PGTK frames do not receive
+        #                             resize events under KDE Plasma 6 on
+        #                             Wayland (bug#81580), so a frame asked for
+        #                             natively stays stuck at its initial 80x35
+        #                             while the window is drawn at full size.
+        #                             Measured: KWin window 1364x732, Emacs
+        #                             reporting 580x560. The same frame
+        #                             through XWayland reported 1364x704.
+        #   --no-wait                Emacs 30.2's server never answers a `-c'
+        #                             request, so without this the client
+        #                             prints "Waiting for Emacs..." and blocks
+        #                             in recvfrom() forever.
+        #   (no `-a "")`             `-a' asks emacsclient to start a daemon
+        #                             itself when there is no socket. That
+        #                             runs `emacs --fg-daemon' as a child of
+        #                             whatever launched it — untracked by
+        #                             systemd, un-restarted, and it prints
+        #                             Emacs's whole startup, including the GTK
+        #                             Wayland banner, into that terminal. The
+        #                             daemon is a systemd unit here
+        #                             (Restart=on-failure), so the unit owns
+        #                             the server and a client that finds no
+        #                             socket should say so.
+        #
+        # `env' is named by absolute path: this string lands in a .desktop
+        # Exec line and in $EDITOR, neither of which can be relied on for a
+        # PATH.
+        emacsFrame = "env -u WAYLAND_DISPLAY ${emacsPackage}/bin/emacsclient --no-wait -c";
+
+        # The same thing minus `-c'. A caller that only needs to run a form —
+        # a cleanup, a query — does not want a frame made purely to evaluate
+        # it in. See ../home/scripts.nix, which uses both.
+        emacsEval = "env -u WAYLAND_DISPLAY ${emacsPackage}/bin/emacsclient --no-wait -e";
+
+        # The same command as an argv list, for the keybindings, which render
+        # one token per element (niri's KDL, hyprland's `exec,') and cannot
+        # take a string. Derived from the pieces rather than written out, so
+        # the two spellings cannot disagree.
+        emacsFrameArgv = [
+          "env"
+          "-u"
+          "WAYLAND_DISPLAY"
+          "${emacsPackage}/bin/emacsclient"
+          "--no-wait"
+          "-c"
+        ];
       };
     in
     {

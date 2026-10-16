@@ -164,12 +164,21 @@
     enable = true;
     user = myConfig.username;
 
-    # `emacsclient -c -a ''` is the same command ../home/emacs/default.nix
-    # already sets as $EDITOR: attach to the daemon, and start one if there
-    # isn't yet. That last part is what makes this safe against the race with
-    # home-manager's `emacs.service`, which the user systemd manager starts
-    # from its own default.target — whichever wins, there is one daemon and
-    # this is a frame on it.
+    # `emacsFrame' (../flake.nix) plus `-a ""', and this is the ONE place in
+    # the repo where the `-a' stays. Everywhere else it is gone, because
+    # everywhere else there is a systemd unit that owns the server —
+    # ../home/emacs/default.nix's `services.emacs', WantedBy
+    # graphical-session.target with Restart=on-failure — and `-a' would fork a
+    # second, untracked Emacs that prints its whole startup, GTK Wayland banner
+    # and all, into whatever terminal launched it.
+    #
+    # This file has `inheritParentConfig = false`, so there is no such unit
+    # here at all: `specialisation.focus` is a different import list, and
+    # emacs.service is not in it. The daemon has to be started by something,
+    # and `cage`'s program is the only thing on this tty that runs before a
+    # session exists. The banner it prints is that cost, stated rather than
+    # worked around.
+    #
     # `--no-wait` because this is cage's `program`: cage exits when the
     # program exits. Emacs 30.2's server never sends emacsclient the
     # completion reply for a `-c` request on this machine (the frame is made,
@@ -177,7 +186,7 @@
     # ../home/emacs/default.nix where $EDITOR is set), so without the flag the
     # session comes up, works, and can never be handed back.
     program = pkgs.writeShellScript "focus-session" ''
-      exec env -u WAYLAND_DISPLAY ${myConfig.emacsPackage}/bin/emacsclient --no-wait -c -a ""
+      exec ${myConfig.emacsFrame} -a ""
     '';
   };
 
