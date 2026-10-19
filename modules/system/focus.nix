@@ -186,7 +186,7 @@
     # ../home/emacs/default.nix where $EDITOR is set), so without the flag the
     # session comes up, works, and can never be handed back.
     program = pkgs.writeShellScript "focus-session" ''
-      exec ${myConfig.emacsFrame} -a ""
+      exec env ${myConfig.emacsPackage}/bin/emacsclient --no-wait -c -a ""
     '';
   };
 
