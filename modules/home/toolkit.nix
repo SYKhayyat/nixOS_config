@@ -256,6 +256,18 @@ let
     # machine moves when opencode does.
     llm-agents.opencode
     llm-agents.freebuff
+    # Kilo Code CLI — same numtide scope as opencode/freebuff above, so it
+    # tracks upstream per-release without a new input or nixpkgs eval. Ships
+    # the `kilocode` binary. Network-bound coding agent, so off in study.
+    # llm-agents' build drops a `bin/tree-sitter` directory that collides
+    # with the `tree-sitter` package in the emacs extras group, so relocate
+    # it out of `bin/` to keep home-manager's buildEnv happy.
+    (llm-agents.kilocode-cli.overrideAttrs (old: {
+      postInstall = (old.postInstall or "") + ''
+        mkdir -p $out/lib
+        mv $out/bin/tree-sitter $out/lib/kilocode-tree-sitter
+      '';
+    }))
     clixad
     # Omnirush signs in over HTTPS and runs its whole agent against
     # omnirush.ai, so it leaves the study airgap like the rest of this block.
