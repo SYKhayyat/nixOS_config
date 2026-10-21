@@ -63,7 +63,7 @@
 }:
 
 let
-  version = "2.5.9";
+  version = "2.6.7";
 in
 stdenv.mkDerivation {
   pname = "omnirush";
@@ -72,7 +72,7 @@ stdenv.mkDerivation {
   # The launcher, the agent core and the omnirush extensions.
   src = fetchurl {
     url = "https://registry.npmjs.org/omnirush/-/omnirush-${version}.tgz";
-    hash = "sha512-Ui0kdI0BYq+zRzzPkv4owBwdmUFkU3mhScmm1ax3jvqUPqU+E7wW8qpTPo6OgD82/+D89PTbnqRdfPrI9qbDCA==";
+    hash = "sha512-5QieFK2rfRKBUYo7J8xu1C5uPRWrRszeGo4PCNvgkg9cw1YzCnQKmrGbKHN3wfpYvsdT7UnbkWbV9N3/A1HPWA==";
   };
 
   # The glibc/x86_64 runtime that npm would have selected from
@@ -82,7 +82,7 @@ stdenv.mkDerivation {
   # has to understand one tarball.
   runtime = fetchurl {
     url = "https://registry.npmjs.org/@omnirush-ai/cli-linux-x64/-/cli-linux-x64-${version}.tgz";
-    hash = "sha512-RVKtaWze04mHHPzyJ8wrTsysQNinqhqqwMliNRP0zfiU42rZDdQdf1RTRuA3pQ86fgg3PCUmRzmDki6Nahremg==";
+    hash = "sha512-fy06Axg+akceMADJrkiKXXzxXxOvD9VGP1ZsnnoCgFA+63k8uCgLQpdpIxfYRVMizJoBr08o+ibp3y0rpdgfnw==";
   };
 
   nativeBuildInputs = [ makeWrapper ];
