@@ -41,7 +41,9 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -56,14 +58,55 @@ NPM = "https://registry.npmjs.org"
 TIMEOUT = 30
 
 
+def github_token() -> str | None:
+    """Best available GitHub token, or None.
+
+    The releases API allows 60 unauthenticated requests per hour, and every
+    rebuild of this machine runs this script — `nrs` is one such rebuild — so
+    a day of ordinary use burns the hour's budget and the bump that exists to
+    keep the GUI fresh starts failing for a reason with nothing to do with
+    the GUI. That is exactly what it did: `nrs` printed "error: rate limit
+    exceeded" and every switch after it was stale by however far upstream
+    moved. Authenticated requests get 5000/hour.
+
+    GH_TOKEN / GITHUB_TOKEN first, because that is what CI and most tools
+    set; then `gh auth token`, because this machine already has gh signed in
+    as the account that owns the releases. A token is never required: with
+    none at all this still works, it fails once an hour instead of never.
+    """
+    for name in ("GH_TOKEN", "GITHUB_TOKEN"):
+        value = os.environ.get(name)
+        if value:
+            return value
+    try:
+        completed = subprocess.run(
+            ["gh", "auth", "token"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.strip() or None
+
+
+def github_request(url: str) -> urllib.request.Request:
+    """Request for a GitHub URL, authenticated when a token can be found."""
+    headers = {"Accept": "application/json"}
+    token = github_token() if url.startswith("https://github.com") else None
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return urllib.request.Request(url, headers=headers)
+
+
 def fetch_json(url: str) -> dict:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(github_request(url), timeout=TIMEOUT) as response:
         return json.load(response)
 
 
 def fetch_text(url: str) -> str:
-    with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(github_request(url), timeout=TIMEOUT) as response:
         return response.read().decode("utf-8", "replace")
 
 
@@ -250,6 +293,17 @@ def main() -> int:
             print(f"cli  {current} -> {moved}{'  (--check, not written)' if args.check else ''}")
     except SystemExit as error:
         print(f"error: {error}", file=sys.stderr)
+        return 1
+    except urllib.error.HTTPError as error:
+        # A 403 here is the anonymous-API limit, not a bad credential or a
+        # missing release — the bump is otherwise valid, so say what to do.
+        if error.code in (403, 429):
+            print(
+                "error: GitHub API rate limit hit. Set GH_TOKEN or run "
+                "`gh auth login` — authenticated requests get 5000/hour "
+                "instead of 60.", file=sys.stderr)
+            return 1
+        print(f"error: {error.code} {error.reason}", file=sys.stderr)
         return 1
     except urllib.error.URLError as error:
         print(f"error: {error.reason}", file=sys.stderr)
