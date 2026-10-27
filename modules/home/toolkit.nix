@@ -255,6 +255,19 @@ let
     # update-opencode` runs. It is a normal input bump: nothing else on the
     # machine moves when opencode does.
     llm-agents.opencode
+    # freebuff — a Codebuff fork, freebuff.com backend, and the "free DeepSeek
+    # 4.1" the user was promised is already in this build: the TUI footer shows
+    # DeepSeek V4.1 Flash as the default model with an hours allowance ("30/30
+    # hours remaining"; referrals and the Discord ad buy more).
+    #
+    # What the package can and cannot control, which is the whole answer to
+    # "my build doesn't offer it": the catalog ships in the client
+    # (base2-free-deepseek-v4-1-flash and friends), but which models you are
+    # *shown* is decided per session by freebuff.com. When some are missing
+    # the TUI says why — "Some models aren't available on this connection" —
+    # and that is a geo gate (countryBlockReason; set at
+    # freebuff.com/account?tab=country), not a stale pin. Bumping this package
+    # cannot make a withheld model appear, so don't chase it with a rebuild.
     llm-agents.freebuff
     # Kilo Code CLI — same numtide scope as opencode/freebuff above, so it
     # tracks upstream per-release without a new input or nixpkgs eval. Ships
