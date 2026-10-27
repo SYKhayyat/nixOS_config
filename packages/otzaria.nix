@@ -54,11 +54,11 @@
 # goes rather than staying on as a name that is never read.
 stdenv.mkDerivation {
   pname = "otzaria";
-  version = "0.9.96";
+  version = "0.9.98.2";
 
   src = fetchurl {
-    url = "https://github.com/Otzaria/otzaria/releases/download/0.9.96%2B736/otzaria-0.9.96%2B90960-linux.deb";
-    hash = "sha256-e14ilxJ+AFE3Q72RMseacuSrFkVAiRqnhewzLRgJZiI=";
+    url = "https://github.com/Otzaria/otzaria/releases/download/0.9.98.2%2B807/otzaria-0.9.98%2B99802-linux.deb";
+    hash = "sha256-2K07gYs6SelRXzq/UaiKoRUSmSzGHF58D6SwVepofwQ=";
   };
 
   nativeBuildInputs = [
