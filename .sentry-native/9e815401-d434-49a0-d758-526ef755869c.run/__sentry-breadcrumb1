@@ -1,0 +1,83 @@
+…©timestamp¸2026-10-27T16:13:36.500Z§messageÙ"Pdfrx cache directory set to: /tmp¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.838Z§messageÙ(ğŸ’¾ DatabaseLibraryProvider initialized¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.838Z§messageÙ-âœ… Initialized provider: ××¡×“ × ×ª×•× ×™×¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.838Z§messageÙ*ğŸ“ FileSystemLibraryProvider initialized¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.840Z§messageÙ$âœ… Initialized provider: ×§×‘×¦×™×¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.841Z§messageÙ8ğŸ“š LibraryProviderManager initialized with 2 providers¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.841Z§messageÙ/Library providers initialized in FileSystemData¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.841Z§messageÙ@PluginRuntimeDispatcher: Dispatching reader.current_book_changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.843Z§messageÙ6PluginRuntimeDispatcher: Dispatching workspace.changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.844Z§messageÙ5PluginRuntimeDispatcher: Dispatching settings.changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.846Z§messageÙ2PluginRuntimeDispatcher: Dispatching theme.changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.862Z§messageÙEğŸ” ×ª××™××•×ª ××™× ×“×§×¡: compatible (× ××¦×: 3, × ×“×¨×©: 3)¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.866Z§messageÙ:PluginRuntimeDispatcher: Dispatching calendar.date_changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.883Z§messageÙ:PluginRuntimeDispatcher: Dispatching calendar.date_changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:36.883Z§messageÙ:PluginRuntimeDispatcher: Dispatching calendar.date_changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.170Z§messageÙdğŸ“š [UserBooksDB] Opening user_books.db at /home/shaul/.local/share/otzaria/databases/user_books.db¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.202Z§messageÙxğŸ”¤ ××™×œ×•×Ÿ ××•×¨×¤×•×œ×•×’×™ × ×˜×¢×Ÿ ×œ×—×™×¤×•×© ×”××§×•×¨×‘: /home/shaul/.local/share/otzaria/books/lexical.db¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.783Z§messageÙ'â±ï¸ Metadata + providers init: 488ms¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.783Z§messageÙ.ğŸ“š Building catalog from ××¡×“ × ×ª×•× ×™×¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.783Z§messageÙ.ğŸ’¾ Building library catalog from database...¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.956Z§messageÙJâ±ï¸ Transaction (books+categories): 167ms (7316 books, 1343 categories)¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.963Z§message»ğŸ’¾ Loaded 1342 categories¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:37.963Z§message½ğŸ’¾ Found 17 root categories¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.144Z§messageÙ!â±ï¸ Category tree build: 180ms¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.187Z§messageÙ DEBUG: saved: null, returning: 0¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.507Z§messageÙ€ğŸ“ Looking for file: /home/shaul/.local/share/otzaria/per_book_settings/settings_68a57d0798718ae7b26f8a72c5d5f0a415b923f9.json¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.604Z§messageÙkğŸ”¤ ××™×œ×•×Ÿ ×ª×¨×’×•× ××¨××™ × ×˜×¢×Ÿ: /home/shaul/.local/share/otzaria/dictionaries/dictionary.json¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.835Z§messageÙBğŸ“„ JSON content: {"activeCommentators":["×¨×©\"×™ ×¢×œ ×©×‘×ª"]}¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.835Z§messageÙ/âœ… Loaded per-book settings for: o__14__×©×‘×ª¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.874Z§messageÙGğŸ’¾ Database catalog built with 1340 categories and 7316 books from DB¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.933Z§messageÙ6âœ… Library catalog built with 17 top-level categories¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.933Z§message¿â±ï¸ Total getLibrary: 1638ms¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:38.937Z§messageÙ?PluginRuntimeDispatcher: Dispatching reader.current_ref_changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:39.787Z§messageÙC[GenerationCache] Loaded generations for 7213 books (+0 user books)¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:40.434Z§messageÙiğŸ”¤ ××™×œ×•×Ÿ ×¨××©×™-×ª×™×‘×•×ª × ×˜×¢×Ÿ: /home/shaul/.local/share/otzaria/dictionaries/Acronyms.json¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:40.463Z§messageÙ0[BooksCache] Loaded 7316 books into shared cache¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:41.693Z§messageÙCğŸ“š × ×§×¨××• 7357 ×¡×¤×¨×™× ×××•× ×“×§×¡×™× ××”××™× ×“×§×¡¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:41.740Z§messageÙ•âš¡ Fast path: ×›×œ ×”×¡×¤×¨×™× ×”××™× ×“×§×¡×‘×™×œ×™×™× ×›×‘×¨ ×××•× ×“×§×¡×™× ×œ×¤×™ ×”××™× ×“×§×¡ ×¢×¦××• - ××“×œ×’ ×¢×œ ×”××™× ×“×•×§×¡¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:42.785Z§messageÙ4[AcronymsCache] Loaded 52544 acronyms for 6344 books¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:43.136Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:43.205Z§messageÙ@[ReferenceBooksCache] Ready with 7316 DB books + 39 FS PDF books¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:43.217Z§messageÙYğŸ—‚ï¸ [CacheDB] Opening cache.db at /home/shaul/.local/share/otzaria/databases/cache.db¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:43.300Z§messageÙ>[ReferenceBooksCache] PDF outline pre-warm complete (39 files)¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:44.843Z¨category¨ui.click¤data‚ªview.classªIconButton¤pathš§elementªIconButton§elementªPositioned§element¥Stack§element®ConstrainedBox§element©Container§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint§element­PhysicalShape¥level¤info¤type¤user…©timestamp¸2026-10-27T16:13:46.432Z§messageÙ DEBUG: saved: null, returning: 0¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:46.705Z§messageÙ?PluginRuntimeDispatcher: Dispatching reader.current_ref_changed¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:47.350Z§messageÚW[Update] update check failed: type 'Null' is not a subtype of type 'String' in type cast
+#0      _ManagedUpdatWidgetState._getLatestVersion (package:otzaria/update/my_update_widget.dart:736)
+<asynchronous suspension>
+#1      _ManagedUpdatWidgetState._checkForUpdate (package:otzaria/update/my_update_widget.dart:643)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:51.744Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:13:51.775Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:52.675Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:13:52.713Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:53.493Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:13:53.524Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:13:54.783Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:13:54.808Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:14:03.966Z¨category¨ui.click¤dataƒ§view.idÙ5[GlobalKey#b78cb tour_reading_settings_button_target]ªview.classªIconButton¤pathš‚¤nameÙ5[GlobalKey#b78cb tour_reading_settings_button_target]§elementªIconButton§element§Padding§element¨Listener§element²RawGestureDetector§element¯GestureDetector§element®DragToMoveArea§element£Row§elementÙ!BlocListener<TabsBloc, TabsState>§elementÙ BlocBuilder<TabsBloc, TabsState>§element¨Expanded¥level¤info¤type¤user…©timestamp¸2026-10-27T16:14:10.661Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:14:10.798Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug…©timestamp¸2026-10-27T16:14:10.826Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:14:10.997Z¨category¨ui.click¤data‚ªview.class§InkWell¤pathš§element§InkWell§element¦Column§element®ConstrainedBox§element§Padding§element¥Stack§element¬DecoratedBox§element°DefaultTextStyle§element¸AnimatedDefaultTextStyle§elementÙ/NotificationListener<LayoutChangedNotification>§element«CustomPaint¥level¤info¤type¤user…©timestamp¸2026-10-27T16:14:11.274Z§messageÚ[LibraryUpdate] ERROR in checkForUpdate: Exception: ×©×’×™××” ×‘×§×‘×œ×ª ×¨×©×™××ª ×”-releases: 403
+#0      GithubLibraryReleaseClient.fetchReleases (package:seforim_library_updater/src/services/github_library_release_client.dart:48)
+<asynchronous suspension>
+#1      LibraryUpdateDiscovery.discover (package:seforim_library_updater/src/services/library_update_discovery.dart:54)
+<asynchronous suspension>
+#2      LibraryUpdateRepository.checkForUpdate (package:otzaria/library_update/repository/library_update_repository.dart:125)
+<asynchronous suspension>
+#3      LibraryUpdateBloc._onStart (package:otzaria/library_update/bloc/library_update_bloc.dart:90)
+<asynchronous suspension>
+#4      Bloc.on.<anonymous closure>.handleEvent (package:bloc/src/bloc.dart:226)
+<asynchronous suspension>
+¨category§console¥level¥debug¤type¥debug
