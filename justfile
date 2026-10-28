@@ -148,7 +148,7 @@ update-emacs:
 # opencode and freebuff are the two packages on this machine that are not from
 # nixpkgs: both come from the numtide `llm-agents` input, which tracks the
 # upstream releases rather than a stable branch — see the note beside
-# `llm-agents.opencode` in modules/home/toolkit.nix. Nothing else moves when
+# `llm-agents.opencode2` in modules/home/toolkit.nix. Nothing else moves when
 # the agents do, so this is the narrow half of `just update`.
 
 # Bump opencode and freebuff to the newest upstream releases
@@ -214,7 +214,7 @@ update-omnirush:
 omnirush-check:
     python3 tools/bump-omnirush.py --check
 
-# The version in the comment beside `llm-agents.opencode` goes stale the day
+# The version in the comment beside `llm-agents.opencode2` goes stale the day
 # after it is written, and there is no other way to see what you are running
 # without switching to find out. So: what the lock installs, then upstream's
 # newest tag — two lines that answer the only question this file gets asked
@@ -232,7 +232,7 @@ omnirush-check:
 # Show the locked vs upstream-newest opencode version
 opencode-version:
     @nix eval --raw --no-update-lock-file \
-        .#nixosConfigurations.{{host}}._module.args.pkgs.llm-agents.opencode.version
+        .#nixosConfigurations.{{host}}._module.args.pkgs.llm-agents.opencode2.version
     @echo
     @json=$(curl -fsSL https://api.github.com/repos/anomalyco/opencode/releases/latest) && \
         echo "$json" | grep -m1 '"tag_name"'

@@ -254,7 +254,7 @@ let
     # Refresh with `nix flake update llm-agents`, which is what `just
     # update-opencode` runs. It is a normal input bump: nothing else on the
     # machine moves when opencode does.
-    llm-agents.opencode
+    llm-agents.opencode2
     # freebuff — a Codebuff fork, freebuff.com backend, and the "free DeepSeek
     # 4.1" the user was promised is already in this build: the TUI footer shows
     # DeepSeek V4.1 Flash as the default model with an hours allowance ("30/30

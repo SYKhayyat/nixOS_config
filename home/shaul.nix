@@ -245,4 +245,5 @@ in
   home.sessionVariables = {
     TERMINAL = "foot";
   };
+  home.sessionPath = [ "$HOME/.local/bin" "$HOME/.npm-global/bin" ];
 }
