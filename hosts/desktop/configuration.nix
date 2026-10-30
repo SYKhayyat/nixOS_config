@@ -1,6 +1,6 @@
 # hosts/desktop/configuration.nix
 #
-# One machine, one system closure, three graphical sessions, two specialisations.
+# One machine, one system closure, five graphical sessions, two specialisations.
 #
 # It used to be four specialisations (minimal / niri / hyprland / study) built by
 # lib/mk-specialization.nix. Three of them were answering questions that already
@@ -42,6 +42,8 @@
     ../../modules/system/desktop.nix # X + the keyboard, SDDM, Plasma 6, audio, printing, KDE Connect
     ../../modules/system/niri.nix # + wayland.nix
     ../../modules/system/hyprland.nix # + wayland.nix (same path, imported once)
+    ../../modules/system/sway.nix # the i3-lineage third compositor, + wayland.nix
+    ../../modules/system/gnome.nix # the second full DE, no wayland.nix — it is not a compositor
     ../../modules/system/secrets.nix
   ];
 
@@ -49,17 +51,26 @@
   # session you picked and offers it again.
   services.displayManager.defaultSession = "plasma";
 
-  # Portals. plasma6, programs.niri and programs.hyprland each register their own
-  # backend and their own per-desktop portals.conf through `xdg.portal.
-  # configPackages`, so the only thing left to state here is the fallback for a
-  # session that ships neither. The old hand-written per-specialisation
-  # extraPortals list existed because only one desktop was ever present at a
-  # time; with all three in one closure the upstream mechanism is the right one.
+  # Portals. All five sessions register their own backend and their own
+  # per-desktop portals.conf through `xdg.portal.configPackages` — Plasma
+  # (kde), niri, Hyprland, sway and GNOME each ship one — so nothing is left
+  # to state as a *fallback*; `config.common.default = ["gtk"]` remains only
+  # because every session's own config also names gtk as its default, which
+  # keeps the two from disagreeing rather than because any session lacks one.
+  #
+  # extraPortals: what the machine installs. Plasma's module adds the kde
+  # portal and gtk by itself, and GNOME's adds portal-gnome and gtk, so both
+  # of those would be duplicates here. The one genuinely missing entry is
+  # wlr: sway's own portals.conf (nixpkgs' programs.sway) routes ScreenCast
+  # and Screenshot at the `wlr` implementation, and — unlike plasma, which
+  # ships the package its config names — sway's module assumes the *host*
+  # provides it. Without this line the config file points at a backend with
+  # no process behind it and sway screen sharing fails silently.
   xdg.portal = {
     enable = true;
     xdgOpenUsePortal = true;
     config.common.default = [ "gtk" ];
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk pkgs.xdg-desktop-portal-wlr ];
   };
 
   # ── The user environment ────────────────────────────────────────────────

@@ -55,6 +55,7 @@ in
     ../modules/home/art.nix # ART profiles/LUTs from the shared sources
     ../modules/home/niri
     ../modules/home/hyprland
+    ../modules/home/sway
   ];
 
   # ── The two stylix targets that stay off, and why ────────────────────────

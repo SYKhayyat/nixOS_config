@@ -73,23 +73,28 @@ let
   # entirely, and both scratchpad toggles took the else-branch and spawned a
   # *new* terminal on every press instead of focusing the existing one.
   #
-  # So: ask the compositors, which both answer. niri exports `NIRI_SOCKET` and
-  # Hyprland exports `HYPRLAND_INSTANCE_SIGNATURE` into the environment of
-  # everything they spawn — that is what those variables are for, it is how
-  # `niri msg` and `hyprctl` find their own sockets, and a keybind's process is
-  # a child of the compositor. No process table, no name matching, no
-  # 15-character limit. The pgrep line is kept only as a fallback for a shell
-  # that somehow lost the environment, and its Hyprland half now matches the
-  # command line (`-f`), which is where the name actually is.
+  # So: ask the compositors, which all three answer. niri exports
+  # `NIRI_SOCKET`, Hyprland exports `HYPRLAND_INSTANCE_SIGNATURE` and sway
+  # exports `SWAYSOCK` into the environment of everything they spawn — that
+  # is what those variables are for, it is how `niri msg`, `hyprctl` and
+  # `swaymsg` find their own sockets, and a keybind's process is a child of
+  # the compositor. No process table, no name matching, no 15-character
+  # limit. The pgrep lines are kept only as a fallback for a shell that
+  # somehow lost the environment, and the Hyprland half matches the command
+  # line (`-f`), which is where the name actually is.
   compositorDetect = ''
     if [ -n "''${NIRI_SOCKET:-}" ]; then
       COMPOSITOR="niri"
     elif [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
       COMPOSITOR="hyprland"
+    elif [ -n "''${SWAYSOCK:-}" ]; then
+      COMPOSITOR="sway"
     elif pgrep -x niri > /dev/null; then
       COMPOSITOR="niri"
     elif pgrep -f '/bin/Hyprland' > /dev/null; then
       COMPOSITOR="hyprland"
+    elif pgrep -x sway > /dev/null; then
+      COMPOSITOR="sway"
     else
       COMPOSITOR="plasma"
     fi
@@ -98,8 +103,26 @@ let
   # Fail visibly instead of exiting 0 having done nothing.
   unsupported = ''
     ${pkgs.libnotify}/bin/notify-send \
-      "$(basename "$0")" "needs niri or Hyprland — this session is $COMPOSITOR"
+      "$(basename "$0")" "needs niri, Hyprland or sway — this session is $COMPOSITOR"
     exit 1
+  '';
+
+  # The float test, from sway's perspective. A sway tree distinguishes
+  # floating containers by *type*: every window is a leaf with
+  # `type == "con"` tiled, or `type == "floating_con"` floating — which is
+  # the same question niri answers with `is_floating` and hyprland's
+  # activewindow with `.floating`, stated in sway's own JSON. Asked rather
+  # than tracked, for the reason the /tmp state file is gone.
+  swayFloating = ''
+    node=$(swaymsg -t get_tree | ${pkgs.jq}/bin/jq -c \
+      '[.. | objects | select(.focused? == true) and (.type == "con" or .type == "floating_con")] | .[0] // empty')
+    if [ -z "$node" ]; then
+      floating=""
+    elif printf '%s' "$node" | ${pkgs.jq}/bin/jq -e '.type == "floating_con"' > /dev/null; then
+      floating="true"
+    else
+      floating="false"
+    fi
   '';
 
   # Whether this window is spotlighted is a fact about the window, and both
@@ -164,6 +187,9 @@ let
         floating=$(hyprctl activewindow -j |
           ${pkgs.jq}/bin/jq -r '.floating | tostring')
         ;;
+      sway)
+        ${swayFloating}
+        ;;
       *)
         ${unsupported}
         ;;
@@ -175,6 +201,15 @@ let
           niri msg action toggle-window-floating
           niri msg action center-column
           niri msg action set-column-width "90%"
+        elif [ "$COMPOSITOR" = "sway" ]; then
+          # sway's three-step spelling of the same job: float it, centre it
+          # in the output, size it to 90% of the output. `resize set` takes
+          # ppt (percentage points), which is sway's own unit — Hyprland's
+          # `exact 90% 90%` has no direct equivalent because sway has no
+          # percentage shorthand.
+          swaymsg floating enable
+          swaymsg move position center
+          swaymsg resize set 90 ppt 90 ppt
         else
           hyprctl dispatch togglefloating
           hyprctl dispatch centerwindow
@@ -186,6 +221,8 @@ let
         if [ "$COMPOSITOR" = "niri" ]; then
           niri msg action toggle-window-floating
           niri msg action set-column-width "50%"
+        elif [ "$COMPOSITOR" = "sway" ]; then
+          swaymsg floating disable
         else
           hyprctl dispatch togglefloating
         fi
@@ -211,6 +248,18 @@ let
       [ -z "$WINDOW" ] && exit 0
       ADDR=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
       hyprctl dispatch focuswindow "address:$ADDR"
+    elif [ "$COMPOSITOR" = "sway" ]; then
+      # sway answers the same question niri's `--json windows` does, in
+      # get_tree form: walk the whole tree for leaf containers (`type ==
+      # "con"`), which is sway's name for a window. The id at the end of the
+      # row is the sway *container id*, and `[con_id=N] focus` addresses that
+      # exact container — the same precision niri's `--id` and hyprland's
+      # `address:` give, in sway's own idiom. Focusing across workspaces
+      # switches the workspace with it, which is what teleport is for.
+      WINDOW=$(swaymsg -t get_tree | ${pkgs.jq}/bin/jq -r '.. | objects | select(.type? == "con") | "\(.name) | \(.app_id // "-") | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
+      [ -z "$WINDOW" ] && exit 0
+      ID=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
+      swaymsg "[con_id=$ID]" focus
     else
       ${unsupported}
     fi
@@ -255,6 +304,17 @@ let
         restore() { hyprctl setprop active alpha 1.0 || true; }
         trap restore EXIT INT TERM
         hyprctl setprop active alpha 0.0 || true
+        ;;
+      sway)
+        # sway's per-container opacity is a command on the container, so no
+        # `setprop`-style indirection is needed: `opacity set` on the focused
+        # window, restored from the trap. Absolute value rather than niri's
+        # toggle, because sway can do absolute — and 0.15 rather than niri's
+        # 0.85 rule, because a full blackout of the caller is the honest
+        # reading of "swallow".
+        restore() { swaymsg opacity set 1.0 || true; }
+        trap restore EXIT INT TERM
+        swaymsg opacity set 0.15 || true
         ;;
       niri)
         # niri's only per-window opacity control is a toggle of the opacity its
@@ -358,6 +418,24 @@ let
       else
         ${pkgs.foot}/bin/foot --app-id="$ID" &
       fi
+    elif [ "$COMPOSITOR" = "sway" ]; then
+      # sway is the session where the scratchpad is a real feature and the
+      # app-id trick the other two need is not: `move scratchpad` parks a
+      # window, `scratchpad show` brings back the most recently parked one.
+      # The toggle therefore has three honest states rather than two —
+      # absent (spawn), parked (show), visible (park it again) — and sway's
+      # `visible` flag in get_tree is the question that separates them.
+      # `move` takes criteria and parks the matching window by app-id,
+      # which is the one part of this dance niri cannot express at all.
+      VISIBLE=$(swaymsg -t get_tree | ${pkgs.jq}/bin/jq -r \
+        'first(.. | objects | select(.app_id? == "scratchpad") | .visible | tostring) // empty')
+      if [ -z "$VISIBLE" ]; then
+        ${pkgs.foot}/bin/foot --app-id="$ID" &
+      elif [ "$VISIBLE" = "true" ]; then
+        swaymsg "[app_id=\"$ID\"] move scratchpad"
+      else
+        swaymsg scratchpad show
+      fi
     else
       # No compositor to focus an existing one with, but a terminal is still a
       # terminal — this is the one case where "just do the useful half" beats
@@ -415,6 +493,13 @@ let
       [ -n "$WIN" ] && niri msg action focus-window --id "$WIN"
     elif [ "$COMPOSITOR" = "hyprland" ]; then
       hyprctl dispatch focuswindow "title:$NAME"
+    elif [ "$COMPOSITOR" = "sway" ]; then
+      # By title, which sway matches as a regex against the window's name —
+      # and the name is the frame name Emacs was just told to use, the same
+      # fact ../hyprland/default.nix's scratchpad rule and
+      # ../sway/default.nix's `for_window [title=...]` both key on. An Emacs
+      # frame's app-id stays `emacs`, so app_id would match every frame.
+      swaymsg "[title=\"^$NAME\$\"]" focus
     fi
   '';
 

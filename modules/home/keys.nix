@@ -107,6 +107,29 @@ let
   niriChord = b: concatStringsSep "+" (b.mods ++ [ b.key ]);
   # Empty mods renders as ", Print", which is Hyprland's spelling for a bare key.
   hyprChord = b: "${concatMapStringsSep " " hyprMod b.mods}, ${b.key}";
+
+  # ── The sway renderer ─────────────────────────────────────────────────
+  # Sway speaks i3's config language: a chord on the left, a verb on the
+  # right, one per `bindsym` line. Two differences from the Hyprland
+  # renderer, both spelling-level: the mod is `Mod4` rather than `$mainMod`,
+  # and a bare key has no comma in front of it — `bindsym Print exec …` is
+  # sway's way to bind an unmodified key, where Hyprland's `, Print` is
+  # its own.
+  # `concatMapStringsSep` takes (sep, f, list) — the map already happened if
+  # the list is spelled as one; pass the function and the list as they are.
+  swayMod = m: if m == "Mod" then "Mod4" else m;
+  # Strings join with `${}`, not `++` — Nix's `++` is list concat, and the
+  # first draft of this renderer used it on the chord and got exactly the
+  # error that announces: "expected a list but found a string".
+  swayChord =
+    b:
+    if b.mods == [ ] then b.key else "${concatMapStringsSep "+" swayMod b.mods}+${b.key}";
+  swayAction =
+    b: if b ? spawn then "exec ${lib.escapeShellArgs b.spawn}" else b.cmd;
+  renderSway = binds: concatMapStringsSep "\n" (b: "  bindsym ${swayChord b} ${swayAction b}") binds;
+  renderSwayStartup =
+    items:
+    concatMapStringsSep "\n" (s: "  exec --no-startup-id ${lib.escapeShellArgs s.argv}") items;
   guideChord = b: concatStringsSep "+" ((map guideMod b.mods) ++ [ (keyLabels.${b.key} or b.key) ]);
 
   # ── Actions ──────────────────────────────────────────────────────────────
@@ -686,6 +709,10 @@ in
       hypr = {
         binds = renderHypr;
         startup = renderHyprStartup;
+      };
+      sway = {
+        binds = renderSway;
+        startup = renderSwayStartup;
       };
     };
 

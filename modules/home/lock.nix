@@ -68,6 +68,14 @@ let
       niri msg action "power-$1-monitors" || true
     elif [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || ${pkgs.procps}/bin/pgrep -f '/bin/Hyprland' > /dev/null; then
       hyprctl dispatch dpms "$1" || true
+    elif [ -n "''${SWAYSOCK:-}" ] || ${pkgs.procps}/bin/pgrep -x sway > /dev/null; then
+      # sway has no wildcard `output * dpms` — the command takes an output
+      # name, so the names come from IPC. `get_outputs` is a get_tree-like
+      # query, and `jq` is spelled as a store path like every other program
+      # this repo calls, for the reason ../scripts.nix's header gives.
+      for o in $(swaymsg -t get_outputs | ${pkgs.jq}/bin/jq -r '.[].name'); do
+        swaymsg output "$o" dpms "$1" || true
+      done
     fi
   '';
 in

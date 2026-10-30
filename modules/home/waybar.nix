@@ -41,10 +41,12 @@ in
         modules-left = [
           "niri/window"
           "hyprland/window"
+          "sway/window"
         ];
         modules-center = [
           "niri/workspaces"
           "hyprland/workspaces"
+          "sway/workspaces"
         ];
         modules-right = [
           "tray"
@@ -72,6 +74,21 @@ in
         "hyprland/window" = {
           format = "󰖲 {title}";
           max-length = 30;
+        };
+        # Sway's pair, same look as the two above under a third protocol's
+        # name. waybar talks to sway's IPC the way it talks to niri's socket
+        # and hyprland's instance signature, so the config states the same
+        # three facts three ways and lets waybar pick the live one.
+        "sway/window" = {
+          format = "󰖲 {title}";
+          max-length = 30;
+        };
+        "sway/workspaces" = {
+          format = "{icon}";
+          format-icons = {
+            default = "○";
+            focused = "●";
+          };
         };
 
         network = {
