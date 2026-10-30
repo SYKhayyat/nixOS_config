@@ -42,7 +42,6 @@
     ../../modules/system/desktop.nix # X + the keyboard, SDDM, Plasma 6, audio, printing, KDE Connect
     ../../modules/system/niri.nix # + wayland.nix
     ../../modules/system/hyprland.nix # + wayland.nix (same path, imported once)
-    ../../modules/system/cosmic.nix # the fourth greeter entry, no wayland.nix
     ../../modules/system/secrets.nix
   ];
 
