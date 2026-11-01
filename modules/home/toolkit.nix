@@ -280,7 +280,38 @@ let
     # config — v2 then normalizes it and logs its "failed to load plugin"
     # warning each start. Harmless, and the one reason to keep v1's plugin
     # list in a config file v2 does not read if the warning gets annoying.
-    llm-agents.opencode
+    # opencode v1 runs against its own data directory, not the one v2 owns.
+    # 1.19.x is the bridge release that speaks both plugin APIs, and it opens
+    # the same ~/.local/share/opencode/opencode.db as 2.x — but the schemas
+    # have diverged since: v1's InstanceStore still UPDATEs its `workspace`
+    # table (project_id, directory), which 2.x redefines as an unrelated
+    # table without those columns. Every v1 run from a directory that
+    # resolves to a real project — that is, any git repo — therefore dies
+    # with "no such column: project_id". A non-git directory resolves to the
+    # global project and skips that one UPDATE, which is why the breakage
+    # looks directory-dependent rather than total (~ worked, ~/config did
+    # not, and no qoder login could happen in the repo it was wanted in).
+    #
+    # Its own XDG_DATA_HOME keeps the two apart completely: v1's own
+    # opencode.db (built by v1's own migrations), its own auth.json, its own
+    # logs. v2 resolves its own paths before any of this and is untouched —
+    # its 2.5 GB database and its service keep running as they are. The cost
+    # is that v1's credentials start empty: copy
+    # ~/.local/share/opencode/auth.json to
+    # ~/.local/share/opencode-v1/opencode/auth.json once to inherit them.
+    #
+    # The export is inserted into the wrapper installPhase already built,
+    # ahead of its exec, rather than into a second wrapper of our own: the
+    # entrypoint's argv[0] and argument forwarding stay exactly upstream's,
+    # which is also why the package's own versionCheck still passes. (A
+    # hand-written replacement wrapper is a trap here — an unquoted heredoc
+    # in postInstall expands "\$@" away at build time and every invocation
+    # silently loses its arguments.)
+    (llm-agents.opencode.overrideAttrs (old: {
+      postInstall = (old.postInstall or "") + ''
+        sed -i '2i export XDG_DATA_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/opencode-v1"' $out/bin/opencode
+      '';
+    }))
     # freebuff — a Codebuff fork, freebuff.com backend, and the "free DeepSeek
     # 4.1" the user was promised is already in this build: the TUI footer shows
     # DeepSeek V4.1 Flash as the default model with an hours allowance ("30/30
