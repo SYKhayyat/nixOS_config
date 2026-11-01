@@ -255,6 +255,32 @@ let
     # update-opencode` runs. It is a normal input bump: nothing else on the
     # machine moves when opencode does.
     llm-agents.opencode2
+    # opencode v1, beside v2, for the plugins that only run on the v1 plugin
+    # API. The numtide scope names it `opencode` and ships a binary called
+    # `opencode`, where opencode2's is `opencode2` — so both sit in this same
+    # buildEnv with no collision, and `opencode --version` against
+    # `opencode2 --version` is how you tell them apart from the shell.
+    #
+    # Why it is here at all: v2 dropped the v1 plugin API outright ("V1 plugin
+    # implementations do not run in V2"), and OpenCode's own V1→V2 migration
+    # guide says so. That is not a gap in the port of any one package: every
+    # `@magpie-community/opencode-*-auth` subscription plugin — Qoder, Kiro,
+    # Trae, Cursor, the rest — is written against the V1 loader (`auth`,
+    # `config`, `provider` hooks, named exports) and fails to load on 2.2.0
+    # with "Plugin must export a default definition with an id". The Qoder one
+    # is what bought this line: Qoder publishes no model API of its own (its
+    # docs' OpenAPI is account/usage, and its Agent SDK is its own protocol),
+    # so a subscription plugin is the only route to it, and that plugin only
+    # runs here.
+    #
+    # Same input, same refresh: `just update-opencode` bumps `llm-agents` and
+    # moves both, and the v1 binary tracks upstream's 1.x line (1.19.4 as the
+    # input is locked today). Note that v1 and v2 share one config directory
+    # (~/.config/opencode), so a plugin listed for v1 also shows in v2's
+    # config — v2 then normalizes it and logs its "failed to load plugin"
+    # warning each start. Harmless, and the one reason to keep v1's plugin
+    # list in a config file v2 does not read if the warning gets annoying.
+    llm-agents.opencode
     # freebuff — a Codebuff fork, freebuff.com backend, and the "free DeepSeek
     # 4.1" the user was promised is already in this build: the TUI footer shows
     # DeepSeek V4.1 Flash as the default model with an hours allowance ("30/30
