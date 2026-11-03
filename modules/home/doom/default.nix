@@ -25,7 +25,7 @@
     enable = true;
     provideEmacs = false;
     emacs = myConfig.emacs31;
-    doomDir = myConfig.doomDir;
+    inherit (myConfig) doomDir;
     doomLocalDir = "${config.xdg.dataHome}/nix-doom";
   };
 
