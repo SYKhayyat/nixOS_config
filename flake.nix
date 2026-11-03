@@ -69,6 +69,28 @@
       url = "github:SYKhayyat/emacs-config";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # ── Doom Emacs, alongside the vanilla config above ─────────────────────
+    # The DOOMDIR is its own GitHub repo (declarative: module list, settings,
+    # package declarations). Unstraightened builds Doom *from* that DOOMDIR and
+    # resolves every package through Nix, so there is no runtime `doom sync`
+    # and no writable package tree to drift. It consumes the emacs-overlay
+    # input itself; `nixpkgs` follows ours to avoid a second full evaluation.
+    #
+    # `doomdir` is the only ugly seam: Unstraightened requires that input to
+    # exist, but we override `programs.doom-emacs.doomDir` with a combined
+    # derivation (GitHub DOOMDIR + the shared Hebrew modules from emacs-config).
+    # Following it to `doom-config` keeps the required input from fetching a
+    # second, unused copy.
+    doom-config = {
+      url = "github:SYKhayyat/doom-config";
+      flake = false;
+    };
+    nix-doom-emacs-unstraightened = {
+      url = "github:marienz/nix-doom-emacs-unstraightened";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.doomdir.follows = "doom-config";
+    };
   };
 
   outputs =
@@ -424,7 +446,49 @@
         # `extraSpecialArgs` on purpose: only one module needs them, and
         # `myConfig` already reaches every home module.
         emacsConfig = inputs.emacs-config.packages.${system}.default; # pre-tangled
-        emacsPackage = inputs.emacs-config.packages.${system}.emacs; # emacs + packages
+
+        # ── Emacs 31.1, and why it is assembled this way ───────────────────
+        # nixos-26.05 ships Emacs 30.2; nixpkgs-unstable ships 31.1. The
+        # emacs-config repo's emacs-package.nix selects `emacs30-pgtk or ...`
+        # and then builds the whole package set with `emacsPackagesFor`. Rather
+        # than fork that file (and make the GitHub pin lie about which Emacs it
+        # describes), import it with an extended *unstable* pkgs whose
+        # `emacs30-pgtk` name resolves to the real 31.1 package. The package
+        # set therefore comes from unstable too, which is what knows how to
+        # build org/pdf-tools/vterm/... against Emacs 31.
+        emacs31 = unstablePkgs.emacs31-pgtk;
+        emacsPackage = import "${inputs.emacs-config}/emacs-package.nix" {
+          pkgs = unstablePkgs.extend (
+            _final: prev: {
+              emacs30-pgtk = prev.emacs31-pgtk;
+            }
+          );
+        };
+
+        # ── DOOMDIR: the GitHub config + the shared Hebrew core ────────────
+        # The Doom config repo is deliberately free of Hebrew code: it loads
+        # `lisp/shared/<module>.el`, and this derivation puts the same
+        # pre-tangled files there that the vanilla config loads. One source of
+        # truth, pinned by flake.lock, and nothing is copied by hand into a
+        # writable directory.
+        doomDir =
+          let
+            hebrewCore = [
+              "00-hebrew"
+              "02-hebrew-org"
+              "03-hebrew-typesetting"
+              "04-hebrew-scholarship"
+              "05-rich-footnotes"
+            ];
+          in
+          pkgs.runCommandLocal "doom-config-shaulos" { } ''
+            cp -r ${inputs.doom-config} $out
+            chmod -R u+w $out
+            mkdir -p $out/lisp/shared
+            ${lib.concatMapStringsSep "\n" (
+              module: "cp ${emacsConfig}/modules/extras/${module}.el $out/lisp/shared/"
+            ) hebrewCore}
+          '';
 
         # ── The one way this machine asks the Emacs daemon for a frame ─────
         #
@@ -515,6 +579,10 @@
           {
             home-manager.sharedModules = [
               plasma-manager.homeModules.plasma-manager
+              # Makes `programs.doom-emacs` available to the home
+              # configuration. The module itself is enabled in
+              # modules/home/doom/default.nix.
+              inputs.nix-doom-emacs-unstraightened.hmModule
             ];
           }
         ];

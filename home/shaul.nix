@@ -45,6 +45,7 @@ in
     ../modules/home/foot.nix # the terminal every compositor binds
     ../modules/home/konsole.nix # the terminal Plasma actually opens
     ../modules/home/emacs
+    ../modules/home/doom # Doom Emacs alongside it, separate launcher
     ../modules/home/toolkit.nix # every program you type the name of
     ../modules/home/lisp.nix # ~/.sbclrc so `ql:quickload` works at the prompt
     ../modules/home/palette.nix # the stylix scheme, per-syntax
