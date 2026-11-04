@@ -477,31 +477,29 @@ in
     ];
   };
 
-  # ── Bounding the daemon's life ───────────────────────────────────────────
+  # ── Not bounding the daemon's life ───────────────────────────────────────
   #
   # `services.emacs` has no option for systemd settings, but its unit
   # submodule is freeform, so the Service stanza can be extended here.
   #
-  # The reason is emacs-config#30. Two SIGSEGVs, 2026-10-11 and 2026-10-13,
-  # both in `ftcrfont_glyph_extents` during idle redisplay, both from the same
-  # proven cause: Emacs frees a font's glyph-metrics cache and then keeps
-  # drawing through it. The array it walks is provably freed memory — in the
-  # 10-11 core, `metrics[row]` is the ASCII byte `0x61`, and the slot before it
-  # holds `"cB6AL!"`. It is upstream (redisplay's periodic
-  # `clear_font_cache`, xfaces.c:776, via `ftcrfont_close`,
-  # ftcrfont.c:344) and unfixed in 30.2, so nothing in this repo prevents it.
+  # This used to set `RuntimeMaxSec = "6h"`, a scheduled restart every six
+  # hours. It was a mitigation for emacs-config#30 — the SIGSEGV in
+  # `ftcrfont_glyph_extents` where Emacs frees a font's glyph-metrics cache
+  # and then keeps drawing through it — and it was never a fix, only a cap on
+  # what one crash costs.
   #
-  # A scheduled restart cannot prevent it either, but it caps what one costs.
-  # Both crashes happened after hours of uptime, because redisplay counts the
-  # passes: `CLEAR_FONT_TABLE_COUNT` (100) x `CLEAR_FACE_CACHE_COUNT` (500) is
-  # ~50 000 full redisplays before the font cache is flushed. A daemon younger
-  # than a few hours has not reached it.
+  # It cost more than it capped. The restart threw away live work on a
+  # schedule, not on a crash, and it read as a crash: systemd stopped the
+  # unit with `Failed with result 'timeout'`, no core dumped, and the next
+  # daemon start was indistinguishable to the user from a segfault. The
+  # `Restart=on-failure` above does not help either, because a runtime-limit
+  # stop is a timeout, not a failure — the restart is systemd's own.
   #
-  # Only worth having once #38's auto-save fix is actually deployed —
-  # otherwise this is a timer that throws work away on schedule instead of on
-  # a crash. `nix flake update emacs-config` is that switch; see the comment on
-  # EDITOR above for why the pin is behind the checkout.
-  systemd.user.services.emacs.Service.RuntimeMaxSec = "6h";
+  # The daemon now runs until it actually dies, and `Restart=on-failure`
+  # covers that case. The font-cache bug is upstream and may still fire; when
+  # it does, Emacs dies on its own terms and the session state is whatever
+  # auto-save left behind.
+  #
 
   # ── The config, pinned ──────────────────────────────────────────────────
   # `${emacsConfig}` is the emacs-config repo after its flake ran tangle.sh, so

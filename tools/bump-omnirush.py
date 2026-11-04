@@ -40,12 +40,15 @@ from __future__ import annotations
 
 import argparse
 import base64
+import http.client
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -92,22 +95,69 @@ def github_token() -> str | None:
 
 
 def github_request(url: str) -> urllib.request.Request:
-    """Request for a GitHub URL, authenticated when a token can be found."""
+    """Request for a GitHub URL, authenticated when a token can be found.
+
+    Both github.com and api.github.com get the token, and the second one is
+    the one that matters here. The releases API lives on api.github.com, and
+    this script calls it once per rebuild, so an unauthenticated call is what
+    burns the 60/hour budget and what makes the bump fail for a reason with
+    nothing to do with the GUI. It used to send the token to github.com
+    only — which is where the release assets are, not where the release LIST
+    is — so the endpoint this script leans on was the one endpoint that never
+    saw the token. `gh api rate_limit` reports limit 5000 with the token and
+    limit 60 without it; the request below is the second kind.
+    """
     headers = {"Accept": "application/json"}
-    token = github_token() if url.startswith("https://github.com") else None
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    host = urllib.parse.urlparse(url).hostname or ""
+    if host == "github.com" or host.endswith(".github.com"):
+        token = github_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
     return urllib.request.Request(url, headers=headers)
 
 
+def fetch_bytes(url: str, attempts: int = 3) -> bytes:
+    """GET a URL as bytes, retrying the failures worth retrying.
+
+    A truncated response is the failure this had to learn to survive. GitHub
+    streams the releases list as chunked transfer-encoding, and a connection
+    that drops halfway leaves the body short: http.client raises
+    IncompleteRead from the middle of the read. That exception is not a
+    URLError, so before this it reached main() uncaught and the script died
+    with a traceback — during a rebuild, where the bump's job is to warn and
+    get out of the way. The justfile's `|| echo warning` catches the exit
+    code but not the noise, and noise that looks like a broken build is
+    worse than no output at all: it is what makes someone cancel a switch
+    that was about to succeed.
+
+    So: read the whole body, retry the transient failures a couple of times,
+    and let a real answer through. HTTP status errors are not retried — the
+    server answered, and a 403 rate limit needs a token, not patience.
+    """
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(github_request(url), timeout=TIMEOUT) as response:
+                return response.read()
+        except (http.client.HTTPException, TimeoutError, ConnectionError) as error:
+            # HTTPException covers IncompleteRead and RemoteDisconnected;
+            # ConnectionError covers a reset seen outside urllib's wrapping.
+            last = error
+            if attempt < attempts:
+                time.sleep(2 * attempt)
+    raise last  # type: ignore[misc]
+
+
 def fetch_json(url: str) -> dict:
-    with urllib.request.urlopen(github_request(url), timeout=TIMEOUT) as response:
-        return json.load(response)
+    raw = fetch_bytes(url)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"{url}: response was not valid JSON ({error})") from None
 
 
 def fetch_text(url: str) -> str:
-    with urllib.request.urlopen(github_request(url), timeout=TIMEOUT) as response:
-        return response.read().decode("utf-8", "replace")
+    return fetch_bytes(url).decode("utf-8", "replace")
 
 
 def sri_from_hex(hex_digest: str) -> str:
@@ -307,6 +357,15 @@ def main() -> int:
         return 1
     except urllib.error.URLError as error:
         print(f"error: {error.reason}", file=sys.stderr)
+        return 1
+    except http.client.HTTPException as error:
+        # Reached only after fetch_bytes has spent its retries. The body was
+        # truncated every time; say that, in one line, and let the build go on.
+        print(
+            f"error: upstream response was truncated ({error}). "
+            "The bump is skipped; the rebuild continues.",
+            file=sys.stderr,
+        )
         return 1
 
     # Only when something moved, and naming a recipe that exists. This script
