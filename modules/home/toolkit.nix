@@ -351,6 +351,13 @@ let
     # 3.x on GitHub releases. Same network story, same airgap reasoning; see
     # ../packages/omnirush-gui.nix.
     omnirush-gui
+    # DeepAI Code — the Electron coding agent from DeepAI (deepai.org), ads
+    # on the site's own pages pay for the free tier. It talks to DeepAI's
+    # servers over HTTPS, so it leaves the study airgap like the agents
+    # above. Local package: DeepAI ships a Linux AppImage but does not link
+    # it from the website — see ../packages/deepai-code.nix for where the
+    # file comes from and for the node-pty/libstdc++ trap in its backend.
+    deepai-code
     # Otzaria (אוצריא) downloads its seforim library on first run, so it
     # leaves the study airgap like the other network apps above.
     otzaria

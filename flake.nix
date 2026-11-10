@@ -119,6 +119,7 @@
           omnirushOverlay
           otzariaOverlay
           artcraftOverlay
+          deepaiCodeOverlay
           photonOverlay
           quicklispOverlay
         ];
@@ -221,6 +222,14 @@
           # Exports are pure black on the Intel iGPU; see the file's header.
           disableGpu = true;
         };
+      };
+      # DeepAI Code — an AI coding agent desktop app from DeepAI. Not in
+      # nixpkgs and not in numtide's llm-agents.nix, so it is a local
+      # package. DeepAI ships a Linux AppImage but does not link it from
+      # the website; the file is fetched from the bucket that the project's
+      # own electron-builder manifest names. See packages/deepai-code.nix.
+      deepaiCodeOverlay = final: _prev: {
+        deepai-code = final.callPackage ./packages/deepai-code.nix { };
       };
       # Photon Studio — a free offline photo editor, shipped as an AppImage.
       # Repackaged with appimageTools rather than installed through Flatpak;
@@ -568,6 +577,7 @@
               omnirushOverlay
               otzariaOverlay
               artcraftOverlay
+              deepaiCodeOverlay
               photonOverlay
               quicklispOverlay
             ];
