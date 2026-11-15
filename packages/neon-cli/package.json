@@ -1,0 +1,8 @@
+{
+  "name": "neon-cli-install",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "neon": "8.16.1"
+  }
+}

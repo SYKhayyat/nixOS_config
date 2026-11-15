@@ -65,8 +65,17 @@
     # `packages.default` is that repo with every module already tangled, so
     # nothing is written at runtime. Bump it with:
     #     nix flake update emacs-config
+    #
+    # The repo was renamed on GitHub to `emacs-config-deprecated` (2026-10-14),
+    # after this input was written. The URL names the new one directly: GitHub
+    # still redirects the old name, but a redirect is a fact about github.com
+    # that this flake would be relying on silently, and `nix flake update`
+    # against a moved repo is exactly the kind of thing that works until the
+    # day it is needed. The *input name* stays `emacs-config` — it is read in
+    # `myConfig` and by `checks`, and the deprecation is upstream's judgement
+    # about the repo, not a decision this flake has made about the config.
     emacs-config = {
-      url = "github:SYKhayyat/emacs-config";
+      url = "github:SYKhayyat/emacs-config-deprecated";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -90,6 +99,27 @@
       url = "github:marienz/nix-doom-emacs-unstraightened";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.doomdir.follows = "doom-config";
+    };
+
+    # ── Vocalinux: offline voice dictation ────────────────────────────────
+    # Speak and the text lands in whatever window has focus. Local engines only
+    # (whisper.cpp by default) — the remote mode is opt-in and points at a
+    # server you run, so the default path is the study airgap's kind of
+    # program, not the network-bound kind.
+    #
+    # Not in nixpkgs (checked against the pinned 26.05, 2026-11-14) and upstream
+    # ships its own flake with a package and both modules, so this is an input
+    # rather than a local package the way clixad and omnirush are.
+    #
+    # `follows nixpkgs` is the reason this costs no second evaluation: upstream
+    # pins `nixos-unstable`, and following our branch means its
+    # `python3Packages` are the same ones the rest of the machine uses. The
+    # accepted risk is that a package upstream only ever tests on unstable can
+    # meet an older Python package set here — `just eval` is what notices, and
+    # the version is frozen in flake.lock either way.
+    vocalinux = {
+      url = "github:VocaHQ/vocalinux";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -122,6 +152,8 @@
           deepaiCodeOverlay
           photonOverlay
           quicklispOverlay
+          npmCliOverlay
+          vocalinuxOverlay
         ];
       };
       # darktable 5.6.1 with AI — unstable is 5.6.0 and `withAi=false` by default.
@@ -243,6 +275,36 @@
       # so it is a local package. See packages/quicklisp.nix.
       quicklispOverlay = final: _prev: {
         quicklisp = final.callPackage ./packages/quicklisp.nix { };
+      };
+      # ── The three CLIs that used to be `npm install -g` ──────────────────
+      #
+      # neon, ob1 and free-pi-cli lived in ~/.npm-global: a prefix set by
+      # ~/.npmrc, populated by hand, described by no lock, and rebuilt by no
+      # generation. Each is now a derivation here. See packages/neon-cli.nix
+      # for why `neon-cli` and not `neon` (nixpkgs already owns that name for
+      # the C library), and that file plus packages/ob1.nix and
+      # packages/free-pi-cli.nix for the lockfile-and-hash bump procedure.
+      #
+      # Two of the five that were installed this way are NOT here, deliberately:
+      #
+      #   cline     numtide's llm-agents.nix — already an input for opencode
+      #             and freebuff — packages it at the same 3.0.74, with a
+      #             wrapper that sets the CA bundle. Rebuilding it locally would
+      #             be a second pin of the same npm tarballs.
+      #   asar      nixpkgs has it (3.2.4, where the npm one was 4.3.1).
+      #             Declarative beats current for an Electron archive tool, and
+      #             a local package would be a lockfile to maintain for
+      #             `asar pack`/`asar extract`.
+      npmCliOverlay = final: _prev: {
+        neon-cli = final.callPackage ./packages/neon-cli.nix { };
+        ob1 = final.callPackage ./packages/ob1.nix { };
+        free-pi-cli = final.callPackage ./packages/free-pi-cli.nix { };
+      };
+      # Vocalinux, from the input above. The overlay exists so the module tree
+      # says `vocalinux` like every other program, instead of reaching for
+      # `inputs` from a home module that is not given it.
+      vocalinuxOverlay = _final: _prev: {
+        inherit (inputs.vocalinux.packages.${system}) vocalinux;
       };
       # rapidraw 1.6.4 — nixos-26.05 ships 1.5.8, unstable has 1.6.4. The
       # toolkit.nix `offInStudy` list keeps its single `rapidraw` statement;
@@ -580,6 +642,8 @@
               deepaiCodeOverlay
               photonOverlay
               quicklispOverlay
+              npmCliOverlay
+              vocalinuxOverlay
             ];
           }
           ./hosts/desktop/configuration.nix

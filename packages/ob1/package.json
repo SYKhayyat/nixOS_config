@@ -1,0 +1,8 @@
+{
+  "name": "ob1-install",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@overbrilliant/ob1": "0.3.13"
+  }
+}

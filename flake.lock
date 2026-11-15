@@ -160,13 +160,13 @@
         "lastModified": 1791999838,
         "narHash": "sha256-Xk93NjXwnADAGVfCgf8ZSonPFOOXkS8bQvq4PPrGGtA=",
         "owner": "SYKhayyat",
-        "repo": "emacs-config",
+        "repo": "emacs-config-deprecated",
         "rev": "b95dd2ecf37bca58fd573efb91a071e125516378",
         "type": "github"
       },
       "original": {
         "owner": "SYKhayyat",
-        "repo": "emacs-config",
+        "repo": "emacs-config-deprecated",
         "type": "github"
       }
     },
@@ -446,7 +446,8 @@
         "nixpkgs-unstable": "nixpkgs-unstable",
         "plasma-manager": "plasma-manager",
         "sops-nix": "sops-nix",
-        "stylix": "stylix"
+        "stylix": "stylix",
+        "vocalinux": "vocalinux"
       }
     },
     "sops-nix": {
@@ -615,6 +616,26 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "vocalinux": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794178334,
+        "narHash": "sha256-Hb+TmB0ZRTsxjM0KNM3WBE0lBHuafTww2+Pz5jhZ5iw=",
+        "owner": "VocaHQ",
+        "repo": "vocalinux",
+        "rev": "56487857c07575c9d16bdca2756afda800e6e320",
+        "type": "github"
+      },
+      "original": {
+        "owner": "VocaHQ",
+        "repo": "vocalinux",
         "type": "github"
       }
     }

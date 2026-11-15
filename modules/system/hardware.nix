@@ -50,6 +50,23 @@
   # this laptop's graphics, zram and TLP, so it imports this file, and it could
   # not have taken the radio away without a `mkForce`.
 
+  # ── /dev/uinput, for vocalinux's typing backend ──────────────────────────
+  # Vocalinux (modules/home/toolkit.nix) has two ways to put text into the
+  # focused window on Wayland. `wtype` needs a compositor that implements the
+  # virtual-keyboard protocol; where that is not available the fallback is
+  # `ydotool`, which writes to /dev/uinput exactly as a real keyboard would.
+  # This option is what loads the module, creates the `uinput` group and
+  # installs the udev rule that makes the device writable by it.
+  #
+  # The other half is already in ./core.nix: `input` in extraGroups, which is
+  # what the evdev *hotkey* backend reads to see Right Alt globally. Neither
+  # half does anything on its own — one is the key going down, the other is the
+  # text coming back — which is why they are declared in the two files that
+  # describe the machine rather than beside the package.
+  #
+  # X11 needs none of this: there the injectors use XTEST.
+  hardware.uinput.enable = true;
+
   # ── Memory: compressed swap in RAM (helps this low-RAM laptop) ───────────
   zramSwap = {
     enable = true;

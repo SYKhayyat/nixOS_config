@@ -137,8 +137,9 @@ lock:
     nix flake lock
     @git diff --stat flake.lock
 
-# The config lives in its own repo (github:SYKhayyat/emacs-config); this is how
-# its changes reach this machine.
+# The config lives in its own repo (github:SYKhayyat/emacs-config-deprecated,
+# renamed from emacs-config on 2026-10-14); this is how its changes reach this
+# machine. The *input* is still called `emacs-config` — see flake.nix.
 
 # Bump the emacs-config input and show the move
 update-emacs:

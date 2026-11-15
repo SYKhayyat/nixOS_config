@@ -76,7 +76,8 @@ secrets/                      # sops-nix encrypted secrets (see below)
 ```
 
 The Emacs *configuration* is not in this repo. It lives at
-[SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config) and comes in
+[SYKhayyat/emacs-config-deprecated](https://github.com/SYKhayyat/emacs-config-deprecated)
+(renamed from `emacs-config` on 2026-10-14) and comes in
 as a pinned flake input — it is ~3× the size of this whole Nix config, runs on
 Windows and macOS as well, and has its own CI. `modules/home/emacs/default.nix`
 keeps only what this *machine* provides, and that is four things, not two:
@@ -714,8 +715,8 @@ clear.
 ### Emacs
 
 Nothing to provision. The configuration lives in its own repo,
-[SYKhayyat/emacs-config](https://github.com/SYKhayyat/emacs-config), and arrives
-as the `emacs-config` flake input already tangled — so `~/.config/emacs/modules`
+[SYKhayyat/emacs-config-deprecated](https://github.com/SYKhayyat/emacs-config-deprecated),
+and arrives as the `emacs-config` flake input already tangled — so `~/.config/emacs/modules`
 is a read-only store symlink pinned in `flake.lock`, not a directory that
 drifts. Bump it with `just update-emacs`.
 

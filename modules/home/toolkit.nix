@@ -139,6 +139,11 @@ let
     fdupes
     ncdu
     peazip
+    # `7z` (and `7za`/`7zr`). It was in the imperative nix profile, which is
+    # where an archive tool ends up when it is installed to open one file.
+    # peazip above is the GUI for the same formats and does not provide the
+    # command, so this is not the duplicate it looks like.
+    p7zip
 
     # ── Documents ─────────────────────────────────────────────────────────
     pandoc # also Org export and the Markdown preview — see ./emacs/default.nix
@@ -182,6 +187,23 @@ let
     pamixer
     brightnessctl
     playerctl
+
+    # ── Dictation ─────────────────────────────────────────────────────────
+    # Vocalinux — hold Right Alt, speak, and the text is typed into whatever
+    # window has focus. Local engines only (whisper.cpp by default); the
+    # remote mode is opt-in and points at a server you run.
+    #
+    # It stays in `always` rather than `offInStudy`: transcribing speech is
+    # not fetching, and a dictation tool is a writing tool. What study does
+    # take away is the first-run model download — pick the model (and let it
+    # finish) before switching into the airgap, because there will be no
+    # network there to fetch one.
+    #
+    # Wayland hotkeys need more than the package: `input` group membership for
+    # the evdev backend (modules/system/core.nix) and /dev/uinput for the
+    # typing backend (modules/system/hardware.nix).
+    vocalinux
+
     libsecret # `secret-tool`, against the gnome-keyring in wayland.nix
     wayland-utils # `wayland-info`, for when the session is lying to you
     nushell
@@ -203,6 +225,30 @@ let
     rustc
     cargo
     clippy
+
+    # ── JavaScript runtimes ───────────────────────────────────────────────
+    # Both of these used to live in the *imperative* nix profile —
+    # `nix profile install nixpkgs#nodejs_22` and `nixpkgs#bun` — which is a
+    # second package set beside this one: no rebuild produces it, the `study`
+    # specialisation cannot subtract from it, no flake.lock describes it, and
+    # a `nix-collect-garbage` takes it away without a word. Declared here they
+    # are ordinary home packages and inherit every rule at the top of this
+    # file.
+    #
+    # `nodejs_22` and not `nodejs` on purpose. `nodejs` in the pinned 26.05 is
+    # 24.21.0; the profile had 22.23.4, and a version move is a decision, not
+    # a side effect of where a package is declared. Naming the branch also
+    # keeps it put when nixpkgs' default moves again. Switch it to `nodejs`
+    # when you want to follow the default.
+    nodejs_22
+    bun
+
+    # `asar` — pack/unpack Electron archives. nixpkgs' is 3.2.4 where the
+    # npm-installed one in ~/.npm-global was 4.3.1; the flag surface
+    # (`asar pack`/`extract`/`list`) is the same and this one is a store path
+    # instead of a directory nothing rebuilds. See flake.nix's npmCliOverlay
+    # note for why it is not a local package.
+    asar
     # `sbcl` is the only Lisp compiler here, and `quicklisp` is its library
     # installer — not in nixpkgs, so ../..//flake.nix carries a local overlay
     # over packages/quicklisp.nix. The two are a pair and neither is much use
@@ -229,6 +275,18 @@ let
     lynx
     qutebrowser
     tor-browser
+    # Google Chrome, from nixpkgs (`allowUnfree` is on in
+    # modules/system/core.nix). It was in the imperative nix profile, on a
+    # machine whose browser list is meant to be readable in one place — so a
+    # browser living outside this list was the one browser the study airgap
+    # could not account for. Being here is what makes it disappear with the
+    # rest of them.
+    #
+    # It is not the default browser and has no profile managed for it (that is
+    # `firefox`, below): this entry is presence, not configuration. If a
+    # `programs.google-chrome`-shaped module is ever wanted, the statement
+    # belongs beside the Firefox block for the same reason that one is there.
+    google-chrome
 
     # ── Things whose job is to fetch ──────────────────────────────────────
     aria2
@@ -339,6 +397,19 @@ let
       '';
     }))
     clixad
+    # cline, and the three npm-installed agents that used to live in
+    # ~/.npm-global as `npm install -g` rather than in any flake — see
+    # packages/neon-cli.nix, packages/ob1.nix and packages/free-pi-cli.nix,
+    # and flake.nix's npmCliOverlay for why cline comes from llm-agents and
+    # `asar` does not come from here at all.
+    #
+    # All four are network-bound coding agents, so they leave the study airgap
+    # with the ones above: each one's whole job is a conversation with a
+    # remote model, whatever it keeps locally.
+    llm-agents.cline
+    neon-cli
+    ob1
+    free-pi-cli
     # Omnirush signs in over HTTPS and runs its whole agent against
     # omnirush.ai, so it leaves the study airgap like the rest of this block.
     # It is a local package, not a nixpkgs one — see ../packages/omnirush.nix
