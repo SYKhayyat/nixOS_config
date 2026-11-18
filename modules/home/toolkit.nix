@@ -1,84 +1,17 @@
 # modules/home/toolkit.nix
 #
-# Every program you type the name of, in one place — and the one axis that is
-# allowed to take them away.
+# Every program you type the name of, in one place — and the one axis allowed
+# to take them away.
 #
-# ── What was wrong ────────────────────────────────────────────────────────
+# Rule: a package is declared in exactly one list. `base-tools.nix` holds only
+# what must work when home-manager is broken; everything a person types lives
+# here, in the module that owns it, or comes from a `programs.*` module that
+# installs it as part of configuring it (git, bat, fzf, yazi, foot).
 #
-# There was no rule about where a package goes, so the answer defaulted to
-# `environment.systemPackages`. modules/system/cli-tools.nix and
-# development.nix between them installed about sixty user applications
-# machine-wide.
-#
-# That is not untidy, it is load-bearing. A specialisation *inherits* its
-# parent: anything in the system closure is present in `study`, and there is no
-# expression that removes it. modules/system/profile.nix already records the
-# home-manager half of this lesson — `home-manager.users.<name>` is a submodule,
-# so a second `imports` merges rather than replaces, which is how the old study
-# mode ended up with the full desktop profile bolted underneath it. This is the
-# same fault one layer down, and it survived the fix to the other one.
-#
-# The bill, all of it visible in the tree before this commit:
-#
-#   * **`lynx` is a browser and it was on $PATH in the "offline airgap, no
-#     browsers" specialisation.** The Lamdan report caught `firefox` and fixed
-#     it with a `mkForce false` in study-offline.nix. `lynx` was two words away
-#     on the same line of the same file. A patch aimed at the package instead of
-#     at the drawer leaves the drawer, and the next thing you put in it.
-#
-#   * `programs.firefox.enable` was stated in two module systems — the NixOS
-#     option in cli-tools.nix and the home-manager option in home/shaul.nix —
-#     plus a third statement in study-offline.nix that existed only to cancel
-#     the first. One fact, three statements, two of them corrections.
-#
-#   * home/shaul.nix's study branch described itself as "a different list, not a
-#     subset" and listed ytfzf, yt-dlp, mpv, pandoc and libreoffice. Four of
-#     those five were already in systemPackages, so naming them changed nothing
-#     — and leaving them out of the other branch removed nothing either. The one
-#     entry the branch genuinely controlled, libreoffice, was written out in
-#     both arms. A conditional in which one side is a no-op and the other is a
-#     copy is not a decision, it is a shape.
-#
-#   * Two of those five need the network the specialisation had just switched
-#     off. `ytfzf` and `yt-dlp` are YouTube clients, in the airgap.
-#
-#   * Thirteen packages were declared twice, in a system list and a home list:
-#     fd, ripgrep, ripgrep-all, plocate, recoll, pandoc, fzf, jq, libsecret,
-#     wl-clipboard, networkmanagerapplet, nil, rust-analyzer. Plus `bat`, `fzf`
-#     and `git`, which home-manager's own `programs.*` modules install and which
-#     were listed as packages beside them.
-#
-# ── The rule ──────────────────────────────────────────────────────────────
-#
-#   1. A package is declared in exactly ONE list.
-#
-#   2. modules/system/base-tools.nix holds only what has to work when
-#      home-manager is broken, absent, or not yours: the tools you repair a bad
-#      generation with, and what a system service or a machine-wide environment
-#      variable needs. That set is small and it is argued in that file.
-#
-#   3. Everything a person types lives in home-manager, in the module that owns
-#      it — the session stack in ./wayland-common.nix, Emacs's shell-outs in
-#      ./emacs/default.nix, the shell in home/common.nix — and everything else
-#      here, where `study` can reach it.
-#
-#   4. A script that calls a program by store path (`${pkgs.grim}/bin/grim`)
-#      needs no list entry at all: it is in the closure already. It is listed
-#      only if you also want to type its name.
-#
-# ── What study removes, and why exactly those ─────────────────────────────
-#
-# Browsers, anything whose job is to fetch over the network, and the creative
-# and media suite. Nothing else.
-#
-# The airgap is two claims, not one. The firewall and the dead radios are the
-# backstop — they mean nothing gets out. The feature is that the thing you would
-# open out of habit is not there, and "out of habit" covers both the browser you
-# would reach for and the raster editor you would disappear into for an hour.
-# Neither claim is served by removing `ncdu`, so study keeps the search tools,
-# the file managers, the editors, the document toolchain, the compilers and a
-# local media player. It loses the things it exists to lose, and that list is
-# now one attribute you can read.
+# `offInStudy` is study's subtraction: browsers, anything whose job is to fetch
+# over the network, and the creative and media suite. Study keeps the search
+# tools, the file managers, the editors, the document toolchain, the compilers
+# and a local media player.
 {
   lib,
   pkgs,
@@ -88,132 +21,48 @@
 }:
 
 let
-  # Set by modules/system/study-offline.nix inside the `study` specialisation.
-  # See modules/system/profile.nix for why it is a flag and not a second import.
   inherit (osConfig.shaulos) study;
 
-  # Present in every session, `study` included.
-  #
-  # Not here, and deliberately: `git`, `bat` and `fzf` come from their
-  # `programs.*` modules in home/common.nix, which install the package as part
-  # of configuring it; `yazi` likewise from ./yazi.nix and `foot` from
-  # ./wayland-common.nix. Listing the package beside the module that already
-  # installs it is the same duplicate one line further apart.
   always = with pkgs; [
     # ── Search ────────────────────────────────────────────────────────────
-    # Yes, this is a lot of them, and that is on purpose — trying search tools
-    # out is what a config like this is for. What it is not for is having them
-    # in the base system closure where nothing can decide against them.
     fd
     ripgrep
     ripgrep-all
-    fzy
-    skim
-    ugrep
     plocate # `locate` itself comes from the setgid wrapper services.locate makes
-    # recoll and xapian are off with `extras`. Every `recoll' call site in the
-    # Emacs config is in `extras/', and ./emacs/default.nix sets
-    # EMACS_MODULE_GROUPS = "essentials" — so the only caller is gone. The
-    # recoll.conf that comment used to point at is commented out in the same
-    # file, and ../system/services.nix's four-hourly indexer with it; see that
-    # file for the part nobody had noticed, which is that the index it built
-    # was never the one seforim search read.
-    #
-    # Uncomment both with `extras`. They are a pair — xapian is recoll's
-    # backend — and the ten other search tools above are why nothing else in
-    # this list depends on them.
-    # recoll
-    # xapian
-    fsearch
-    kdePackages.kfind
-    television
-    docfd
-    tre
 
     # ── File management ───────────────────────────────────────────────────
-    nnn
-    ranger
-    mc
-    pcmanfm-qt
-    thunar
     fdupes
     ncdu
     peazip
-    # `7z` (and `7za`/`7zr`). It was in the imperative nix profile, which is
-    # where an archive tool ends up when it is installed to open one file.
-    # peazip above is the GUI for the same formats and does not provide the
-    # command, so this is not the duplicate it looks like.
     p7zip
 
     # ── Documents ─────────────────────────────────────────────────────────
-    pandoc # also Org export and the Markdown preview — see ./emacs/default.nix
-    # `poppler` was listed here too, and the pair did not merely duplicate — it
-    # made the home profile impossible to build:
-    #
-    #   pkgs.buildEnv error: two given paths contain a conflicting subpath:
-    #     .../poppler-utils-26.06.0/lib/libpoppler-cpp.so.3
-    #     .../poppler-glib-26.06.0/lib/libpoppler-cpp.so.3
-    #
-    # `pkgs.poppler` is poppler-glib, and it ships **no binaries at all** — it
-    # is the library, and a library in a *user profile* is a thing you cannot
-    # type and nothing links against at runtime. `poppler-utils` is the half
-    # that carries the thirteen commands (`pdftotext`, `pdfinfo`, `pdfimages`,
-    # `pdftoppm`, …), which is what rule 3 at the top of this file is about, and
-    # both halves ship the same `libpoppler-cpp.so.3`.
-    #
-    # So this line was not costing a duplicate. It was costing the thirteen
-    # tools, plus every other package in this list, because `home-manager-path`
-    # is one buildEnv and one collision fails the lot. That is the difference
-    # between the eval gate and the build gate, in one line: this evaluates
-    # perfectly and has never once produced a profile.
+    pandoc
     poppler-utils
     antiword
     catdoc
     libreoffice-qt-fresh
 
-    # ── Editors, other than the one this whole repo is about ──────────────
+    # ── Editors other than the one this repo is about ─────────────────────
     neovim
     helix
-    leo-editor
 
     # ── Terminal odds and ends ────────────────────────────────────────────
     jq
-    navi
-    # ./scripts.nix and ./lock.nix drive all three by store path, so by rule 4
-    # none of them needs to be here. They are here because `brightnessctl set
-    # 50%` is a thing you type — and listing one of the three and not the other
-    # two, which is what the old home/common.nix line amounted to, is not a
-    # decision anyone would defend out loud.
     pamixer
     brightnessctl
     playerctl
 
     # ── Dictation ─────────────────────────────────────────────────────────
-    # Vocalinux — hold Right Alt, speak, and the text is typed into whatever
-    # window has focus. Local engines only (whisper.cpp by default); the
-    # remote mode is opt-in and points at a server you run.
-    #
-    # It stays in `always` rather than `offInStudy`: transcribing speech is
-    # not fetching, and a dictation tool is a writing tool. What study does
-    # take away is the first-run model download — pick the model (and let it
-    # finish) before switching into the airgap, because there will be no
-    # network there to fetch one.
-    #
-    # Wayland hotkeys need more than the package: `input` group membership for
-    # the evdev backend (modules/system/core.nix) and /dev/uinput for the
-    # typing backend (modules/system/hardware.nix).
+    # Transcribing speech is not fetching. Study takes the first-run model
+    # download away by having no network; warm the model before switching in.
     vocalinux
 
-    libsecret # `secret-tool`, against the gnome-keyring in wayland.nix
-    wayland-utils # `wayland-info`, for when the session is lying to you
-    nushell
-    mpv # one local media player. The rest of the media suite is below.
+    libsecret
+    wayland-utils
+    mpv # the one local media player
 
     # ── Development ───────────────────────────────────────────────────────
-    # Offline-safe, so study keeps them. That is now a choice made in one place
-    # rather than a consequence of which file they happened to be listed in.
-    # The language servers are not here: they exist because an editor calls
-    # them, so ./emacs/default.nix owns them.
     gcc
     gnumake
     cmake
@@ -227,65 +76,22 @@ let
     clippy
 
     # ── JavaScript runtimes ───────────────────────────────────────────────
-    # Both of these used to live in the *imperative* nix profile —
-    # `nix profile install nixpkgs#nodejs_22` and `nixpkgs#bun` — which is a
-    # second package set beside this one: no rebuild produces it, the `study`
-    # specialisation cannot subtract from it, no flake.lock describes it, and
-    # a `nix-collect-garbage` takes it away without a word. Declared here they
-    # are ordinary home packages and inherit every rule at the top of this
-    # file.
-    #
-    # `nodejs_22` and not `nodejs` on purpose. `nodejs` in the pinned 26.05 is
-    # 24.21.0; the profile had 22.23.4, and a version move is a decision, not
-    # a side effect of where a package is declared. Naming the branch also
-    # keeps it put when nixpkgs' default moves again. Switch it to `nodejs`
-    # when you want to follow the default.
     nodejs_22
     bun
 
-    # `asar` — pack/unpack Electron archives. nixpkgs' is 3.2.4 where the
-    # npm-installed one in ~/.npm-global was 4.3.1; the flag surface
-    # (`asar pack`/`extract`/`list`) is the same and this one is a store path
-    # instead of a directory nothing rebuilds. See flake.nix's npmCliOverlay
-    # note for why it is not a local package.
-    asar
-    # `sbcl` is the only Lisp compiler here, and `quicklisp` is its library
-    # installer — not in nixpkgs, so ../..//flake.nix carries a local overlay
-    # over packages/quicklisp.nix. The two are a pair and neither is much use
-    # alone: sbcl has no package manager, so there is nothing to install a
-    # library with. modules/home/lisp.nix wires up the init file that loads
-    # quicklisp's setup.lisp, and is why the store path is reachable from here.
+    # ── Lisp ──────────────────────────────────────────────────────────────
+    # sbcl has no package manager; quicklisp is its library installer, and
+    # modules/home/lisp.nix wires up the init file that loads quicklisp.
     sbcl
     quicklisp
-    (python3.withPackages (
-      ps: with ps; [
-        python-docx
-        textual
-        pip
-        virtualenv
-      ]
-    ))
+
+    # Plain interpreter; per-project dependencies belong in direnv/venvs.
+    python3
   ];
 
-  # Gone in study.
   offInStudy = with pkgs; [
     # ── Browsers ──────────────────────────────────────────────────────────
-    # The whole list, in one place, so "no browsers" is a claim you can check.
-    # `firefox` is the fourth and it is below, because it comes with a profile.
-    lynx
-    qutebrowser
-    tor-browser
-    # Google Chrome, from nixpkgs (`allowUnfree` is on in
-    # modules/system/core.nix). It was in the imperative nix profile, on a
-    # machine whose browser list is meant to be readable in one place — so a
-    # browser living outside this list was the one browser the study airgap
-    # could not account for. Being here is what makes it disappear with the
-    # rest of them.
-    #
-    # It is not the default browser and has no profile managed for it (that is
-    # `firefox`, below): this entry is presence, not configuration. If a
-    # `programs.google-chrome`-shaped module is ever wanted, the statement
-    # belongs beside the Firefox block for the same reason that one is there.
+    # `firefox` is the fourth and lives below with its profile.
     google-chrome
 
     # ── Things whose job is to fetch ──────────────────────────────────────
@@ -293,250 +99,42 @@ let
     persepolis
     ytfzf
     yt-dlp
-    # `opencode` comes from the numtide scope, not from nixpkgs, and this is
-    # the only line in the file where that matters.
-    #
-    # nixpkgs here is `nixos-26.05`, a *stable* branch: whatever opencode was
-    # when the branch was cut is what the branch keeps, and it is a coding
-    # agent — the one class of program whose value decays by the week, since it
-    # names models, endpoints and CLI flags that upstream renames. As of this
-    # line the branch gives 1.15.10 and upstream is 1.18.31.
-    #
-    # numtide/llm-agents.nix exists to track precisely these CLIs, one package
-    # per upstream release, with its own CI moving the pin, and the input is
-    # already here for `freebuff` below. So the newest opencode costs one
-    # attribute name and no new input — where the alternative, re-adding the
-    # `nixpkgs-unstable` input that `flake.nix` argues against, costs a second
-    # full nixpkgs fetch and evaluation to reach the same version.
-    #
-    # Refresh with `nix flake update llm-agents`, which is what `just
-    # update-opencode` runs. It is a normal input bump: nothing else on the
-    # machine moves when opencode does.
+
+    # Coding agents are network-bound by definition.
     llm-agents.opencode2
-    # opencode v1, beside v2, for the plugins that only run on the v1 plugin
-    # API. The numtide scope names it `opencode` and ships a binary called
-    # `opencode`, where opencode2's is `opencode2` — so both sit in this same
-    # buildEnv with no collision, and `opencode --version` against
-    # `opencode2 --version` is how you tell them apart from the shell.
-    #
-    # Why it is here at all: v2 dropped the v1 plugin API outright ("V1 plugin
-    # implementations do not run in V2"), and OpenCode's own V1→V2 migration
-    # guide says so. That is not a gap in the port of any one package: every
-    # `@magpie-community/opencode-*-auth` subscription plugin — Qoder, Kiro,
-    # Trae, Cursor, the rest — is written against the V1 loader (`auth`,
-    # `config`, `provider` hooks, named exports) and fails to load on 2.2.0
-    # with "Plugin must export a default definition with an id". The Qoder one
-    # is what bought this line: Qoder publishes no model API of its own (its
-    # docs' OpenAPI is account/usage, and its Agent SDK is its own protocol),
-    # so a subscription plugin is the only route to it, and that plugin only
-    # runs here.
-    #
-    # Same input, same refresh: `just update-opencode` bumps `llm-agents` and
-    # moves both, and the v1 binary tracks upstream's 1.x line (1.19.4 as the
-    # input is locked today). Note that v1 and v2 share one config directory
-    # (~/.config/opencode), so a plugin listed for v1 also shows in v2's
-    # config — v2 then normalizes it and logs its "failed to load plugin"
-    # warning each start. Harmless, and the one reason to keep v1's plugin
-    # list in a config file v2 does not read if the warning gets annoying.
-    # opencode v1 runs against its own data directory, not the one v2 owns.
-    # 1.19.x is the bridge release that speaks both plugin APIs, and it opens
-    # the same ~/.local/share/opencode/opencode.db as 2.x — but the schemas
-    # have diverged since: v1's InstanceStore still UPDATEs its `workspace`
-    # table (project_id, directory), which 2.x redefines as an unrelated
-    # table without those columns. Every v1 run from a directory that
-    # resolves to a real project — that is, any git repo — therefore dies
-    # with "no such column: project_id". A non-git directory resolves to the
-    # global project and skips that one UPDATE, which is why the breakage
-    # looks directory-dependent rather than total (~ worked, ~/config did
-    # not, and no qoder login could happen in the repo it was wanted in).
-    #
-    # Its own XDG_DATA_HOME keeps the two apart completely: v1's own
-    # opencode.db (built by v1's own migrations), its own auth.json, its own
-    # logs. v2 resolves its own paths before any of this and is untouched —
-    # its 2.5 GB database and its service keep running as they are. The cost
-    # is that v1's credentials start empty: copy
-    # ~/.local/share/opencode/auth.json to
-    # ~/.local/share/opencode-v1/opencode/auth.json once to inherit them.
-    #
-    # The export is inserted into the wrapper installPhase already built,
-    # ahead of its exec, rather than into a second wrapper of our own: the
-    # entrypoint's argv[0] and argument forwarding stay exactly upstream's,
-    # which is also why the package's own versionCheck still passes. (A
-    # hand-written replacement wrapper is a trap here — an unquoted heredoc
-    # in postInstall expands "\$@" away at build time and every invocation
-    # silently loses its arguments.)
+    # opencode v1, beside v2, for plugins that only run on the v1 API. Its own
+    # XDG_DATA_HOME keeps v1's database out of v2's — the two schemas diverged.
     (llm-agents.opencode.overrideAttrs (old: {
       postInstall = (old.postInstall or "") + ''
         sed -i '2i export XDG_DATA_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/opencode-v1"' $out/bin/opencode
       '';
     }))
-    # freebuff — a Codebuff fork, freebuff.com backend, and the "free DeepSeek
-    # 4.1" the user was promised is already in this build: the TUI footer shows
-    # DeepSeek V4.1 Flash as the default model with an hours allowance ("30/30
-    # hours remaining"; referrals and the Discord ad buy more).
-    #
-    # What the package can and cannot control, which is the whole answer to
-    # "my build doesn't offer it": the catalog ships in the client
-    # (base2-free-deepseek-v4-1-flash and friends), but which models you are
-    # *shown* is decided per session by freebuff.com. When some are missing
-    # the TUI says why — "Some models aren't available on this connection" —
-    # and that is a geo gate (countryBlockReason; set at
-    # freebuff.com/account?tab=country), not a stale pin. Bumping this package
-    # cannot make a withheld model appear, so don't chase it with a rebuild.
     llm-agents.freebuff
-    # Kilo Code CLI — same numtide scope as opencode/freebuff above, so it
-    # tracks upstream per-release without a new input or nixpkgs eval. Ships
-    # the `kilocode` binary. Network-bound coding agent, so off in study.
-    # llm-agents' build drops a `bin/tree-sitter` directory that collides
-    # with the `tree-sitter` package in the emacs extras group, so relocate
-    # it out of `bin/` to keep home-manager's buildEnv happy.
-    (llm-agents.kilocode-cli.overrideAttrs (old: {
-      postInstall = (old.postInstall or "") + ''
-        mkdir -p $out/lib
-        mv $out/bin/tree-sitter $out/lib/kilocode-tree-sitter
-      '';
-    }))
-    clixad
-    # cline, and the three npm-installed agents that used to live in
-    # ~/.npm-global as `npm install -g` rather than in any flake — see
-    # packages/neon-cli.nix, packages/ob1.nix and packages/free-pi-cli.nix,
-    # and flake.nix's npmCliOverlay for why cline comes from llm-agents and
-    # `asar` does not come from here at all.
-    #
-    # All four are network-bound coding agents, so they leave the study airgap
-    # with the ones above: each one's whole job is a conversation with a
-    # remote model, whatever it keeps locally.
+    llm-agents.kilocode-cli
     llm-agents.cline
+    clixad
     neon-cli
     ob1
     free-pi-cli
-    # Omnirush signs in over HTTPS and runs its whole agent against
-    # omnirush.ai, so it leaves the study airgap like the rest of this block.
-    # It is a local package, not a nixpkgs one — see ../packages/omnirush.nix
-    # for where its two npm tarballs come from. `just update-omnirush` moves
-    # this and the app below together; it reads the hashes out of npm rather
-    # than downloading the tarballs to compute them.
     omnirush
-    # The OmniRush desktop app — the Electron shell around the CLI above, from
-    # the same project but versioned separately — the CLI is 2.x on npm, the app
-    # 3.x on GitHub releases. Same network story, same airgap reasoning; see
-    # ../packages/omnirush-gui.nix.
     omnirush-gui
-    # DeepAI Code — the Electron coding agent from DeepAI (deepai.org), ads
-    # on the site's own pages pay for the free tier. It talks to DeepAI's
-    # servers over HTTPS, so it leaves the study airgap like the agents
-    # above. Local package: DeepAI ships a Linux AppImage but does not link
-    # it from the website — see ../packages/deepai-code.nix for where the
-    # file comes from and for the node-pty/libstdc++ trap in its backend.
     deepai-code
-    # Otzaria (אוצריא) downloads its seforim library on first run, so it
-    # leaves the study airgap like the other network apps above.
     otzaria
-    # `gh` is a GitHub network client, so — like opencode and rclone — it
-    # leaves the offline study airgap. It stays out of `always`: everything it
-    # does talks to github.com, and git (which works offline) already stays
-    # available in study.
     gh
-    # `rclone config` — the one rclone command you run by hand. The
-    # shaulos-data-bootstrap unit in modules/system/data.nix names rclone in its
-    # own PATH=, so the service does not depend on this entry, and study turns
-    # that unit off anyway.
     rclone
 
     # ── The creative and media suite ──────────────────────────────────────
-    kdePackages.calligra
-    scribus
-    texmacs
-    sile
     gimp-with-plugins
     gimpPlugins.gmic
     gimpPlugins.resynthesizer
-    krita
-    krita-plugin-gmic
-    # Photon Studio — a free, offline, PSD-capable photo editor that sits
-    # with gimp and krita rather than with the raw developers below. Not in
-    # nixpkgs (its `photon` is a URL crawler), so it is a local overlay over
-    # the upstream AppImage — see ../packages/photon.nix for the packaging
-    # and for why the attribute is `photon-studio`.
-    #
-    # The app is offline by design but not small: a 756 MB image and a
-    # 1.2 GB extraction, both in the closure, because subject selection runs
-    # here. It is uncached like the raw editors further down, though unlike
-    # them it never compiles — it is a repackaging of a prebuilt bundle.
-    photon-studio
-
-    # ── The two that are not downloads ────────────────────────────────────
-    #
-    # Everything else in this section that is not a local overlay is in
-    # cache.nixos.org, so it costs a download and nothing else. These two
-    # are not, and "not cached" means *your machine compiles them*, from
-    # source, every time the nixpkgs pin moves. Measured against the pinned
-    # nixpkgs (445d861c) by asking cache.nixos.org for each derivation's
-    # .narinfo:
-    #
-    #   graphite                    404 — no substitute, Rust, builds locally
-    #   inkscape / -with-extensions 404 — no substitute, C++, builds locally
-    #
-    # `graphite` was caught doing exactly this: 19 minutes into a closure
-    # build, still compiling, with nothing else left to do. It is an
-    # `0-unstable-2026-05-02` snapshot of a browser-based vector editor, which
-    # is also why it has no substitute — unstable snapshots are not built by
-    # Hydra.
-    #
-    # `inkscape-with-extensions` is the same story and the plain `inkscape`
-    # attribute is no better; both were checked, both 404. So this is not a
-    # case where dropping the wrapper buys anything.
-    #
-    # Commented rather than deleted, per the rule this repo already follows
-    # for the Emacs `extras` machinery: uncomment either line and it comes
-    # back, at the price named above.
-    #
-    #   inkscape                    krita, pinta, photoflare and gimp all
-    #                               overlap it for raster work; for vector,
-    #                               it is the one real loss here.
-    #   graphite                    an alpha-stage editor that duplicates
-    #                               inkscape's job less completely.
-    #
-    # NOT applied to texlive.combined.scheme-full in ../emacs/default.nix,
-    # which is the largest single thing in the closure and also never
-    # substituted. That one is load-bearing: essentials/07-latex.org is a
-    # whole AUCTeX module and essentials/05-org.org sets `org-latex-compiler'
-    # to lualatex with an `org-latex-pdf-process' that shells out to
-    # `latexmk'. Both are LOADED under EMACS_MODULE_GROUPS = "essentials", so
-    # removing TeX would leave live code calling a binary that is not there —
-    # the same defect as the seforim one, pointing the other way.
-    # inkscape-with-extensions
-    pinta
-    photoflare
-    ansel
-    digikam
-    rawtherapee
     darktable
+    digikam
     geeqie
     sly
     rapidraw
     art
-    # These niche raw editors are not in nixpkgs (neither branch), so each is a
-    # flake overlay that repackages the upstream Linux bundle; see flake.nix.
-    # Version state lives there, this list only decides presence.
-    filmulator
-    lighttable
-    aaphoto
-    # The ArtCraft apps (see flake.nix's artcraftOverlay, packages/artcraft.nix):
-    # the Rust/wgpu reimplementations of Lightroom, Photoshop and InDesign, and
-    # a PDF workbench. All four are 0.1.1 and self-described "young & moving
-    # fast", so they are here to try rather than because they displace the apps
-    # above them. lightcraft additionally needs LIGHTCRAFT_GPU=0 on this
-    # machine — its exports are pure black on the Intel iGPU.
-    lightcraft
-    photocraft
-    designcraft
-    printcraft
-    # See "The two that are not downloads" above — uncached, compiles locally.
-    # graphite
     graphicsmagick_q16
     upscayl
-    vlc
     audacity
     lmms
   ];
@@ -544,36 +142,21 @@ in
 {
   home.packages = always ++ lib.optionals (!study) offInStudy;
 
-  # The fourth browser. It lives here rather than in home/shaul.nix so that
-  # every "which browsers exist" decision is in one file, and it is the only
-  # statement of it anywhere: the NixOS-level `programs.firefox.enable = true`
-  # in cli-tools.nix is gone, and so is the `mkForce false` in study-offline.nix
-  # that existed to undo it.
+  # The fourth browser. It lives here so every "which browsers exist"
+  # decision is in one file.
   programs.firefox = {
     enable = !study;
     configPath = lib.mkForce ".mozilla/firefox";
     profiles.${myConfig.username} = {
       settings = {
-        # The one surface where the size knob cannot be a point size. Firefox
-        # sizes neither its chrome nor a web page in points: the CSS default is
-        # 16px and every site that styles its own text overrides
-        # `font.size.variable.*` anyway, so setting those prefs would shrink
-        # roughly the sites that needed it least. `devPixelsPerPx` is the only
-        # one that moves all of it — chrome, content, and the sites with
-        # opinions.
-        #
-        # The ratio is against 10, which is stylix's default `desktop` size and
-        # therefore the density Firefox's chrome and that 16px are drawn for. So
-        # this asks for the same relative size as the rest of the desktop rather
-        # than a zoom level someone liked: uiSize 8 gives 0.8, and 16px body
-        # text lands at 12.8. It was the literal "1.0", which is why the browser
-        # stayed at full size while everything around it was at three quarters.
+        # Firefox sizes neither its chrome nor a web page in points. The
+        # ratio is against 10, stylix's default desktop size, so this asks for
+        # the same relative size as the rest of the desktop.
         "layout.css.devPixelsPerPx" = builtins.toJSON (osConfig.stylix.fonts.sizes.applications / 10.0);
         "browser.uidensity" = 1;
       };
     };
   };
 
-  # Named beside the profile it themes, for the same reason.
   stylix.targets.firefox.profileNames = [ myConfig.username ];
 }

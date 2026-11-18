@@ -7,18 +7,18 @@
 # closures — you could never see them side by side — and it is the reason the
 # two sessions drifted apart in every direction nobody was looking.
 #
-# Imported by modules/system/niri.nix and modules/system/hyprland.nix rather
+# Imported by modules/system/hyprland.nix and modules/system/sway.nix rather
 # than by the host, so each compositor module still stands alone. The module
 # system keys imports by path, so importing both costs exactly one copy.
 { lib, pkgs, ... }:
 
 {
   # Session manager for the tiling compositors. Plasma does not use it; SDDM
-  # lists both the plain and the -uwsm session for niri/hyprland and the uwsm
+  # lists both the plain and the -uwsm session for Hyprland/sway and the uwsm
   # one is the one you want (proper systemd user scope, working portals).
   programs.uwsm.enable = true;
 
-  # ── Why `just switch` threw you back to the greeter under niri/Hyprland ──
+  # ── Why `just switch` threw you back to the greeter under Hyprland/sway ──
   #
   # The symptom is that a rebuild "reboots" the machine in the two tiling
   # sessions and never in Plasma. It is not a reboot and it is not a crash: the
@@ -89,10 +89,8 @@
   # picking up a new one mid-session is correct.
   #
   # One template covers both compositors: uwsm names the instance after the
-  # binary, so this is `wayland-wm@Hyprland.service` and `wayland-wm@niri.service`
-  # — verified by running `uwsm start -n -o` against each binPath, which reports
-  # "Selected compositor ID: Hyprland" / "niri" and the matching unit subdirs.
-  # A drop-in on the template applies to every instance, so niri and Hyprland
+  # binary, so this is `wayland-wm@Hyprland.service` and `wayland-wm@sway.service`.
+  # A drop-in on the template applies to every instance, so Hyprland and sway
   # get identical treatment and neither can drift from the other.
   #
   # ── Why `systemd.user.units` and raw text, not `systemd.user.services` ───
@@ -132,14 +130,15 @@
         '';
       });
 
-  # Backlight without a setuid helper (programs.light is gone in 26.05).
-  hardware.acpilight.enable = true;
+  # The brightness path is `brightnessctl` (toolkit.nix, scripts.nix), so the
+  # acpilight udev rule and group were enabling a program nothing calls.
   services.udisks2.enable = true;
   services.upower.enable = true;
 
   # Authentication & secrets
   services.gnome.gnome-keyring.enable = true;
-  security.polkit.enable = true;
+  # `security.polkit.enable` is declared once, in ./core.nix: it is true in
+  # every closure, including `focus`, which does not import this file.
   # gnome-keyring and GTK need gcr on the bus to draw password prompts.
   services.dbus.packages = [ pkgs.gcr ];
 

@@ -19,7 +19,7 @@
   imports = [
     ./common.nix # zsh, git, aliases — and, since the split, nothing else
     ../modules/home/p10k.nix # the prompt common.nix sources
-    ../modules/home/emacs # the daemon, the module groups, Emacs's shell-outs
+    ../modules/home/emacs.nix # the package, the profile launchers, Emacs's shell-outs
     ../modules/home/yazi.nix
   ];
 
@@ -32,11 +32,11 @@
   #                                fuzzel, awww, foot, dolphin, kate, okular,
   #                                udiskie, the screenshot chain — and
   #                                ../modules/home/lock.nix's idle daemon.
-  # ../modules/home/scripts.nix    every one of them drives `niri msg` or
-  #                                `hyprctl`. It used to be imported by
+  # ../modules/home/scripts.nix    every one of them drives `hyprctl` or
+  #                                `swaymsg`. It used to be imported by
   #                                ./common.nix, which is why that import
   #                                moved; see the note there.
-  # ../modules/home/niri, hyprland, keys.nix, palette.nix
+  # ../modules/home/hyprland, sway, keys.nix, palette.nix
   #                                configs for compositors this closure has
   #                                no binary for.
   # programs.plasma                there is no Plasma here to configure.
@@ -62,42 +62,17 @@
   # ./common.nix's `programs.*` modules install them as part of configuring
   # them — likewise `yazi` from ../modules/home/yazi.nix, and Emacs itself
   # plus texlive, typst, sqlite, graphviz, imagemagick and the language
-  # servers from ../modules/home/emacs. (`hdate` was in that list until it
+  # servers from ../modules/home/emacs.nix. (`hdate` was in that list until it
   # went off with `extras`; it had exactly one caller and it was Hebrew.)
   #
   # What is left is text search and the document toolchain, because that is
-  # what this mode is for.
-  #
-  # That sentence used to read "the search stack, because that is what this
-  # mode is for", and it named the *seforim* index. It was the single least
-  # true comment in this repo: ../modules/home/emacs sets
-  # EMACS_MODULE_GROUPS = "essentials", so this closure booted `cage` with one
-  # Emacs frame that could not run a single `seforim-' command, over a profile
-  # provisioned with recoll and xapian to serve it.
-  #
-  # Both are commented out below, on the rule that repo now applies
-  # everywhere: machinery for code that does not load gets switched off, not
-  # annotated. The mode is not diminished by it — `focus` is Emacs with
-  # nothing else running, and grep over a text library is `rg` and `rga`,
-  # which are still here.
+  # what this mode is for. `focus` is Emacs with nothing else running; grep
+  # over a text library is `rg` and `rga`.
   home.packages = with pkgs; [
     fd
     ripgrep
     ripgrep-all
-    tre
-
-    # Off with `extras`, and see ../modules/system/services.nix for the part
-    # that surprised: the four-hourly index this pair fed was never the index
-    # seforim search read. Uncomment both together with `extras`.
-    # recoll
-    # xapian
-
-    # Stays. `poppler-utils` is not a seforim package — essentials/11-pdf.org
-    # probes `pdfinfo` to decide whether pdf-tools is usable, and Org export
-    # goes through `pdftotext`. It was listed beside recoll, which is the only
-    # reason it looks like it belongs to that group.
     poppler-utils
-
     pandoc
     jq
     ncdu

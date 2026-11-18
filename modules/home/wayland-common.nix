@@ -26,7 +26,7 @@
     ./waybar.nix
     ./yazi.nix
     ./lock.nix
-    # From home/common.nix. Every script in it drives niri or Hyprland — see
+    # From home/common.nix. Every script in it drives Hyprland or sway — see
     # the note there — so it belongs to the session stack, not to the shell.
     ./scripts.nix
   ];
@@ -42,8 +42,10 @@
 
   fonts.fontconfig.enable = true;
 
-  # (pamixer, brightnessctl, fd, fzf, jq, playerctl, libsecret already come from
-  # home/common.nix; hyprlock/hypridle from ./lock.nix; waybar from ./waybar.nix.)
+  # (pamixer, brightnessctl, playerctl, jq and libsecret come from
+  # ./toolkit.nix's `always` list; fzf and bat from the `programs.*` modules in
+  # ../home/common.nix; hyprlock/hypridle from ./lock.nix; waybar from
+  # ./waybar.nix.)
   home.packages = with pkgs; [
     foot
     udiskie
@@ -73,10 +75,9 @@
     # files, to a program no list installed. Clicking the bar did nothing.
     pavucontrol
 
-    # dolphin is bound to Mod+E in the Hyprland config and is yazi's `reveal`
-    # opener, and was installed by the *niri* module. Plasma ships it
-    # system-wide, which is why the gap only showed up in the one session that
-    # forced Plasma off.
+    # dolphin is bound to Mod+E in the compositor configs and is yazi's
+    # `reveal` opener. Plasma ships it system-wide; the tiling sessions need it
+    # in the home profile.
     kdePackages.dolphin
     kdePackages.kate
     kdePackages.okular

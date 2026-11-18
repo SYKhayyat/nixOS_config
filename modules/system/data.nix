@@ -37,8 +37,8 @@
 #
 # ── The bug ──────────────────────────────────────────────────────────────
 #
-# `file-sync` decided whether to fetch by asking `[ ! -d "$dst" ]`. But
-# modules/home/emacs/default.nix runs
+# `file-sync` decided whether to fetch by asking `[ ! -d "$dst" ]`. But the
+# old Emacs module ran
 #
 #     mkdir -p "${seforimPath}/Bavli"
 #
@@ -49,8 +49,8 @@
 #
 #     [GDrive 2/2] seforim already exists, skipping.
 #
-# for the rest of the machine's life. That is recoll's `topdirs` and the whole
-# subject of the Emacs seforim system, silently absent, reported as success.
+# for the rest of the machine's life. That is the seforim library — the subject
+# of the Emacs seforim system — silently absent, reported as success.
 #
 # "Does the directory exist" is not the same question as "is my data here",
 # and in a closure where another module scaffolds directories it is not even
@@ -91,10 +91,9 @@
 let
   inherit (myConfig) homeDir username seforimPath;
 
-  # seforimPath comes from myConfig because modules/home/emacs/default.nix
-  # reads it too — it is recoll's `topdirs`, and the two disagreeing silently
-  # is precisely the class of failure this module was built out of. The
-  # siach_shai paths stay local: one consumer, one definition.
+  # seforimPath comes from myConfig rather than being another literal here;
+  # the siach_shai paths stay local. One consumer of a value does not need a
+  # second definition of it.
   notesDir = "${homeDir}/Documents/siach_shai";
 
   bootstrap = pkgs.writeShellScript "shaulos-data-bootstrap" ''

@@ -1,13 +1,13 @@
 # modules/home/art.nix
 # ART 1.26.4 — profiles, LUTs, "plugins".
 #
-# ART is the maintained RawTherapee fork with the same pipeline, so the notes
-# from rawtherapee.nix apply one-for-one. It reads DCPs from
+# ART is the retained RawTherapee fork with the same pipeline (the separate
+# rawtherapee package was cut in the 2026-11-18 bloat pass). It reads DCPs from
 # ~/.config/ART/profiles (Raw Pixels profile selection), and LUTs for the
 # lut3d module / film simulation from ~/.config/ART/lut.
 #
 # Plugins: ART inherits RawTherapee's "no plugin API" stance; this section is
-# deliberately empty for the same reason as rawtherapee.nix — see its header.
+# deliberately empty.
 {
   config,
   pkgs,

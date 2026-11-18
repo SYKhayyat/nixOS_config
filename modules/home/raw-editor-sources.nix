@@ -1,11 +1,11 @@
 # modules/home/raw-editor-sources.nix
-# Pinned raw-editor assets shared by darktable.nix / rawtherapee.nix / art.nix.
+# Pinned raw-editor assets shared by darktable.nix and art.nix.
 #
 # The Nikon D7200 calibration profile exists as a DCP in RawTherapee's dev tree
 # only — rtdata/dcpprofiles/NIKON D7200.dcp (top level, no `Nikon/` subdir; no
 # release branch ships it, and no published prebuilt D7200 ICC exists anywhere).
 # We pin that one file and:
-#   - hand it straight to ART and RawTherapee, which both read .dcp, and
+#   - hand it straight to ART, which reads .dcp, and
 #   - compile it to an ICC for darktable with camicc (rafaelcgs10/camicc, a
 #     pure-python DCP→ICC converter), so all three editors see the same embedded
 #     camera calibration without the profile text ever drifting between them.
@@ -22,8 +22,6 @@
 # empirically validated, not expert-reviewed) — acceptable for a build-time
 # profile conversion we can eyeball in the raw editor afterwards.
 {
-  options,
-  config,
   lib,
   pkgs,
   ...

@@ -1,8 +1,9 @@
 # modules/system/secrets.nix
 #
-# sops-nix wiring. This module is INERT until secrets/secrets.yaml exists, so a
-# fresh checkout of the flake still evaluates. Once you create the encrypted
-# file (see secrets/README.md), uncomment the secret(s) you want and rebuild.
+# sops-nix wiring. Everything here is gated on secrets/secrets.yaml existing,
+# so a fresh checkout of the flake still evaluates without it. On this machine
+# that file is present and the GitHub token is live; adding another secret is
+# an entry in secrets.yaml plus its block below — see secrets/README.md.
 { config, lib, ... }:
 
 let
@@ -17,19 +18,24 @@ in
     age.keyFile = "/var/lib/sops-nix/key.txt";
     age.generateKey = false;
 
-    # ── Example secrets (uncomment after adding them to secrets.yaml) ──────
+    # ── Live: the Nix GitHub token ─────────────────────────────────────────
     #
-    # A GitHub token so Nix doesn't hit the anonymous API rate limit. Rendered
-    # to a file that core.nix already `!include`s (/etc/nix/tokens.conf).
+    # secrets/secrets.yaml holds it, and this renders it to the file core.nix
+    # `!include`s, so Nix stops hitting the anonymous GitHub API rate limit.
+    # Check it after a switch with `ls -l /run/secrets/nix-access-tokens`; a
+    # missing host age key at /var/lib/sops-nix/key.txt shows up as that file
+    # not existing, not as a build error.
     secrets."nix-access-tokens" = {
       path = "/etc/nix/tokens.conf";
       mode = "0440";
       group = "wheel";
     };
+
+    # ── Commented: the rclone remote for the data bootstrap ────────────────
     #
-    # rclone remote config for the data bootstrap (modules/system/data.nix).
-    # With this uncommented the bootstrap needs no interactive `rclone config`
-    # on a fresh machine — which is the whole point of it being a bootstrap.
+    # With this uncommented the bootstrap (modules/system/data.nix) needs no
+    # interactive `rclone config` on a fresh machine — which is the whole point
+    # of it being a bootstrap.
     # secrets."rclone.conf" = {
     #   path = "${config.users.users.shaul.home}/.config/rclone/rclone.conf";
     #   owner = "shaul";

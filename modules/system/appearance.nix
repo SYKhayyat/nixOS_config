@@ -151,7 +151,7 @@ in
   stylix = {
     enable = true;
     base16Scheme = "${pkgs.base16-schemes}/share/themes/tokyo-night-dark.yaml";
-    image = ../../wallpaper.jpg;
+    image = ../../assets/wallpaper.jpg;
     polarity = "dark";
 
     fonts = {
@@ -208,10 +208,10 @@ in
     # nixpkgs 26.05 builds. Plasma silently falls back when a cursor theme is
     # missing, which is why nobody found out.
     #
-    # Setting it here does four things at once: stylix's home-manager side turns
-    # it into `home.pointerCursor` (which writes ~/.local/share/icons and sets
-    # the GTK and X11 cursor), and ../home/palette.nix hands the same name and
-    # size to plasma-manager, to niri's KDL and to hyprland.conf. The literal
+    # Setting it here does three things at once: stylix's home-manager side
+    # turns it into `home.pointerCursor` (which writes ~/.local/share/icons
+    # and sets the GTK and X11 cursor), and ../home/palette.nix hands the same
+    # name and size to plasma-manager and to hyprland.conf. The literal
     # `XCURSOR_SIZE = "24"` that used to sit in the system environment is gone:
     # it was a fifth statement of the same fact, read by only some of the four.
     # (Hyprland's config does still export XCURSOR_THEME/XCURSOR_SIZE, because

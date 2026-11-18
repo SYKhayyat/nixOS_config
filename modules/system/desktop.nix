@@ -10,24 +10,20 @@
 # particular was doing real damage from in here: it disabled the target that
 # computes the Qt theme from `plasma6.enable`, four lines below the module that
 # sets `plasma6.enable`, while ./core.nix wrote the target's output out by hand.
-{ myConfig, lib, pkgs, ... }:
+{
+  myConfig,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   # ── One askPassword, and why this line is mkForce ────────────────────────
   #
-  # Plasma 6's module and GNOME's both claim `programs.ssh.askPassword` at
-  # full strength, with different binaries — ksshaskpass from Plasma,
-  # seahorse's ssh-askpass from GNOME (seahorse being what
-  # `services.gnome.core-apps` enables). That is not drift this repo created;
-  # it is inherent to two full DEs in one closure, and the module system
-  # refuses the expansion outright rather than picking one, which is the
-  # correct response to an ambiguity of this kind.
-  #
   # The answer is ksshaskpass, for the same reason ../home/wayland-common.nix
-  # already points SSH_ASKPASS and SUDO_ASKPASS at it: it is the Qt askpass
-  # every session here can draw, where seahorse's is a GTK helper that also
-  # wants seahorse running. The force is the mechanism the error itself names
-  # — without it, this file would be silent and the machine would not build.
+  # points SSH_ASKPASS and SUDO_ASKPASS at it: it is the Qt askpass every
+  # session here can draw. `mkForce` keeps it pinned if a desktop module ever
+  # claims the option again — GNOME's did, and was removed on 2026-11-18.
   programs.ssh.askPassword = lib.mkForce "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
 
   # ── Display server ───────────────────────────────────────────────────────
@@ -54,7 +50,7 @@
   # Was declared here *and* in ./core.nix — both saying `enable = true`, so the
   # module system merged two identical definitions and never said a word. It is
   # part of the graphical stack, so it is here, once. This is the greeter that
-  # lists Plasma, Niri (uwsm) and Hyprland (uwsm); there are no compositor
+  # lists Plasma, Hyprland (uwsm) and Sway (uwsm); there are no compositor
   # specialisations any more, and this is where they went.
   services.displayManager.sddm = {
     enable = true;
@@ -93,7 +89,7 @@
     powerOnBoot = true;
     settings.General.Experimental = true; # battery % for some devices
   };
-  # Tray applet for the Wayland (niri/hyprland) sessions; Plasma has bluedevil.
+  # Tray applet for the Wayland (Hyprland/sway) sessions; Plasma has bluedevil.
   services.blueman.enable = true;
 
   # ── KDE Connect ──────────────────────────────────────────────────────────

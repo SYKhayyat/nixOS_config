@@ -2,95 +2,38 @@
 #
 # Session helpers, bound to keys in both compositor configs.
 #
-# The `pgrep` below is deliberate and it was not always defensible. While each
-# compositor had its own boot closure, this was rediscovering at runtime — on a
-# keypress path, in eight scripts — a fact the build had already compiled in.
-# There is one closure for all three sessions now, so the compositor genuinely
-# is not knowable until the key is pressed, and detection is the right answer.
-#
-# What was never right is the silent fall-through: under Plasma these scripts
-# matched no branch and exited 0 having done nothing, which is three commands on
-# $PATH that lie about having run. They say so now.
+# One closure serves Plasma, Hyprland and sway, so the compositor is not
+# knowable at build time; these scripts ask at the moment the key is pressed.
+# The silent fall-through is gone: under Plasma they say so rather than
+# exiting 0 having done nothing.
 #
 # `jq` is spelled as a store path like every other program these scripts call.
-# It was bare, which meant it worked because something else happened to install
-# it — home/common.nix did, on a line that also carried five duplicates of
-# modules/system/cli-tools.nix. `niri`, `hyprctl`, `waybar` and `pgrep` stay
-# bare deliberately: the first three come from the running session and the last
-# from the NixOS required-packages set, and none of them is ours to pin.
+# `hyprctl`, `swaymsg`, `waybar` and `pgrep` stay bare deliberately: the first
+# three come from the running session and the last from the NixOS
+# required-packages set, and none of them is ours to pin.
 { pkgs, myConfig, ... }:
 
 let
-  # The SAME Emacs the daemon runs — ./emacs/default.nix starts
-  # `services.emacs` with `myConfig.emacsPackage`, the pgtk build that comes
-  # with the emacs-config flake input's package set.
-  #
-  # `toggleEmacs` below said `${pkgs.emacs}`, which is a different derivation:
-  # plain X11 emacs-30.2 out of nixpkgs, against
-  # emacs-pgtk-with-packages-30.2 from the input. Two consequences, one visible
-  # and one not. The invisible one is that naming it dragged an entire second
-  # Emacs into the home closure — a few hundred megabytes to run one
-  # `emacsclient`. The visible one is that emacsclient and the server it talks
-  # to are supposed to be the same build; they happen to share a version here,
-  # so it works, and it works for a reason nothing in this repo states or
-  # checks. Bump one side and it stops.
-  #
-  # ../home/keys.nix binds Emacs as `myConfig.emacsFrameArgv', and
-  # ../home/emacs/default.nix sets $EDITOR to `myConfig.emacsFrame'. All of
-  # them come from ../../flake.nix, so the binary, the `env -u
-  # WAYLAND_DISPLAY' and the `--no-wait' are stated once for the whole repo.
-  #
-  # Two spellings, both from ../../flake.nix. `emacsFrame' keeps `-c' and the
-  # scratchpad appends `-e', because it needs the frame: `make-frame' called
-  # from the daemon's tty frame has no display to copy and dies with "Unknown
-  # terminal type". `emacsEval' drops `-c' and is for the second call, which
-  # only tidies up — and which must NOT make a frame of its own.
+  # Both spellings come from ../../flake.nix. `emacsFrame' is the notes
+  # profile's launcher, which starts the daemon when there is none;
+  # `emacsEval' is a form in that daemon with no frame of its own.
   emacsclient = myConfig.emacsFrame;
   emacsclientEval = myConfig.emacsEval;
 
-  # ── The detection, which could not detect Hyprland ───────────────────────
+  # ── The detection ────────────────────────────────────────────────────────
   #
-  # This was `pgrep -x niri` / `pgrep -x Hyprland`. The first works. The second
-  # cannot match, on this machine or any other NixOS machine, and never could.
-  #
-  # `pgrep -x` matches a process's `comm`, and Linux sets `comm` from the
-  # basename of the *executable* — truncated to 15 characters — not from
-  # argv[0]. nixpkgs wraps Hyprland: `bin/Hyprland` is a shell script that
-  # fixes up PATH and ends in
-  #
-  #     exec -a "$0" .../bin/.Hyprland-wrapped "$@"
-  #
-  # `exec -a` sets argv[0], so `ps` shows `/nix/store/…/bin/Hyprland` and every
-  # human check agrees the process is called Hyprland. The kernel disagrees:
-  # comm is `.Hyprland-wrapp`. You can watch this happen on a running Plasma
-  # session — `.plasmashell-wrapped` reports comm `.plasmashell-wr` while its
-  # argv[0] is `…/bin/plasmashell`, and `pgrep -x plasmashell` finds nothing.
-  #
-  # niri is not wrapped — `bin/niri` is the ELF — which is exactly why one of
-  # the two branches worked and the asymmetry was invisible. Under Hyprland
-  # every script here fell through to `plasma`: `spotlight` and `teleport`
-  # refused with "this session is plasma", `swallow` skipped the compositor
-  # entirely, and both scratchpad toggles took the else-branch and spawned a
-  # *new* terminal on every press instead of focusing the existing one.
-  #
-  # So: ask the compositors, which all three answer. niri exports
-  # `NIRI_SOCKET`, Hyprland exports `HYPRLAND_INSTANCE_SIGNATURE` and sway
-  # exports `SWAYSOCK` into the environment of everything they spawn — that
-  # is what those variables are for, it is how `niri msg`, `hyprctl` and
-  # `swaymsg` find their own sockets, and a keybind's process is a child of
-  # the compositor. No process table, no name matching, no 15-character
-  # limit. The pgrep lines are kept only as a fallback for a shell that
-  # somehow lost the environment, and the Hyprland half matches the command
-  # line (`-f`), which is where the name actually is.
+  # `pgrep -x Hyprland` cannot match on NixOS: `pgrep -x` matches `comm`, and
+  # nixpkgs wraps the binary, so the kernel sees `.Hyprland-wrapp` (truncated
+  # at 15 characters) while argv[0] is `…/bin/Hyprland`. Ask the compositors
+  # instead — they export their socket variable into everything they spawn,
+  # and a keybind's process is a child of the compositor. The `pgrep` lines
+  # stay as a fallback for a shell that lost the environment, matching the
+  # command line where the name actually is.
   compositorDetect = ''
-    if [ -n "''${NIRI_SOCKET:-}" ]; then
-      COMPOSITOR="niri"
-    elif [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
       COMPOSITOR="hyprland"
     elif [ -n "''${SWAYSOCK:-}" ]; then
       COMPOSITOR="sway"
-    elif pgrep -x niri > /dev/null; then
-      COMPOSITOR="niri"
     elif pgrep -f '/bin/Hyprland' > /dev/null; then
       COMPOSITOR="hyprland"
     elif pgrep -x sway > /dev/null; then
@@ -103,16 +46,15 @@ let
   # Fail visibly instead of exiting 0 having done nothing.
   unsupported = ''
     ${pkgs.libnotify}/bin/notify-send \
-      "$(basename "$0")" "needs niri, Hyprland or sway — this session is $COMPOSITOR"
+      "$(basename "$0")" "needs Hyprland or sway — this session is $COMPOSITOR"
     exit 1
   '';
 
   # The float test, from sway's perspective. A sway tree distinguishes
   # floating containers by *type*: every window is a leaf with
-  # `type == "con"` tiled, or `type == "floating_con"` floating — which is
-  # the same question niri answers with `is_floating` and hyprland's
-  # activewindow with `.floating`, stated in sway's own JSON. Asked rather
-  # than tracked, for the reason the /tmp state file is gone.
+  # `type == "con"` tiled, or `type == "floating_con"` floating — the same
+  # question Hyprland's `activewindow -j` answers with `.floating`. Asked
+  # rather than tracked.
   swayFloating = ''
     node=$(swaymsg -t get_tree | ${pkgs.jq}/bin/jq -c \
       '[.. | objects | select(.focused? == true) and (.type == "con" or .type == "floating_con")] | .[0] // empty')
@@ -126,8 +68,8 @@ let
   '';
 
   # Whether this window is spotlighted is a fact about the window, and both
-  # compositors have always been able to state it: niri's IPC `Window` carries
-  # `is_floating`, Hyprland's `activewindow -j` carries `floating`.
+  # compositors can state it: Hyprland's `activewindow -j` carries `floating`
+  # and sway's tree carries the container type.
   #
   # This used to keep the answer in `/tmp/spotlight-state` — touch a file going
   # in, remove it coming out, believe the file (Lamdan 3.4). Nothing kept the
@@ -179,10 +121,6 @@ let
     # `tostring` rather than jq's `//`, which treats `false` as absent and would
     # report every tiled window as unknown.
     case "$COMPOSITOR" in
-      niri)
-        floating=$(niri msg --json windows |
-          ${pkgs.jq}/bin/jq -r 'map(select(.is_focused))[0].is_floating | tostring')
-        ;;
       hyprland)
         floating=$(hyprctl activewindow -j |
           ${pkgs.jq}/bin/jq -r '.floating | tostring')
@@ -197,11 +135,7 @@ let
 
     case "$floating" in
       false)
-        if [ "$COMPOSITOR" = "niri" ]; then
-          niri msg action toggle-window-floating
-          niri msg action center-column
-          niri msg action set-column-width "90%"
-        elif [ "$COMPOSITOR" = "sway" ]; then
+        if [ "$COMPOSITOR" = "sway" ]; then
           # sway's three-step spelling of the same job: float it, centre it
           # in the output, size it to 90% of the output. `resize set` takes
           # ppt (percentage points), which is sway's own unit — Hyprland's
@@ -218,10 +152,7 @@ let
         hide_bar
         ;;
       true)
-        if [ "$COMPOSITOR" = "niri" ]; then
-          niri msg action toggle-window-floating
-          niri msg action set-column-width "50%"
-        elif [ "$COMPOSITOR" = "sway" ]; then
+        if [ "$COMPOSITOR" = "sway" ]; then
           swaymsg floating disable
         else
           hyprctl dispatch togglefloating
@@ -238,24 +169,19 @@ let
 
   teleport = pkgs.writeShellScriptBin "teleport" ''
     ${compositorDetect}
-    if [ "$COMPOSITOR" = "niri" ]; then
-      WINDOW=$(niri msg --json windows | ${pkgs.jq}/bin/jq -r '.[] | "\(.title) | \(.app_id) | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
-      [ -z "$WINDOW" ] && exit 0
-      ID=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
-      niri msg action focus-window --id "$ID"
-    elif [ "$COMPOSITOR" = "hyprland" ]; then
+    if [ "$COMPOSITOR" = "hyprland" ]; then
       WINDOW=$(hyprctl clients -j | ${pkgs.jq}/bin/jq -r '.[] | "\(.title) | \(.class) | \(.address)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
       [ -z "$WINDOW" ] && exit 0
       ADDR=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
       hyprctl dispatch focuswindow "address:$ADDR"
     elif [ "$COMPOSITOR" = "sway" ]; then
-      # sway answers the same question niri's `--json windows` does, in
+      # sway answers the same question Hyprland's `clients -j` does, in
       # get_tree form: walk the whole tree for leaf containers (`type ==
       # "con"`), which is sway's name for a window. The id at the end of the
       # row is the sway *container id*, and `[con_id=N] focus` addresses that
-      # exact container — the same precision niri's `--id` and hyprland's
-      # `address:` give, in sway's own idiom. Focusing across workspaces
-      # switches the workspace with it, which is what teleport is for.
+      # exact container — the same precision Hyprland's `address:` gives, in
+      # sway's own idiom. Focusing across workspaces switches the workspace
+      # with it, which is what teleport is for.
       WINDOW=$(swaymsg -t get_tree | ${pkgs.jq}/bin/jq -r '.. | objects | select(.type? == "con") | "\(.name) | \(.app_id // "-") | \(.id)"' | ${pkgs.fuzzel}/bin/fuzzel -d -p "󰿄 Teleport: ")
       [ -z "$WINDOW" ] && exit 0
       ID=$(echo "$WINDOW" | awk -F '|' '{print $NF}' | tr -d ' ')
@@ -308,20 +234,11 @@ let
       sway)
         # sway's per-container opacity is a command on the container, so no
         # `setprop`-style indirection is needed: `opacity set` on the focused
-        # window, restored from the trap. Absolute value rather than niri's
-        # toggle, because sway can do absolute — and 0.15 rather than niri's
-        # 0.85 rule, because a full blackout of the caller is the honest
-        # reading of "swallow".
+        # window, restored from the trap. 0.15 because a full blackout of the
+        # caller is the honest reading of "swallow".
         restore() { swaymsg opacity set 1.0 || true; }
         trap restore EXIT INT TERM
         swaymsg opacity set 0.15 || true
-        ;;
-      niri)
-        # niri's only per-window opacity control is a toggle of the opacity its
-        # window rules assign, so this is symmetric rather than absolute.
-        restore() { niri msg action toggle-window-rule-opacity || true; }
-        trap restore EXIT INT TERM
-        niri msg action toggle-window-rule-opacity || true
         ;;
       *)
         # Plasma manages its own windows; there is nothing to fade and nothing
@@ -377,56 +294,21 @@ let
     fi
   '';
 
-  # ── niri focuses windows by id, and only by id ───────────────────────────
-  #
-  # Both toggles below used to call
-  #
-  #     niri msg action focus-window --app-id "$ID"      (this one)
-  #     niri msg action focus-window --title "$NAME"     (toggleEmacs)
-  #
-  # and `niri msg action focus-window --help` is four lines long:
-  #
-  #     Usage: niri msg action focus-window --id <ID>
-  #       --id <ID>  Id of the window to focus
-  #
-  # There is no `--app-id` and no `--title`. clap exits 2 on the unknown flag,
-  # so under niri both scratchpad keys were dead in the one state they exist
-  # for: the *first* press matched no window and spawned one correctly, and
-  # every press after that took the branch that found the window and then
-  # failed to focus it. So the scratchpad opened once and the key did nothing
-  # ever again — and because the spawn branch is the one that works, it looked
-  # like the toggle simply had no hide half rather than like an error.
-  #
-  # The id is already in the JSON that the existence check parses, so asking
-  # jq for it instead of `-e` costs nothing and is the flag niri does have.
-  # Hyprland's `focuswindow` genuinely does take `class:`/`title:` selectors,
-  # so that branch was right and is unchanged.
   toggleTerm = pkgs.writeShellScriptBin "toggle-scratchpad-terminal" ''
     ${compositorDetect}
     ID="scratchpad"
-    if [ "$COMPOSITOR" = "niri" ]; then
-      WIN=$(niri msg --json windows |
-        ${pkgs.jq}/bin/jq -r --arg id "$ID" 'map(select(.app_id == $id))[0].id // empty')
-      if [ -n "$WIN" ]; then
-        niri msg action focus-window --id "$WIN"
-      else
-        ${pkgs.foot}/bin/foot --app-id="$ID" &
-      fi
-    elif [ "$COMPOSITOR" = "hyprland" ]; then
+    if [ "$COMPOSITOR" = "hyprland" ]; then
       if hyprctl clients -j | ${pkgs.jq}/bin/jq -e ".[] | select(.class == \"$ID\")" > /dev/null; then
         hyprctl dispatch focuswindow "class:$ID"
       else
         ${pkgs.foot}/bin/foot --app-id="$ID" &
       fi
     elif [ "$COMPOSITOR" = "sway" ]; then
-      # sway is the session where the scratchpad is a real feature and the
-      # app-id trick the other two need is not: `move scratchpad` parks a
-      # window, `scratchpad show` brings back the most recently parked one.
-      # The toggle therefore has three honest states rather than two —
-      # absent (spawn), parked (show), visible (park it again) — and sway's
-      # `visible` flag in get_tree is the question that separates them.
-      # `move` takes criteria and parks the matching window by app-id,
-      # which is the one part of this dance niri cannot express at all.
+      # sway is the session where the scratchpad is a real feature: `move
+      # scratchpad` parks a window, `scratchpad show` brings back the most
+      # recently parked one. The toggle therefore has three honest states
+      # rather than two — absent (spawn), parked (show), visible (park it
+      # again) — and sway's `visible` flag in get_tree separates them.
       VISIBLE=$(swaymsg -t get_tree | ${pkgs.jq}/bin/jq -r \
         'first(.. | objects | select(.app_id? == "scratchpad") | .visible | tostring) // empty')
       if [ -z "$VISIBLE" ]; then
@@ -444,23 +326,10 @@ let
     fi
   '';
 
-  # Four separate defects, all measured against the running daemon:
-  #
-  #   * no --no-wait, so the script blocked in recvfrom() forever on a reply
-  #     Emacs 30.2's server does not send.
-  #   * no `env -u WAYLAND_DISPLAY', so the daemon made a native Wayland
-  #     frame, which does not resize on Plasma 6 — the "skinny window".
-  #     Measured: KWin window 1364x732, Emacs reporting 580x560.
-  #   * `-a ""', so a cold start forked `emacs --fg-daemon' into this script,
-  #     printing Emacs's whole startup, GTK Wayland banner included, into a
-  #     terminal.
-  #   * the elisp was spread over eight lines. The Emacs server protocol is
-  #     line oriented, so what arrived was `(prog' and the daemon answered
-  #     *ERROR*: End of file during parsing — every press, and nothing in the
-  #     script said so.
-  #
-  # `emacsclient` below is `myConfig.emacsFrame`, so the first three are fixed
-  # by naming it and the fourth by keeping the form on one line.
+  # `emacsclient` below is the notes profile's launcher, so the daemon is
+  # started when needed. The elisp-in-one-line requirement is the server
+  # protocol's: it is line oriented, and a form split across lines arrives as
+  # `(prog` and fails to parse.
   toggleEmacs = pkgs.writeShellScriptBin "toggle-scratchpad-emacs" ''
     ${compositorDetect}
     NAME="emacs-scratch"
@@ -484,14 +353,7 @@ let
     # first call it succeeded about half the time.
     ${emacsclientEval} "(progn (dolist (o (frame-list)) (when (string= (frame-parameter o (quote name)) \"*scratch*\") (delete-frame o))) nil)"
     sleep 0.2
-    if [ "$COMPOSITOR" = "niri" ]; then
-      # By id, for the reason spelled out above toggleTerm: niri's
-      # focus-window takes --id and nothing else. The frame's Wayland title is
-      # the frame name Emacs was just told to use.
-      WIN=$(niri msg --json windows |
-        ${pkgs.jq}/bin/jq -r --arg t "$NAME" 'map(select(.title != null and (.title | contains($t))))[0].id // empty')
-      [ -n "$WIN" ] && niri msg action focus-window --id "$WIN"
-    elif [ "$COMPOSITOR" = "hyprland" ]; then
+    if [ "$COMPOSITOR" = "hyprland" ]; then
       hyprctl dispatch focuswindow "title:$NAME"
     elif [ "$COMPOSITOR" = "sway" ]; then
       # By title, which sway matches as a regex against the window's name —
@@ -508,7 +370,9 @@ in
   # `power-search` used to live here: writeShellScriptBin "power-search"
   # "exec fsearch", a script whose entire body renamed a binary. That is only
   # worth doing if the thing invoking it cannot name the real program, and the
-  # only caller was a keybinding. modules/home/keys.nix names fsearch.
+  # only caller was a keybinding. That binding now pipes `fd` into `fuzzel`
+  # directly (modules/home/keys.nix, Mod+Space), so both the script and the
+  # `fsearch` package it renamed are gone.
   home.packages = [
     spotlight
     teleport

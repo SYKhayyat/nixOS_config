@@ -141,8 +141,7 @@ absent() {
 #                     false`.
 #
 # Either is a pass. A real unit file is the failure. Distinguishing them is not
-# pedantry — it is the same mistake in miniature as the one the seforim section
-# below is about: a check that cannot tell two states apart will eventually be
+# pedantry — a check that cannot tell two states apart will eventually be
 # asked to tell them apart.
 not_running() {
   local path="$1/$2"
@@ -169,7 +168,7 @@ not_running() {
 # spelled `torbrowser` in nixpkgs' past, so both names are checked for absence;
 # neither is used as an anchor, because a package rename must not be able to
 # turn this check green.
-browsers=(firefox lynx qutebrowser tor-browser torbrowser)
+browsers=(firefox google-chrome lynx qutebrowser tor-browser torbrowser)
 
 # The other half of toolkit.nix's `offInStudy` that is a real claim rather than
 # taste: the things whose entire job is fetching over a network the airgap has
@@ -219,7 +218,7 @@ echo
 echo "── the base session has the browsers ──────────────────────────────────"
 # The anchor for the section below. If these are absent the airgap result is
 # "I found no browsers anywhere", which is not the same sentence at all.
-for b in firefox qutebrowser lynx; do
+for b in firefox google-chrome; do
   present "$profile" "$b" "$user's home profile" \
     "modules/home/toolkit.nix installs it outside study"
 done
@@ -243,7 +242,7 @@ echo "── study keeps what it is supposed to keep ─────────
 # local media player." One binary per clause of that sentence, in order, plus
 # Emacs — which is the session's entire reason to exist and comes from
 # modules/home/emacs/default.nix rather than from toolkit.nix.
-for b in rg fd nnn pandoc gcc mpv emacs; do
+for b in rg fd yazi pandoc gcc mpv emacs; do
   present "$studyProfile" "$b" "study's home profile" \
     "study removes browsers, downloaders and the creative suite — not tools"
 done
@@ -260,7 +259,6 @@ daemons=(
   NetworkManager.service
   wpa_supplicant.service
   ModemManager.service
-  sshd.service
   cups.service
   bluetooth.service
   blueman-mechanism.service
@@ -351,52 +349,6 @@ not_running "$studyUnits" "dhcpcd.service" "study's units" \
   "networking.useDHCP defaults to TRUE — forcing NetworkManager off falls back to dhcpcd; study-offline.nix must say useDHCP = false out loud"
 
 echo
-echo "── the seforim stack and EMACS_MODULE_GROUPS agree ────────────────────"
-# The gate this repo did not have, and the reason it did not have one is worth
-# stating: every check above is either "is the package there" or "is the unit
-# there", and the failure this catches is neither. It is a package that is
-# there for code that is not.
-#
-# modules/home/emacs/default.nix sets EMACS_MODULE_GROUPS = "essentials", which
-# leaves 57% of the Emacs configuration — all 89 seforim-* functions and the
-# whole Hebrew layer — copied into the store, symlinked into ~/.config/emacs,
-# and never loaded. For one commit this machine answered "yes" to every recoll
-# question this script asked while being unable to run a single `seforim-'
-# command, and the script went green on all of it.
-#
-# So the two are asserted to agree, in the only direction the artifact can be
-# asked about: with `essentials` alone, nothing whose only caller is `extras/`
-# may be in any profile. Turn the groups back on and this section is what tells
-# you which blocks to uncomment — it will go red, by name, in every closure.
-# Bash 3-compatible parallel arrays rather than an associative one: the three
-# profile paths and the names to print for them. `basename` cannot do this job —
-# all three end in the same `per-user/$user/bin`.
-seforimProfiles=("$profile" "$studyProfile" "$focusProfile")
-seforimLabels=("the base home profile" "study's home profile" "focus's home profile")
-for i in "${!seforimProfiles[@]}"; do
-  for b in recoll recollindex xapian hdate; do
-    absent "${seforimProfiles[$i]}" "$b" "${seforimLabels[$i]}" \
-      "its only callers live in the emacs-config repo's extras/, and EMACS_MODULE_GROUPS says essentials"
-  done
-done
-# The paired present-test, so this cannot go green by looking in the wrong
-# place: poppler-utils is in the same lists and is NOT a seforim package —
-# essentials/11-pdf.org probes `pdfinfo` and Org export shells out to
-# `pdftotext`. If this is absent the absences above mean nothing.
-#
-# All three profiles, including study's: modules/home/toolkit.nix lists
-# `poppler-utils` in `always`, not in `offInStudy`, so the airgap keeps it.
-for i in "${!seforimProfiles[@]}"; do
-  present "${seforimProfiles[$i]}" "pdftotext" "${seforimLabels[$i]}" \
-    "poppler-utils is essentials' PDF path, not seforim's — it anchors the absences above"
-done
-# And the four-hourly indexer, which is now off in every closure rather than in
-# focus alone. It fed an index nothing read: extras/15-seforim-dream.org keeps
-# its own recoll confdir under ~/.cache/emacs/seforim and queries that.
-absent "$units" "recoll-index-$user.service" "the base system's units" \
-  "modules/system/services.nix has it commented out; its index was never the one seforim search read"
-
-echo
 echo "── focus runs the one thing it is for ─────────────────────────────────"
 present "$focusUnits" "cage-tty1.service" "focus's units" \
   "services.cage is the whole session — without it focus boots to a bare tty"
@@ -416,7 +368,7 @@ for b in "${browsers[@]}"; do
   absent "$focusProfile" "$b" "focus's home profile" \
     "focus has no network stack at all"
 done
-for b in foot fuzzel waybar mako niri Hyprland libreoffice gimp mpv; do
+for b in foot fuzzel waybar mako Hyprland libreoffice gimp mpv; do
   absent "$focusProfile" "$b" "focus's home profile" \
     "it belongs to a compositor session; see the 'not imported' list in home/focus.nix"
 done

@@ -103,7 +103,20 @@
       "root"
       myConfig.username
     ];
+    # A floor and a ceiling. Without these, Nix's defaults are min-free = 0 and
+    # max-free = unlimited, so nothing ever collects because the disk is
+    # filling. `auto-optimise-store` is the other half: hardlink dedup on every
+    # build, which is what keeps a 100 GB store from growing without it.
+    auto-optimise-store = true;
+    min-free = "5G";
+    max-free = "20G";
   };
+
+  # Both are unbounded by default until systemd's 10%-of-disk limit: 868 MB of
+  # cores and 2.6 GB of journal were measured. Cap them where the two files
+  # that own them can be read.
+  systemd.coredump.settings.Coredump.MaxUse = "200M";
+  services.journald.extraConfig = "SystemMaxUse=500M";
 
   nix.gc = {
     automatic = true;

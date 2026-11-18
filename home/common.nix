@@ -63,7 +63,7 @@ in
   # `focus` closure, which wants zsh and git and does not want a compositor.
   #
   # Every script in that module is a *compositor* script: `spotlight` and
-  # `teleport` shell out to `niri msg` / `hyprctl`, the toggles bind foot and
+  # `teleport` shell out to `hyprctl` / `swaymsg`, the toggles bind foot and
   # fuzzel, `screenshot-edit` drives grim/slurp/swappy. Importing it from here
   # meant that the file describing "zsh, git, aliases" pulled foot, fuzzel,
   # grim, slurp, swappy and libnotify into any profile that wanted a shell.
@@ -233,8 +233,11 @@ in
   # no longer resolves is what `just update-omnirush --version` is for. Neither
   # should cost you a rebuild.
   home.shellAliases = {
-    nrs = "(cd ${myConfig.flakePath} && python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
-    nrt = "(cd ${myConfig.flakePath} && python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
+    # `${pkgs.python3}` by store path, not a bare `python3`: the `focus`
+    # closure imports this file and does not install an interpreter on PATH,
+    # so the documented rebuild alias failed exactly where it was needed.
+    nrs = "(cd ${myConfig.flakePath} && ${pkgs.python3}/bin/python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
+    nrt = "(cd ${myConfig.flakePath} && ${pkgs.python3}/bin/python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
     nfu = "nix flake update --flake ${myConfig.flakePath}";
     # Carried over from the flat tree, where `clean` was a *system-wide* alias
     # in shellUtilities.nix — so it survived every switch of that tree and

@@ -22,10 +22,11 @@
 # URLs. `neon` is the opposite: 35 runtime dependencies behind a lockfile. That
 # is exactly the case buildNpmPackage exists for.
 #
-# Bump: change `version` here and in ./neon-cli/package.json together, run
+# Bump: change the dependency range in ./neon-cli/package.json, run
 # `npm install --package-lock-only` in that directory, then
 # `nix run nixpkgs#prefetch-npm-deps -- package-lock.json` for the new
-# npmDepsHash. `nix build .#neon-cli` says so loudly if they disagree.
+# npmDepsHash. `version` is read from the lock — there is no second string to
+# keep in step, and the old hand-typed one could only ever disagree with it.
 {
   lib,
   buildNpmPackage,
@@ -34,7 +35,7 @@
 
 buildNpmPackage rec {
   pname = "neon-cli";
-  version = "8.16.1";
+  version = (lib.importJSON ./neon-cli/package-lock.json).packages."node_modules/neon".version;
 
   src = ./neon-cli;
 

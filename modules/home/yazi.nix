@@ -35,36 +35,20 @@
             # command as $EDITOR and as the menu entry, so this cannot drift
             # from either of them.
             #
-            # `--no-wait` is what makes `block = true` below survivable.
-            # Without it emacsclient waits for a completion reply that Emacs
-            # 30.2's server never sends on this machine — the frame opens and
-            # the client blocks in recvfrom() forever — so yazi would sit on
-            # a subprocess that never returns and the file manager would look
-            # frozen. Same reason as EDITOR/VISUAL in ../emacs/default.nix.
-            #
-            # It used to end in `-a ""' as well, with the same effect as
-            # everywhere else it appeared: a cold start forked
-            # `emacs --fg-daemon' into yazi's subprocess and printed Emacs's
-            # whole startup into a file manager nobody can see stderr of.
-            # A plain `"' string, and the `$' of `"$@"' is written `\$' —
-            # a bare `$' not followed by `{' is a syntax error in one. It
-            # cannot go back to `''…''`, because a leading `${' is the escape
-            # for a literal `${' there and would interpolate nothing.
+            # `launch.sh` starts the notes daemon if it is not running and
+            # passes the file list through, so yazi needs no emacsclient
+            # flags of its own. A plain `"' string, and the `$' of `"$@"' is
+            # written `\$' — a bare `$' not followed by `{' is a syntax error
+            # in one. It cannot go back to `''…''`, because a leading `${' is
+            # the escape for a literal `${' there and would interpolate
+            # nothing.
             run = "${myConfig.emacsFrame} \"\$@\"";
             block = true;
             desc = "Edit in Emacs";
           }
         ];
-        # mpv, not vlc. Both are installed, but vlc is in ../home/toolkit.nix's
-        # `offInStudy` list and mpv is in `always` — it is the "one local media
-        # player" study is documented to keep. Naming vlc here meant the file
-        # manager's video opener was the one binding in this config that broke
-        # precisely when you booted the specialisation, silently: yazi shells
-        # out, gets "command not found", and shows you nothing.
-        #
-        # Every other opener below already names something in `always`
-        # (libreoffice, dolphin, emacsclient, xdg-open). This was the only one
-        # that reached across the study line.
+        # mpv, the only media player installed. It is in `always`, so the
+        # video opener also works in the study airgap.
         play = [
           {
             run = ''mpv "$@"'';

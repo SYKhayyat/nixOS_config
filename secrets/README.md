@@ -2,7 +2,20 @@
 
 Encrypted secrets live here as `secrets.yaml`. It is safe to commit **once
 encrypted** — sops keeps values encrypted, keys in plaintext. The system module
-`modules/system/secrets.nix` stays inert until `secrets.yaml` exists.
+`modules/system/secrets.nix` renders whichever secrets it declares, and is inert
+for the rest.
+
+**Current state:** `.sops.yaml` carries this host's age key, `secrets.yaml`
+holds `nix-access-tokens`, and `sops.secrets."nix-access-tokens"` is declared —
+so the GitHub token comes from here at activation. `rclone.conf` is still
+commented out, which is the one secret left to add if you want the document
+bootstrap to be reproducible on a fresh machine.
+
+After a switch, check the live one:
+
+```sh
+ls -l /run/secrets/nix-access-tokens /etc/nix/tokens.conf
+```
 
 ## One-time setup on the machine
 
@@ -19,7 +32,8 @@ encrypted** — sops keeps values encrypted, keys in plaintext. The system modul
    ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
    ```
 
-3. Paste that `age1…` public key into `.sops.yaml` (replace the placeholder).
+3. Put that `age1…` public key in `.sops.yaml`. This host's key is already
+   there; a second machine is one more entry in the same `key_groups`.
 
 4. Create and edit the encrypted file:
 
@@ -39,7 +53,8 @@ encrypted** — sops keeps values encrypted, keys in plaintext. The system modul
    ```
 
 5. Uncomment the matching `sops.secrets."…"` block in
-   `modules/system/secrets.nix`, then `just switch`.
+   `modules/system/secrets.nix` (`rclone.conf` is the one still commented), then
+   `just switch`.
 
 ## Notes
 

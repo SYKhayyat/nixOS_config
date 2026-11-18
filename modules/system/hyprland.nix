@@ -1,7 +1,7 @@
 # modules/system/hyprland.nix
 #
 # The compositor, and nothing else. Everything else this file used to carry is
-# in ./wayland.nix, which niri.nix imports too.
+# in ./wayland.nix, which sway.nix imports too.
 { lib, ... }:
 
 {

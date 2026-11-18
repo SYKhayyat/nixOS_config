@@ -50,56 +50,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # ── The Emacs configuration ──────────────────────────────────────────
-    # It used to live at modules/home/emacs/modules/ in this repo. By line
-    # count it was never a NixOS config that includes Emacs — it is an Emacs
-    # distribution that Nix happens to ship (~6,900 lines against ~2,300 of
-    # Nix), and it runs on Windows and macOS too, which is why its own
-    # deploy.sh has to warn you away from the machine this repo is named after.
-    #
-    # As an input rather than a subdirectory it is *pinned*: the exact revision
-    # you are running is in flake.lock, so an older lock rebuilds the exact
-    # Emacs you had. As a subdirectory it only looked pinned — the modules were
-    # mtime-copied into a writable $HOME dir that Nix could not roll back.
-    #
-    # `packages.default` is that repo with every module already tangled, so
-    # nothing is written at runtime. Bump it with:
-    #     nix flake update emacs-config
-    #
-    # The repo was renamed on GitHub to `emacs-config-deprecated` (2026-10-14),
-    # after this input was written. The URL names the new one directly: GitHub
-    # still redirects the old name, but a redirect is a fact about github.com
-    # that this flake would be relying on silently, and `nix flake update`
-    # against a moved repo is exactly the kind of thing that works until the
-    # day it is needed. The *input name* stays `emacs-config` — it is read in
-    # `myConfig` and by `checks`, and the deprecation is upstream's judgement
-    # about the repo, not a decision this flake has made about the config.
-    emacs-config = {
-      url = "github:SYKhayyat/emacs-config-deprecated";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # ── Doom Emacs, alongside the vanilla config above ─────────────────────
-    # The DOOMDIR is its own GitHub repo (declarative: module list, settings,
-    # package declarations). Unstraightened builds Doom *from* that DOOMDIR and
-    # resolves every package through Nix, so there is no runtime `doom sync`
-    # and no writable package tree to drift. It consumes the emacs-overlay
-    # input itself; `nixpkgs` follows ours to avoid a second full evaluation.
-    #
-    # `doomdir` is the only ugly seam: Unstraightened requires that input to
-    # exist, but we override `programs.doom-emacs.doomDir` with a combined
-    # derivation (GitHub DOOMDIR + the shared Hebrew modules from emacs-config).
-    # Following it to `doom-config` keeps the required input from fetching a
-    # second, unused copy.
-    doom-config = {
-      url = "github:SYKhayyat/doom-config";
-      flake = false;
-    };
-    nix-doom-emacs-unstraightened = {
-      url = "github:marienz/nix-doom-emacs-unstraightened";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.doomdir.follows = "doom-config";
-    };
+    # ── Emacs ───────────────────────────────────────────────────────────────
+    # The Emacs configuration is ~/emacs-configs: a writable git checkout with
+    # three profiles (hebrew, notes, ide) whose packages are owned by
+    # package.el in `elpa/`. It is deliberately NOT a flake input — CI has no
+    # such directory to evaluate, and the checkout's own git pins it. See
+    # modules/home/emacs.nix for what Nix provides around it.
 
     # ── Vocalinux: offline voice dictation ────────────────────────────────
     # Speak and the text lands in whatever window has focus. Local engines only
@@ -136,25 +92,25 @@
     let
       system = "x86_64-linux";
       inherit (nixpkgs) lib;
+      # One list. It is used twice — by `pkgs` here (the formatter and the
+      # dev shell) and by the NixOS module below — so a package cannot exist in
+      # one and be missing from the other.
+      overlays = [
+        inputs.llm-agents.overlays.shared-nixpkgs
+        darktableOverlay
+        rapidrawOverlay
+        clixadOverlay
+        omnirushOverlay
+        otzariaOverlay
+        deepaiCodeOverlay
+        quicklispOverlay
+        npmCliOverlay
+        vocalinuxOverlay
+      ];
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
-        overlays = [
-          inputs.llm-agents.overlays.shared-nixpkgs
-          darktableOverlay
-          rapidrawOverlay
-          filmulatorOverlay
-          lighttableOverlay
-          clixadOverlay
-          omnirushOverlay
-          otzariaOverlay
-          artcraftOverlay
-          deepaiCodeOverlay
-          photonOverlay
-          quicklispOverlay
-          npmCliOverlay
-          vocalinuxOverlay
-        ];
+        inherit overlays;
       };
       # darktable 5.6.1 with AI — unstable is 5.6.0 and `withAi=false` by default.
       # AI gates onnxruntime + libarchive behind USE_AI (package.nix:6 `withAi ? false`).
@@ -185,7 +141,11 @@
       clixadOverlay = final: _prev: {
         clixad = final.buildNpmPackage rec {
           pname = "clixad";
-          version = "0.0.1-beta.13";
+          # Read from the lock, not written here: the lock is what the build
+          # actually installs, so a hand-typed string could only ever disagree
+          # with it (and did).
+          version =
+            (lib.importJSON ./packages/clixad/package-lock.json).packages."node_modules/clixad".version;
           src = ./packages/clixad;
           npmDepsHash = "sha256-f3LP7hV0NkognqHa1djqz4tS9HQFqBG1ZHwt2sL3hKA=";
           dontNpmBuild = true;
@@ -219,42 +179,6 @@
       otzariaOverlay = final: _prev: {
         otzaria = final.callPackage ./packages/otzaria.nix { };
       };
-      # The ArtCraft apps — PhotoCraft, PrintCraft, DesignCraft and
-      # LightCraft. Not in nixpkgs, so each repackages the prebuilt .deb. One
-      # builder for all four because the .debs unpack to the same shape and the
-      # binaries dlopen the graphics stack rather than linking it, so nothing is
-      # patched; the libs come from the closure via LD_LIBRARY_PATH.
-      # See packages/artcraft.nix for the per-app version, hash and the
-      # LIGHTCRAFT_GPU workaround (lightcraft only — its exports are black on
-      # this machine's Intel iGPU).
-      artcraftOverlay = final: _prev: {
-        photocraft = final.callPackage ./packages/artcraft.nix {
-          app = "photocraft";
-          version = "0.1.1";
-          hash = "sha256-4ZTxz+SynoUCQkX8OgQei2Nz8D2CwwRN1sfbGom2Xys=";
-          description = "Image editor: layers, masks, type and PSD/PSB files";
-        };
-        printcraft = final.callPackage ./packages/artcraft.nix {
-          app = "printcraft";
-          version = "0.1.1";
-          hash = "sha256-aMX4OXyhP6UljFYY/n7+iHAO4QZdMIJxShFde4eCdkk=";
-          description = "PDF workbench: read, organise, edit and protect PDFs";
-        };
-        designcraft = final.callPackage ./packages/artcraft.nix {
-          app = "designcraft";
-          version = "0.1.1";
-          hash = "sha256-fQRidGqxwmO6q8NWPhUebYaO2tjf0GKgkZkca2f7CBk=";
-          description = "Page layout and publishing for print and screen";
-        };
-        lightcraft = final.callPackage ./packages/artcraft.nix {
-          app = "lightcraft";
-          version = "0.1.1";
-          hash = "sha256-UfLRhWZHI6pLfOWltXPkEN1XQxlUoy2YOwL5wGCjWpo=";
-          description = "Photo library and raw developer";
-          # Exports are pure black on the Intel iGPU; see the file's header.
-          disableGpu = true;
-        };
-      };
       # DeepAI Code — an AI coding agent desktop app from DeepAI. Not in
       # nixpkgs and not in numtide's llm-agents.nix, so it is a local
       # package. DeepAI ships a Linux AppImage but does not link it from
@@ -262,13 +186,6 @@
       # own electron-builder manifest names. See packages/deepai-code.nix.
       deepaiCodeOverlay = final: _prev: {
         deepai-code = final.callPackage ./packages/deepai-code.nix { };
-      };
-      # Photon Studio — a free offline photo editor, shipped as an AppImage.
-      # Repackaged with appimageTools rather than installed through Flatpak;
-      # `photon-studio` and not `photon` because nixpkgs' `photon` is a URL
-      # crawler. See packages/photon.nix.
-      photonOverlay = final: _prev: {
-        photon-studio = final.callPackage ./packages/photon.nix { };
       };
       # Quicklisp — Common Lisp's library installer. `sbcl` is in nixpkgs and
       # goes in toolkit.nix; Quicklisp is not in nixpkgs (checked 2026-10-07),
@@ -285,16 +202,10 @@
       # the C library), and that file plus packages/ob1.nix and
       # packages/free-pi-cli.nix for the lockfile-and-hash bump procedure.
       #
-      # Two of the five that were installed this way are NOT here, deliberately:
-      #
-      #   cline     numtide's llm-agents.nix — already an input for opencode
-      #             and freebuff — packages it at the same 3.0.74, with a
-      #             wrapper that sets the CA bundle. Rebuilding it locally would
-      #             be a second pin of the same npm tarballs.
-      #   asar      nixpkgs has it (3.2.4, where the npm one was 4.3.1).
-      #             Declarative beats current for an Electron archive tool, and
-      #             a local package would be a lockfile to maintain for
-      #             `asar pack`/`asar extract`.
+      # cline was installed the same way and is NOT here, deliberately:
+      # numtide's llm-agents.nix — already an input for opencode and freebuff —
+      # packages it, with a wrapper that sets the CA bundle. Rebuilding it
+      # locally would be a second pin of the same npm tarballs.
       npmCliOverlay = final: _prev: {
         neon-cli = final.callPackage ./packages/neon-cli.nix { };
         ob1 = final.callPackage ./packages/ob1.nix { };
@@ -312,127 +223,9 @@
       rapidrawOverlay = _final: _prev: {
         inherit (unstablePkgs) rapidraw;
       };
-      # The niche raw editors. None are in nixpkgs (checked 2026-09-24, both
-      # branches), and each upstream ships a built Linux bundle, so these
-      # overlays repackage the bundle instead of hand-rolling two GUI stacks:
-      #   filmulator  CarVac/filmulator-gui        v0.12.0 AppImage
-      #   lighttable  reville/lighttable-digital-darkroom 0.7.10  raw tarball
-      # Each pin was verified by unpacking the payload (bin/desktop names,
-      # shebangs) as well as by hash; see the per-overlay comments.
-      #
-      # `wrapType2` only produces the FHS wrapper: its output is just
-      # `bin/<pname>`. The AppImage's own `.desktop` entry and hicolor icon
-      # (filmulator keeps them in `usr/share/`, Exec and pname match) are
-      # merged in here so the apps reach the session's launchers.
-      wrapAppImage =
-        final:
-        {
-          pname,
-          version,
-          url,
-          hash,
-        }:
-        let
-          src = final.fetchurl { inherit url hash; };
-          payload = final.appimageTools.extractType2 { inherit pname version src; };
-        in
-        final.symlinkJoin {
-          name = "${pname}-${version}";
-          paths = [ (final.appimageTools.wrapType2 { inherit pname version src; }) ];
-          postBuild = ''
-            rm -rf "$out/share"
-            mkdir -p "$out/share/applications"
-            for desktop in ${payload}/usr/share/applications/*.desktop; do
-              install -m444 "$desktop" "$out/share/applications/"
-            done
-            cp -r ${payload}/usr/share/icons "$out/share/icons"
-          '';
-        };
-      filmulatorOverlay = final: _prev: {
-        filmulator = wrapAppImage final {
-          pname = "filmulator";
-          version = "0.12.0";
-          url = "https://github.com/CarVac/filmulator-gui/releases/download/v0.12.0/Filmulator-x86_64.AppImage";
-          hash = "sha256-6FMq2Cjsz5rdCficPfkm3g0tkDpNEevI0EODTzFk4pI=";
-        };
-      };
-      # LightTable's Linux bundle is self-contained (app + bundled Python +
-      # ONNX runtime, hence 458 MB) and its two launchers are `#!/bin/sh`
-      # scripts that locate their siblings relative to `$0`. NixOS has no
-      # /bin/sh, so we patch the shebangs and symlink them from $out/bin; the
-      # symlinks keep the scripts' "dirname of $0" = the bundle dir.
-      lighttableOverlay = final: _prev: {
-        lighttable = final.stdenv.mkDerivation {
-          pname = "lighttable";
-          version = "0.7.10";
-          src = final.fetchurl {
-            url = "https://github.com/reville/lighttable-digital-darkroom/releases/download/v0.7.10/LightTable-0.7.10-linux-x86_64.tar.gz";
-            hash = "sha256-9ZE9R2U67d5OZOfrBJTh7EV0n3wdzzWBs7i4JBVjdls=";
-          };
-          # Repackaging a prebuilt bundle: leave its ELFs and RPATHs alone.
-          dontStrip = true;
-          dontPatchELF = true;
-          # `lighttable-desktop-shell` needs the GTK/WebKit stack, which the
-          # bundle leaves to the system and NixOS does not provide.
-          nativeBuildInputs = [ final.makeWrapper ];
-          installPhase = ''
-            runHook preInstall
-            mkdir -p $out/lib
-            cp -r . $out/lib/lighttable
-            patchShebangs $out/lib/lighttable/bin/lighttable
-            patchShebangs $out/lib/lighttable/bin/lighttable-desktop
-            mkdir -p $out/bin
-            ln -s $out/lib/lighttable/bin/lighttable         $out/bin/lighttable
-            ln -s $out/lib/lighttable/bin/lighttable-desktop $out/bin/lighttable-desktop
-            mkdir -p $out/share/applications $out/share/icons/hicolor/1024x1024/apps
-            cp $out/lib/lighttable/share/icons/lighttable.png \
-              $out/share/icons/hicolor/1024x1024/apps/lighttable.png
-            cat > $out/share/applications/lighttable.desktop <<EOF
-            [Desktop Entry]
-            Type=Application
-            Name=LightTable
-            GenericName=RAW Photo Editor
-            Comment=Digital darkroom for RAW photography
-            Exec=lighttable-desktop %u
-            Icon=lighttable
-            Categories=Graphics;Photography;
-            MimeType=image/raw;image/x-nikon-nef;image/x-adobe-dng;
-            EOF
-            # The bundle ships most of its libs; only the system-expected
-            # GTK/WebKit stack (the exact set `lighttable-desktop-shell`
-            # failed to link against) is missing, so hand it the real thing
-            # from nixpkgs. The CLI (`lighttable`) needs none of this and is
-            # left alone. `wrapProgram` renames the script to `.wrapped`, so
-            # its "dirname of $0" root computation still resolves the bundle.
-            # GST_PLUGIN_PATH hands video-preview GStreamer's appsink element,
-            # which gst-plugins-base provides and the host lacks.
-            wrapProgram $out/lib/lighttable/bin/lighttable-desktop \
-              --prefix LD_LIBRARY_PATH : "${
-                final.lib.makeLibraryPath [
-                  final.webkitgtk_4_1
-                  final.gtk3
-                  final.cairo
-                  final.gdk-pixbuf
-                  final.libsoup_3
-                  final.glib
-                  final.dbus
-                ]
-              }" \
-              --prefix XDG_DATA_DIRS : "${final.glib.getSchemaPath final.gtk3}" \
-              --prefix GST_PLUGIN_PATH : "${
-                final.lib.makeSearchPath "lib/gstreamer-1.0" [
-                  final.gst_all_1.gst-plugins-base
-                  final.gst_all_1.gst-plugins-good
-                ]
-              }"
-            runHook postInstall
-          '';
-          meta.mainProgram = "lighttable";
-        };
-      };
-      # `rec' so `emacsFrame' below can be written in terms of `emacsPackage'
-      # rather than repeating its store path. Everything else here is a leaf
-      # or, where it needs to be, its own `rec'.
+      # `rec' so `emacsFrame' below can be written in terms of `emacsConfigDir'
+      # rather than repeating its path. Everything else here is a leaf or,
+      # where it needs to be, its own `rec'.
       myConfig = rec {
         username = "shaul";
         fullName = "Shaul";
@@ -466,9 +259,9 @@
 
         # The keyboard, stated once, and it has to be stated *here*.
         #
-        # modules/home/keys.nix renders it into niri's KDL, into
-        # hyprland.conf and into the generated guide; modules/system/
-        # desktop.nix hands the same two strings to `services.xserver.xkb`,
+        # modules/home/keys.nix renders it into hyprland.conf, into the sway
+        # config and into the generated guide; modules/system/desktop.nix hands
+        # the same two strings to `services.xserver.xkb`,
         # which is what XWayland, SDDM and the X-only apps read. Those are two
         # different module systems and neither can see the other's config, so
         # `myConfig` is the only place both of them can read from — the same
@@ -496,10 +289,11 @@
         # but not for the reason it looked like — see the Plasma note below.
         # Restoring it is one string in the list.
         #
-        # Four consumers, two spellings. xkb's own config format, niri's KDL
-        # and hyprland.conf take comma-joined strings; plasma-manager's
-        # `input.keyboard` takes lists. Both are rendered here, for the
-        # palette.nix reason: a consumer that has to reformat a value is a
+        # Four consumers, two spellings. xkb's own config format,
+        # hyprland.conf and sway's config take comma-joined strings;
+        # plasma-manager's `input.keyboard` takes lists. Both are rendered
+        # here, for the palette.nix reason: a consumer that has to reformat a
+        # value is a
         # consumer that can reformat it wrong, and this repo has already paid
         # for that once with `rgb(#7aa2f7)`.
         keyboard = rec {
@@ -513,109 +307,37 @@
           optionString = lib.concatStringsSep "," options;
         };
 
-        # From the emacs-config input. Threaded through `myConfig` rather than
-        # `extraSpecialArgs` on purpose: only one module needs them, and
-        # `myConfig` already reaches every home module.
-        emacsConfig = inputs.emacs-config.packages.${system}.default; # pre-tangled
+        # ── Emacs ──────────────────────────────────────────────────────────
+        # 30.2 from stable, and it is the PGTK build: this machine runs
+        # Wayland in every session, and `emacs-pgtk` is the Wayland build
+        # (where plain `emacs` is X11). The old 31-from-unstable rename existed
+        # only for the deleted config's package set; the new one compiles
+        # nothing, so stable is enough.
+        emacs = pkgs.emacs-pgtk;
 
-        # ── Emacs 31.1, and why it is assembled this way ───────────────────
-        # nixos-26.05 ships Emacs 30.2; nixpkgs-unstable ships 31.1. The
-        # emacs-config repo's emacs-package.nix selects `emacs30-pgtk or ...`
-        # and then builds the whole package set with `emacsPackagesFor`. Rather
-        # than fork that file (and make the GitHub pin lie about which Emacs it
-        # describes), import it with an extended *unstable* pkgs whose
-        # `emacs30-pgtk` name resolves to the real 31.1 package. The package
-        # set therefore comes from unstable too, which is what knows how to
-        # build org/pdf-tools/vterm/... against Emacs 31.
-        emacs31 = unstablePkgs.emacs31-pgtk;
-        emacsPackage = import "${inputs.emacs-config}/emacs-package.nix" {
-          pkgs = unstablePkgs.extend (
-            _final: prev: {
-              emacs30-pgtk = prev.emacs31-pgtk;
-            }
-          );
-        };
+        # The configuration is ~/emacs-configs: a writable git checkout with
+        # three profiles (hebrew, notes, ide) and package.el-owned `elpa/`.
+        # Deliberately not a flake input (CI could not evaluate it, and the
+        # checkout pins itself) and deliberately not `home.file` (bin/install
+        # writes elpa/ continuously; the store is read-only).
+        emacsConfigDir = "/home/shaul/emacs-configs";
 
-        # ── DOOMDIR: the GitHub config + the shared Hebrew core ────────────
-        # The Doom config repo is deliberately free of Hebrew code: it loads
-        # `lisp/shared/<module>.el`, and this derivation puts the same
-        # pre-tangled files there that the vanilla config loads. One source of
-        # truth, pinned by flake.lock, and nothing is copied by hand into a
-        # writable directory.
-        doomDir =
-          let
-            hebrewCore = [
-              "00-hebrew"
-              "02-hebrew-org"
-              "03-hebrew-typesetting"
-              "04-hebrew-scholarship"
-              "05-rich-footnotes"
-            ];
-          in
-          pkgs.runCommandLocal "doom-config-shaulos" { } ''
-            cp -r ${inputs.doom-config} $out
-            chmod -R u+w $out
-            mkdir -p $out/lisp/shared
-            ${lib.concatMapStringsSep "\n" (
-              module: "cp ${emacsConfig}/modules/extras/${module}.el $out/lisp/shared/"
-            ) hebrewCore}
-          '';
+        # `launch.sh <profile>` starts that profile's daemon if it is not
+        # running, then opens a frame. Everything that used to spell out
+        # `emacsclient -c` names this instead.
+        emacsFrame = "${emacsConfigDir}/bin/emacs-notes";
+        emacsFrameArgv = [ emacsFrame ];
 
-        # ── The one way this machine asks the Emacs daemon for a frame ─────
+        # A form evaluated in the notes daemon, without making a frame for it.
+        # `--no-wait` is deliberately absent: $EDITOR (above) must be able to
+        # block, and this half only needs the value back.
         #
-        # This used to be written out seven times, in five files, and three of
-        # those copies were wrong in ways that produced three different bugs
-        # from one cause. See modules/home/emacs/default.nix for the long
-        # version; the short version is that `emacsclient -c' has three
-        # independent ways to go wrong here and nothing in the system would
-        # have noticed any of them.
-        #
-        #   env -u WAYLAND_DISPLAY   Emacs 30.2's PGTK frames do not receive
-        #                             resize events under KDE Plasma 6 on
-        #                             Wayland (bug#81580), so a frame asked for
-        #                             natively stays stuck at its initial 80x35
-        #                             while the window is drawn at full size.
-        #                             Measured: KWin window 1364x732, Emacs
-        #                             reporting 580x560. The same frame
-        #                             through XWayland reported 1364x704.
-        #   --no-wait                Emacs 30.2's server never answers a `-c'
-        #                             request, so without this the client
-        #                             prints "Waiting for Emacs..." and blocks
-        #                             in recvfrom() forever.
-        #   (no `-a "")`             `-a' asks emacsclient to start a daemon
-        #                             itself when there is no socket. That
-        #                             runs `emacs --fg-daemon' as a child of
-        #                             whatever launched it — untracked by
-        #                             systemd, un-restarted, and it prints
-        #                             Emacs's whole startup, including the GTK
-        #                             Wayland banner, into that terminal. The
-        #                             daemon is a systemd unit here
-        #                             (Restart=on-failure), so the unit owns
-        #                             the server and a client that finds no
-        #                             socket should say so.
-        #
-        # `env' is named by absolute path: this string lands in a .desktop
-        # Exec line and in $EDITOR, neither of which can be relied on for a
-        # PATH.
-        emacsFrame = "env -u WAYLAND_DISPLAY ${emacsPackage}/bin/emacsclient --no-wait -c";
-
-        # The same thing minus `-c'. A caller that only needs to run a form —
-        # a cleanup, a query — does not want a frame made purely to evaluate
-        # it in. See ../home/scripts.nix, which uses both.
-        emacsEval = "env -u WAYLAND_DISPLAY ${emacsPackage}/bin/emacsclient --no-wait -e";
-
-        # The same command as an argv list, for the keybindings, which render
-        # one token per element (niri's KDL, hyprland's `exec,') and cannot
-        # take a string. Derived from the pieces rather than written out, so
-        # the two spellings cannot disagree.
-        emacsFrameArgv = [
-          "env"
-          "-u"
-          "WAYLAND_DISPLAY"
-          "${emacsPackage}/bin/emacsclient"
-          "--no-wait"
-          "-c"
-        ];
+        # `${emacs}` rather than `pkgs.emacs-pgtk`: this is the second place a
+        # package could be named, and naming it twice is how `emacsFrame' and
+        # `emacsEval' would end up in two different Emacsen the day `emacs`
+        # above changes. `emacsclient` must be the client of the daemon the
+        # launcher started, which is the one this attribute installs.
+        emacsEval = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient -s emacs-notes -e";
       };
     in
     {
@@ -626,25 +348,10 @@
           {
             # Expose the numtide `llm-agents` package scope (`pkgs.llm-agents.freebuff`
             # and the rest of the tree) to the system and to home-manager, whose
-            # `pkgs` comes from the NixOS module system — the flake's own `pkgs`
-            # import above is used for the `formatter` output only and does not
-            # flow into nixosSystem.
-            nixpkgs.overlays = [
-              inputs.llm-agents.overlays.shared-nixpkgs
-              darktableOverlay
-              rapidrawOverlay
-              filmulatorOverlay
-              lighttableOverlay
-              clixadOverlay
-              omnirushOverlay
-              otzariaOverlay
-              artcraftOverlay
-              deepaiCodeOverlay
-              photonOverlay
-              quicklispOverlay
-              npmCliOverlay
-              vocalinuxOverlay
-            ];
+            # `pkgs` comes from the NixOS module system. The flake's own `pkgs`
+            # import above is the same overlay list, so `nix fmt` and the
+            # machine cannot disagree about what a package name means.
+            nixpkgs.overlays = overlays;
           }
           ./hosts/desktop/configuration.nix
           home-manager.nixosModules.home-manager
@@ -653,10 +360,6 @@
           {
             home-manager.sharedModules = [
               plasma-manager.homeModules.plasma-manager
-              # Makes `programs.doom-emacs` available to the home
-              # configuration. The module itself is enabled in
-              # modules/home/doom/default.nix.
-              inputs.nix-doom-emacs-unstraightened.hmModule
             ];
           }
         ];
@@ -724,18 +427,36 @@
           touch $out
         '';
 
-        # The Emacs config builds as part of the system closure, but building
-        # it here too makes `nix flake check` fail fast and loudly when a bump
-        # of the emacs-config input does not tangle — rather than discovering
-        # it halfway through a switch.
-        emacs-config = inputs.emacs-config.packages.${system}.default;
+        # Prose that names a file this repo does not have.
+        #
+        # The 2026-11-18 pass found README pointing at `cli-tools.nix` months
+        # after it was renamed, and three documents describing a sops setup that
+        # had gone live. Neither is catchable by `nix eval` — nothing reads
+        # prose — and both cost a reader more than a red job would. This is the
+        # checkable half only; see tools/check-docs.sh for exactly what it can
+        # and cannot see, and why AUDIT.md and CHANGES.md are excluded.
+        docs =
+          pkgs.runCommand "docs-check"
+            {
+              nativeBuildInputs = [
+                pkgs.bash
+                pkgs.gnugrep
+                pkgs.gnused
+                pkgs.coreutils
+              ];
+            }
+            ''
+              cd ${self}
+              bash tools/check-docs.sh
+              touch $out
+            '';
 
         # The whole machine, built.
         #
         # `nix flake check` already *evaluates* every nixosConfiguration, and
         # evaluation is the gate that catches most of what this repo has
         # actually shipped — `awww` where `swww` was meant, `gtk.gtk4.theme =
-        # null`, `kb_options` where niri's KDL wants `options`. All three are
+        # null`, a keymap option spelled for the wrong grammar. All three are
         # eval errors and none of them needed a byte downloaded to find.
         #
         # Evaluating is not building, though, and the difference is every

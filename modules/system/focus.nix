@@ -14,7 +14,7 @@
 # runtime… the shape a specialisation is actually good at: turning off *state*.
 # Every line is a service or a radio, not a package."
 #
-# Baloo is state. So is plasmashell, and kwin, and SDDM, and the recoll
+# Baloo is state. So is plasmashell, and kwin, and SDDM, and the plocate
 # indexer, and ollama, and NetworkManager. On the running system, before this
 # file existed:
 #
@@ -50,7 +50,7 @@
 #
 # Written as an inheriting specialisation, `focus` would be about fifteen
 # `mkForce false` lines — sddm, plasma6, xserver, baloo, printing, flatpak,
-# kdeconnect, ollama, locate, recoll, blueman, bluetooth, fwupd, udisks2,
+# kdeconnect, ollama, locate, blueman, bluetooth, fwupd, udisks2,
 # upower, networkmanager — and it would silently stop being true the first time
 # ./desktop.nix gained a sixteenth service. That is precisely the failure that
 # put `lynx` on $PATH inside the airgap.
@@ -103,23 +103,17 @@
     # ── What a smaller system still is ──────────────────────────────────
     ./core.nix # Nix, the boot loader, the hostname, locale, the user
     ./hardware.nix # graphics, zram, /tmp, TLP — this laptop, unchanged
-    ./base-tools.nix # the repair set, and the spell-checking DICPATH
+    ./base-tools.nix # the repair set
     ./appearance.nix # the ONE statement of how this looks — and `culmus`
 
     # ── Deliberately absent, each one a running process ─────────────────
     #
     # ./desktop.nix    X, SDDM, Plasma, PipeWire, CUPS, Bluetooth, KDE
     #                  Connect, Flatpak. This is the 1.1 GB.
-    # ./niri.nix       both compositors, and ./wayland.nix with them —
-    # ./hyprland.nix   uwsm, udisks2, upower, gnome-keyring, the portals.
+    # ./hyprland.nix   both compositors, and ./wayland.nix with them —
+    # ./sway.nix       uwsm, udisks2, upower, gnome-keyring, the portals.
     # ./network.nix    NetworkManager, wpa_supplicant, ModemManager, sshd.
-    # ./services.nix   ollama and the plocate updatedb timer. It used to be
-    #                  worth naming the four-hourly recollindex run here too;
-    #                  that timer is now commented out in the file itself, for
-    #                  every closure, so there is nothing left for this one to
-    #                  decline. `recoll` the *program* went with it from
-    #                  ../../home/focus.nix. See that file and
-    #                  ../home/emacs/default.nix's EMACS_MODULE_GROUPS section.
+    # ./services.nix   ollama and the plocate updatedb timer.
     # ./data.nix       the rclone bootstrap timer.
     # ./secrets.nix    sops needs a network to be worth having.
     # ./profile.nix    the `shaulos.study` flag, which nothing here reads.
@@ -147,15 +141,11 @@
   #
   # No display manager. `services.cage` replaces `getty@tty1` with a wlroots
   # kiosk compositor that runs exactly one program — no bar, no keybinds, no
-  # config file, about 3 MB. Emacs is the window manager: the config already
-  # ships `22-dirvish` and `23-vterm-pro`, so splits are windows, vterm is the
-  # terminal, and yazi runs inside it.
+  # config file, about 3 MB. Emacs is the window manager: splits are windows,
+  # vterm is the terminal, and yazi runs inside it.
   #
-  # Not sway, niri or Hyprland, and the reason is this repo's own history
-  # rather than a benchmark: ./wayland.nix exists because niri.nix and
-  # hyprland.nix carried 22 byte-identical lines that drifted apart while
-  # nobody could see them side by side. A third tiling config, for a session
-  # with one window in it, buys a keymap to keep in sync and nothing else.
+  # Not sway or Hyprland: a tiling config for a session with one window in it
+  # buys a keymap to keep in sync and nothing else.
   #
   # The one thing worth knowing before choosing this: cage shows a single
   # toplevel. A second window stacks on top with no way to switch to it. That
@@ -164,29 +154,13 @@
     enable = true;
     user = myConfig.username;
 
-    # `emacsFrame' (../flake.nix) plus `-a ""', and this is the ONE place in
-    # the repo where the `-a' stays. Everywhere else it is gone, because
-    # everywhere else there is a systemd unit that owns the server —
-    # ../home/emacs/default.nix's `services.emacs', WantedBy
-    # graphical-session.target with Restart=on-failure — and `-a' would fork a
-    # second, untracked Emacs that prints its whole startup, GTK Wayland banner
-    # and all, into whatever terminal launched it.
-    #
-    # This file has `inheritParentConfig = false`, so there is no such unit
-    # here at all: `specialisation.focus` is a different import list, and
-    # emacs.service is not in it. The daemon has to be started by something,
-    # and `cage`'s program is the only thing on this tty that runs before a
-    # session exists. The banner it prints is that cost, stated rather than
-    # worked around.
-    #
-    # `--no-wait` because this is cage's `program`: cage exits when the
-    # program exits. Emacs 30.2's server never sends emacsclient the
-    # completion reply for a `-c` request on this machine (the frame is made,
-    # then the client blocks in recvfrom() forever — see the measurement in
-    # ../home/emacs/default.nix where $EDITOR is set), so without the flag the
-    # session comes up, works, and can never be handed back.
+    # The notes profile's launcher, from `~/emacs-configs/bin`. This closure
+    # has `inheritParentConfig = false` and no emacs.service, so something has
+    # to start the daemon: launch.sh does, then opens the frame. If the client
+    # returns immediately, cage exits and the `Restart=always` below brings it
+    # back — the same shape as the old session program.
     program = pkgs.writeShellScript "focus-session" ''
-      exec env ${myConfig.emacsPackage}/bin/emacsclient --no-wait -c -a ""
+      exec ${myConfig.emacsConfigDir}/bin/emacs-notes
     '';
   };
 

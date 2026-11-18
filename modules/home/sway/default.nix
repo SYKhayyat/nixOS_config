@@ -2,7 +2,7 @@
 #
 # The sway session: its config file, and nothing else. The bar, launcher,
 # notifier, wallpaper daemon, locker, terminal and file manager it spawns all
-# come from ../wayland-common.nix, which niri and Hyprland import too — that
+# come from ../wayland-common.nix, which the Hyprland session imports too — that
 # is the whole point of the module, and the reason there is not a second
 # statement of mako or fuzzel anywhere here.
 #
@@ -12,9 +12,9 @@
 # provide.
 #
 # Border colours come from ../palette.nix in CSS's `#rrggbb` spelling, which
-# sway's `client.*` classes take as-is. The same two colours appear in niri's
-# KDL, in hyprlang's `rgb(…)` and now here; ./palette.nix hands out the right
-# spelling for each grammar, which is why there is no fourth transcription.
+# sway's `client.*` classes take as-is. The same two colours appear in
+# hyprlang's `rgb(…)` and here; ../palette.nix hands out the right spelling for
+# each grammar, which is why there is no second transcription.
 {
   config,
   lib,
@@ -164,7 +164,7 @@ let
       mods = [ "Mod" ];
       key = "C";
       cmd = "floating enable; move position center";
-      desc = "Float the window and centre it (same job as niri's centre-column, Hyprland's centerwindow)";
+      desc = "Float the window and centre it (the same job as Hyprland's centerwindow)";
       group = "Arrange";
     }
     {
@@ -394,16 +394,17 @@ let
   ]
   ++ ws;
 
-  # Sway's own session bootstrap, copied from ../hyprland/default.nix and
-  # not shared with it: niri under uwsm does this itself, and sway — like
-  # Hyprland — has to hand the session over to uwsm and export the
-  # environment to D-Bus by hand. Under the plain (non-uwsm) sway session
-  # SDDM also offers, the `uwsm finalize` line is inert: uwsm is in the
-  # closure for the other two sessions and answers or no-ops either way.
+  # Sway's own session bootstrap, copied from ../hyprland/default.nix and not
+  # shared with it: both compositors hand the session over to uwsm and export
+  # the environment to D-Bus by hand. Under the plain (non-uwsm) sway session
+  # SDDM also offers, the `uwsm finalize` line is inert.
   ownStartup = [
     {
       name = "uwsm";
-      argv = [ "uwsm" "finalize" ];
+      argv = [
+        "uwsm"
+        "finalize"
+      ];
       desc = "Hand the session over to systemd";
     }
     {
@@ -453,8 +454,8 @@ in
 
     # ── Input ──
     # The layout and options come off `myConfig.keyboard` through
-    # ../keys.nix — the same two strings the X server, KWin, niri and
-    # Hyprland read. Sway's input block spells them `xkb_layout` /
+    # ../keys.nix — the same two strings the X server, KWin and Hyprland read.
+    # Sway's input block spells them `xkb_layout` /
     # `xkb_options`, comma-joined, which is the shape ../keys.nix already
     # renders.
     input {
@@ -471,15 +472,15 @@ in
     }
 
     # The cursor, from ../palette.nix — i.e. from `stylix.cursor`, the same
-    # source Plasma and niri read. Sway takes it as a seat property rather
+    # source Plasma and Hyprland read. Sway takes it as a seat property rather
     # than the XCURSOR_* environment pair Hyprland sets, which is sway's own
     # spelling of the same seat.
     seat seat0 xcursor_theme ${cursor.name} ${toString cursor.size}
 
-    # One panel, auto-configured at scale 1. The same answer niri's
-    # `output ".*" { scale 1.0 }` and Hyprland's `preferred, auto` give;
-    # hardcoding 1366x768 here would make plugging in an external display
-    # behave differently in the third session, for no reason anyone chose.
+    # One panel, auto-configured at scale 1. The same answer Hyprland's
+    # `preferred, auto` gives; hardcoding 1366x768 here would make plugging in
+    # an external display behave differently between the sessions, for no
+    # reason anyone chose.
     output "*" scale 1
 
     # The layout defaults, which every key above is free to override:

@@ -71,7 +71,11 @@
   zramSwap = {
     enable = true;
     algorithm = "zstd";
-    memoryPercent = 50;
+    # 70, raised from 50: at 50 the device was 99.9% full and the overflow was
+    # already landing on the NVMe swap partition, which is the one outcome this
+    # whole block exists to avoid. Measured 2026-11-18 (193 MiB free, 8.7 GB of
+    # disk swap in use); ~2 GB more compressed swap is the cheap half of it.
+    memoryPercent = 70;
   };
 
   # ── The two knobs that decide whether the block above does anything ──────
@@ -118,7 +122,11 @@
   # correction of an assumption zram invalidates, it is a guess at a workload,
   # and this repo has enough of those to unwind already.)
   boot.kernel.sysctl = {
-    "vm.swappiness" = 180;
+    # 120, not 180, while zram is saturated. 180 is right when zram has room —
+    # compressed swap has no seek — but with zram full it actively prefers the
+    # disk. The header's own instruction was to lower this toward 120 when
+    # /proc/swaps showed the disk partition filling up. It did.
+    "vm.swappiness" = 120;
     "vm.page-cluster" = 0;
   };
 
@@ -126,7 +134,8 @@
   boot.tmp.cleanOnBoot = true;
 
   # ── Power management (Intel laptop) ──────────────────────────────────────
-  powerManagement.enable = true;
+  # `powerManagement.enable` used to be here. Nixpkgs defaults it to true, so
+  # the line stated a default (and did not enable upower).
   services.thermald.enable = true; # Intel thermal daemon
 
   # TLP for battery life. It conflicts with power-profiles-daemon, so make sure

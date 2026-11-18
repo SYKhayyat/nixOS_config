@@ -17,17 +17,24 @@
 #
 # So what is left below is the set you repair a bad generation with — you are in
 # a TTY, the last switch went wrong, your home profile may well be the reason —
-# plus one argued exception at the bottom.
-{ lib, pkgs, ... }:
+# and nothing else.
+#
+# The one exception this file used to carry is gone. `enchant`, `hunspell`,
+# `aspell` and the `DICPATH` session variable that pointed at them were here
+# because the old Nix-side Emacs config spell-checked with jinx; the config they
+# served was deleted on 2026-11-18, and the audit listed them with it. Keeping
+# them would have been the same mistake one layer down — a package kept for a
+# caller that no longer exists, in the file whose whole argument is that nothing
+# gets in without one.
+#
+# Where they would go back: `~/emacs-configs` or LibreOffice, whichever needs
+# them, in the module that needs them. `DICPATH` has to be a *session* variable
+# rather than a home-manager one if a GUI program is the consumer, because a
+# program launched from a compositor never sources a login shell — that part of
+# the old comment was correct, and it is the reason this is a decision to revisit
+# rather than a line to add.
+{ pkgs, ... }:
 
-let
-  # English only.  The Hebrew dictionaries (hunspell he_IL, aspell he) were
-  # dropped along with Hebrew spell checking in the Emacs config: unvowelled
-  # Hebrew with optional ktiv male/chaser spellings is not something these
-  # dictionaries model, so every other word came back flagged and the feature
-  # was noise rather than help.
-  hunspellWithDicts = pkgs.hunspell.withDicts (d: [ d.en_US ]);
-in
 {
   environment.systemPackages = with pkgs; [
     # ── Repair ────────────────────────────────────────────────────────────
@@ -62,26 +69,5 @@ in
     # was in no closure on this machine. Every documented command in this repo
     # was unrunnable.
     just
-
-    # ── The one exception ─────────────────────────────────────────────────
-    # The spell-checking stack stays machine-wide because `DICPATH` below has
-    # to. environment.sessionVariables is set by PAM, so every process in the
-    # session sees it — including a GUI Emacs or a LibreOffice launched from a
-    # compositor, neither of which runs a login shell and so neither of which
-    # sources home-manager's session variables. A dictionary path that is only
-    # right inside a terminal is wrong. The packages stay with the variable
-    # that points at them; moving them alone would give it a second definition.
-    enchant # what Emacs's jinx speaks
-    hunspellWithDicts
-    (aspellWithDicts (d: [
-      d.en
-      d.en-computers
-    ]))
   ];
-
-  # `lib.mkForce` here is defensive and predates this file's history — nothing
-  # else in the tree sets DICPATH. Left exactly as it was; that is not this pass.
-  environment.sessionVariables = {
-    DICPATH = lib.mkForce "${hunspellWithDicts}/share/hunspell";
-  };
 }

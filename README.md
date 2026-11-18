@@ -4,7 +4,7 @@
 
 A single-host NixOS flake for the machine `desktop` (`nixosConfigurations.desktop`,
 `x86_64-linux`). One system closure offers three graphical sessions — **KDE
-Plasma**, **Niri** and **Hyprland** — which you pick at the SDDM greeter, plus two
+Plasma**, **Hyprland** and **Sway** — which you pick at the SDDM greeter, plus two
 boot-time **specialisations**: `study` for hard-offline work, and `focus` for
 Emacs on a machine running almost nothing else. Theming is driven by
 [stylix](https://github.com/nix-community/stylix), Plasma by
@@ -22,9 +22,12 @@ symptom-first, starting with "I lost my desktop".
 - Nix with **flakes** and `nix-command` enabled
   (`experimental-features = nix-command flakes`).
 - Pinned to **NixOS 26.05 "Yarara"** (`nixos-26.05`, `home-manager`
-  `release-26.05`, `stylix` `release-26.05`). One nixpkgs — a second
-  `nixpkgs-unstable` input used to be threaded in as the `unstable` arg for
-  per-package bleeding edge, and had zero call sites in the whole repo.
+  `release-26.05`, `stylix` `release-26.05`). Exactly one nixpkgs is *imported*:
+  `pkgs` is 26.05 for the formatter, the dev shell, the system and every home
+  module. `nixpkgs-unstable` also exists as an input, and only as the source of
+  two overlay packages 26.05 is behind on — `darktable` 5.6.1 and `rapidraw`
+  1.6.4. There is no `unstable` argument anywhere; naming the input is the only
+  way to reach it.
 - The Nix implementation is **Lix** (`nix.package = pkgs.lixPackageSets.stable.lix`).
 - A NixOS host. The `nrs`/`nrt`/`nfu` aliases assume the flake is checked out at
   `/home/shaul/config` (see `myConfig.flakePath` in `flake.nix`); change it
@@ -44,22 +47,27 @@ flake.nix                     # inputs, myConfig, outputs (host + fmt/check/devS
 statix.toml                   # what the lint gate checks — and the one it doesn't
 .github/workflows/check.yml   # the four gates — see "Continuous integration"
 tools/check-closure.sh        # asks the BUILT system whether the docs are true
+tools/check-docs.sh           # asks the SOURCE whether the docs name files that exist
 hosts/desktop/                # host entrypoint + hardware-configuration.nix
 home/
   common.nix                  # shell (zsh), git, aliases
   shaul.nix                   # THE home profile — one file, every session
   focus.nix                   # the `focus` profile — Emacs and the search stack
 modules/
-  system/                     # NixOS modules (core, hardware, dev, services, secrets, ...)
+  system/                     # NixOS modules
     core.nix                  # the machine: Nix, boot, its name, locale, the user
-    network.nix               # NetworkManager, the firewall, sshd — the file `focus` skips
+    hardware.nix              # firmware, graphics, zram, /tmp, TLP, /dev/uinput
+    network.nix               # NetworkManager, DNS, the firewall, sshd — the file `focus` skips
     appearance.nix            # the ONE statement of how this machine looks
     base-tools.nix            # what the MACHINE installs — the repair set, and nothing else
+    development.nix           # nix-ld (steam-run's library set) and direnv
+    services.nix              # ollama, and the plocate timer
+    secrets.nix               # sops-nix rendering (inert until secrets/secrets.yaml exists)
     profile.nix               # the `shaulos.study` flag the home profile reads
     data.nix                  # the one-time ~/Documents bootstrap
     desktop.nix               # X, SDDM, Plasma 6, audio, printing, Bluetooth, KDE Connect, Flatpak
     wayland.nix               # everything a Wayland session needs that isn't a compositor
-    niri.nix  hyprland.nix    # the compositors, four lines each
+    hyprland.nix  sway.nix    # the two tiling compositors
     study-offline.nix         # `study`  — inherits, and forces state off
     focus.nix                 # `focus`  — does not inherit; a smaller import list
   home/                       # home-manager modules
@@ -68,30 +76,37 @@ modules/
     lock.nix                  # hyprlock + hypridle, both compositors
     palette.nix               # the stylix scheme, rendered per config-file syntax
     keys.nix                  # the shared keymap + autostart, rendered per compositor
-    emacs/default.nix         # packages, daemon, and which module groups load
-    niri/  hyprland/          # just the compositor config files
+    emacs.nix                 # the package, the profile launchers, the shell-outs
+    hyprland/  sway/          # just the compositor config files
+    darktable.nix             # darktable LUTs/styles/lua
+    raw-editor-sources.nix    # the pinned D7200 DCP, and its ICC for darktable
+    art.nix                   # ART profiles/LUTs, from the same shared sources
+    lisp.nix                  # ~/.sbclrc, so `ql:quickload` works at the prompt
     waybar.nix  yazi.nix  scripts.nix  p10k.nix
     foot.nix  konsole.nix   # the two terminals: compositor sessions, and Plasma
 secrets/                      # sops-nix encrypted secrets (see below)
+assets/wallpaper.jpg          # the one image stylix and the compositors share
 ```
 
-The Emacs *configuration* is not in this repo. It lives at
-[SYKhayyat/emacs-config-deprecated](https://github.com/SYKhayyat/emacs-config-deprecated)
-(renamed from `emacs-config` on 2026-10-14) and comes in
-as a pinned flake input — it is ~3× the size of this whole Nix config, runs on
-Windows and macOS as well, and has its own CI. `modules/home/emacs/default.nix`
-keeps only what this *machine* provides, and that is four things, not two:
+The Emacs *configuration* is not in this repo. It is `~/emacs-configs`: a
+writable git checkout with three profiles (`hebrew`, `notes`, `ide`) and
+packages owned by `package.el` in `elpa/`. It is deliberately not a flake input
+(CI has no such directory to evaluate, and the checkout pins itself) and
+deliberately not managed with `home.file` (`bin/install` writes `elpa/`
+continuously, and the store is read-only).
 
-* the package set Emacs shells out to, and `services.emacs`;
-* the scaffolding of directories the config expects to exist;
-* a generated `99-local-fonts.el`, which is how this display's `uiSize` reaches
-  a config that runs on three operating systems and cannot know it;
-* **which module groups load** — see [Emacs: only `essentials`
-  loads](#emacs-only-essentials-loads) below, because that one is a decision
-  with consequences all over this repo rather than a line of wiring.
+`modules/home/emacs.nix` keeps only what this *machine* provides: one
+Emacs (`pkgs.emacs-pgtk`, the Wayland build), `~/emacs-configs/bin` on `PATH`,
+`$EDITOR` pointing at the notes launcher, and three desktop entries. The
+launcher starts each profile's daemon; nothing here declares those as systemd
+units, on purpose — three daemons at login is 150–400 MB for profiles you might
+not open.
 
-That list used to read "packages + daemon only", which was true when it was
-written and had quietly stopped being true twice over.
+**Reproducibility trade, stated:** `elpa/` is not pinned by Nix, so
+`nixos-rebuild --rollback` no longer rolls Emacs packages back and a MELPA
+change can arrive with no Nix change. That is the cost of a config that also
+runs on macOS and Windows. Update it with `git -C ~/emacs-configs pull`, not a
+rebuild.
 
 ## Sessions
 
@@ -101,14 +116,14 @@ remembers the last one you used:
 | Session          | Config                                          |
 |------------------|-------------------------------------------------|
 | **Plasma**       | `plasma-manager` in `home/shaul.nix` (default)  |
-| **Niri (uwsm)**  | `modules/home/niri/default.nix` (KDL)           |
 | **Hyprland (uwsm)** | `modules/home/hyprland/default.nix`          |
+| **Sway (uwsm)**  | `modules/home/sway/default.nix`                 |
 
 Prefer the `(uwsm)` entries for the tiling compositors: they get a proper
 systemd user scope and working portals. Nothing needs a rebuild or a reboot to
 switch — log out, pick another.
 
-**`just switch` used to end the niri and Hyprland sessions** (never Plasma), which
+**`just switch` used to end the Hyprland and sway sessions** (never Plasma), which
 looked like a spontaneous reboot because SDDM is `Restart=always` and came
 straight back. The systemd user scope those entries get is exactly the reason:
 under uwsm the compositor *is* a NixOS-managed user unit, and
@@ -122,7 +137,7 @@ session. `modules/system/wayland.nix` now pins those units with
 
 | Name    | What it changes                                             |
 |---------|-------------------------------------------------------------|
-| `study` | NetworkManager, wireless, Bluetooth, sshd and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
+| `study` | NetworkManager, wireless, Bluetooth and the data bootstrap off; firewall deny-all; no browsers, no downloaders, no creative or media suite |
 | `focus` | No Plasma, no SDDM, no X, no compositor, no PipeWire, no printing, no Flatpak, no Bluetooth, no network stack at all, no Baloo, no ollama, no plocate timer. `cage` on tty1 running one Emacs frame |
 
 Pick either in the systemd-boot menu. They are specialisations and the sessions
@@ -136,7 +151,7 @@ They reach for opposite halves of the specialisation module, and that is the
 interesting part:
 
 **`study` inherits.** It is this system with the radios off — it wants every
-package, every font, all three compositors. It sets `shaulos.study = true`
+package, every font, both tiling compositors. It sets `shaulos.study = true`
 (declared in `modules/system/profile.nix`), which `modules/home/toolkit.nix`
 reads via `osConfig`. That flag exists so there is exactly **one** place that
 says which home profile to import: `home-manager.users.<name>` is a submodule,
@@ -172,8 +187,9 @@ the whole mechanism. So anything in `environment.systemPackages` is present in `
 there is no expression that removes it, and every subtraction `study` wants has
 to be spelled as a `lib.mkForce` you remembered to write.
 
-That is not a style point. `programs.firefox.enable = true` used to live in
-`modules/system/cli-tools.nix`, and `study-offline.nix` carried a `mkForce
+That is not a style point. `programs.firefox.enable = true` used to live in the
+module now called `modules/system/base-tools.nix` (then `cli-tools.nix`), and
+`study-offline.nix` carried a `mkForce
 false` to undo it. `lynx` sat two words away on line 31 of the same file and got
 no such line — so *"offline airgap, no browsers"* shipped with a browser on
 `$PATH`. Fixing the package rather than the drawer leaves the drawer.
@@ -183,13 +199,13 @@ So there is a rule now, and the two files that state it are
 
 | Where | What belongs there |
 |---|---|
-| `environment.systemPackages` (`base-tools.nix`) | Only what must work when home-manager is **broken, absent, or not yours**: `git`, `vim`, `curl`, `wget`, `htop`, `tree`, `unzip`/`zip`, plus `nh` and `home-manager` — the tools you repair a bad generation with, in a TTY, possibly *because* the home profile is what failed. Plus the spell-check stack, which is argued in the file: `DICPATH` has to be PAM-set to reach GUI apps. |
+| `environment.systemPackages` (`base-tools.nix`) | Only what must work when home-manager is **broken, absent, or not yours**: `git`, `vim`, `curl`, `wget`, `htop`, `tree`, `unzip`/`zip`, plus `nh` and `home-manager` — the tools you repair a bad generation with, in a TTY, possibly *because* the home profile is what failed. Nothing else. |
 | `home.packages` (`toolkit.nix`) | Everything a person types. This is where `study` can reach it. |
-| `home.packages` (the owning module) | A package that exists because one module needs it: the session stack in `wayland-common.nix`, Emacs's shell-outs in `emacs/default.nix`, the shell in `home/common.nix`. The test is *"would you still want it if you uninstalled Emacs?"* — if yes, it is a tool and it belongs in `toolkit.nix`. |
+| `home.packages` (the owning module) | A package that exists because one module needs it: the session stack in `wayland-common.nix`, Emacs's shell-outs in `emacs.nix`, the shell in `home/common.nix`. The test is *"would you still want it if you uninstalled Emacs?"* — if yes, it is a tool and it belongs in `toolkit.nix`. |
 | nowhere | A program a script calls by store path (`${pkgs.grim}/bin/grim`) is in the closure already. List it only if you also want to type its name. `polkit_gnome` is the clean case: `keys.nix` starts the agent by path, and nobody ever runs it by name. |
 
 **And a package is declared exactly once.** Thirteen were not — `fd`, `ripgrep`,
-`ripgrep-all`, `plocate`, `recoll`, `pandoc`, `fzf`, `jq`, `libsecret`,
+`ripgrep-all`, `plocate`, `pandoc`, `fzf`, `jq`, `libsecret`,
 `wl-clipboard`, `networkmanagerapplet`, `nil`, `rust-analyzer` — each in one
 system list and one home list. `fzf`, `bat` and `git` were listed as packages
 *beside* the `programs.*` modules that install them.
@@ -233,10 +249,10 @@ modules/system/appearance.nix    stylix.base16Scheme + stylix.fonts + stylix.cur
         │                             is off, and konsole has none)
         │
         └── modules/home/palette.nix ── config.shaulos.palette
-                                            ├── .css    "#rrggbb"       → waybar, niri KDL
+                                            ├── .css    "#rrggbb"       → waybar
                                             ├── .hypr   "rgb(rrggbb)"   → hyprland.conf, hyprlock.conf
                                             ├── .font   mono/sans/sizes → waybar, hyprlock, Plasma
-                                            └── .cursor name/size       → Plasma, niri KDL, hyprland.conf
+                                            └── .cursor name/size       → Plasma, hyprland.conf
 ```
 
 **To re-theme, change `stylix.base16Scheme` and rebuild.** Nothing else needs
@@ -262,10 +278,10 @@ that Plasma renders.
 
 **The cursor comes from `stylix.cursor`.** Stylix turns it into
 `home.pointerCursor` (GTK, X11, `~/.local/share/icons`), and `palette.nix` hands
-the same name and size to plasma-manager, to niri's KDL and to `hyprland.conf`.
-Before, those three disagreed — 24, 12 and unset — and the one that named a
-theme named `Breeze_Snow`, which KDE renamed to `Breeze_Light` for Plasma 6, so
-Plasma had been silently falling back to the default pointer.
+the same name and size to plasma-manager and to `hyprland.conf`. Before, those
+disagreed — 24 and unset — and the one that named a theme named `Breeze_Snow`,
+which KDE renamed to `Breeze_Light` for Plasma 6, so Plasma had been silently
+falling back to the default pointer.
 
 **To make all text smaller or bigger, change `uiSize` and rebuild.** It is a
 size in points, it is at the top of `appearance.nix`, and every surface derives
@@ -281,22 +297,11 @@ a six-day-old `kdeglobals` in `plasmashell`, and an Emacs daemon that resolved
 fontconfig's default the week before.
 
 That was three separate hardcodes until it wasn't, and none of them were where
-you would look for a font size. Emacs got fontconfig's built-in 12.0 — a third
-larger than the desktop around it, in the app this machine is mostly for — and
-the reason is worth reading twice, because grep gets it wrong. `01-ui.el` in the
-emacs-config repo *does* state a size, `:height 90`, inside
-`(when (display-graphic-p) …)` evaluated at load time. Under `emacs --fg-daemon`
-there is no frame yet, so that is nil, the block never runs, and every
-`emacsclient -c` frame falls through to fontconfig. The statement is right there
-in the file and has never once executed. Same file also searches for
-`"JetBrains Mono"`, with a space, which is not what the Nerd Font patch is
-called — so on the frames that *did* run it, Emacs was rendering in DejaVu Sans
-Mono while everything else used JetBrainsMono. `modules/home/emacs/default.nix`
-now generates a `99-local-fonts.el` into the module tree that sets both from
-`uiSize` and hooks `after-make-frame-functions`, which is the half
-`display-graphic-p` at load time cannot do. Firefox pinned
-`devPixelsPerPx = "1.0"` while everything else ran at
-three quarters. And waybar's `font-size: 12px` carried a comment calling it a
+you would look for a font size. Emacs used to get fontconfig's built-in 12.0, and
+the old Nix-side fix (a generated `99-local-fonts.el`) went away with the old
+config: `~/emacs-configs` owns its fonts now, on all three of its platforms.
+Firefox pinned `devPixelsPerPx = "1.0"` while everything else ran at three
+quarters. And waybar's `font-size: 12px` carried a comment calling it a
 deliberate exception for Nerd Font glyphs — but 9pt *is* 12px at 96 DPI, so it
 was the derived value in the other unit, pinned by hand and labelled a decision.
 Two real exceptions are left, and both are deliberate. Plasma's toolbar font sits
@@ -357,12 +362,22 @@ modules/home/keys.nix        config.shaulos.keys
         ├── .startup ── the shared autostart list
         ├── .keyboard ─ myConfig.keyboard + the repeat rates
         │
-        ├── .niri.binds  / .niri.startup  → niri/config.kdl
         ├── .hypr.binds  / .hypr.startup  → hypr/hyprland.conf
+        ├── .sway.binds  / .sway.startup  → sway/config
         └── the guide                     → ~/.config/shaulos/keys.org
 ```
 
-**Press `Super+Shift+/` in either session to read the generated guide.**
+**Press `Super+Shift+/` in either session to read the generated guide**, or
+**`Super+F1` for a searchable list of the same keys** — `fuzzel` in dmenu mode,
+type to filter, Esc to close. `Super+F1` also works under Plasma, through a KDE
+global shortcut, because Plasma reads neither compositor's config.
+
+Both renderings are generated from this file and from each compositor's
+registered binds, so neither can describe a key the config does not have. The
+list carries two sections that are *not* generated and say so: the machine's own
+keys (`Ctrl+Alt+F1`, `Ctrl+Alt+Delete`), and each application's defaults (Emacs,
+foot, fuzzel, yazi) — those belong to the app, and writing them down once behind
+that header is the most a generated list can honestly claim about them.
 
 **Hebrew is on both Shift keys** — hold either, tap the other
 (`grp:shifts_toggle`). It used to be `grp:lctrl_lalt_toggle`, sitting on the
@@ -395,17 +410,15 @@ downstream formats a colour.
 The split is the same one `wayland-common.nix` draws. A bind that *spawns a
 program both sessions provide* is shared, because its target comes from a module
 both compositors import and the key must not depend on which one is running. A
-bind that names a *compositor verb* — `consume-window-into-column`,
-`layoutmsg, swapnext` — lives in that compositor's own module, because niri
-scrolls columns and Hyprland tiles and no abstraction should pretend otherwise.
+bind that names a *compositor verb* — `bindsym` in sway, `layoutmsg, swapnext`
+in Hyprland — lives in that compositor's own module, because the two layouts
+behave differently and no abstraction should pretend otherwise.
 
-This replaced five hand-written copies of one keymap — two configs and a
-`guide.org` cheat-sheet beside each — of which four were wrong. `power-search`
-was `Super+Space` under niri and `Super+P` under Hyprland; `Super+E`,
-`Super+Shift+E` and `Super+1..5` existed only under Hyprland; the Hyprland
-cheat-sheet documented resize on `Super+Ctrl` (it is `Super+Alt`) and listed a
-three-bind dwindle section the config has never had. The niri one still told you
-to rebuild a specialisation to switch sessions.
+This replaced hand-written copies of one keymap, each with a `guide.org`
+cheat-sheet beside it, of which most were wrong. `Super+E`, `Super+Shift+E` and
+`Super+1..5` existed in only one config; a cheat-sheet documented resize on
+`Super+Ctrl` (it is `Super+Alt`) and listed a three-bind dwindle section the
+config has never had.
 
 The guide is not documentation *about* the config, it is *output of* it. Editing
 `~/.config/shaulos/keys.org` accomplishes nothing — the next `just switch`
@@ -423,17 +436,15 @@ just build           # nixos-rebuild build --flake .#desktop  (build only, no ac
                      #   all three pass --no-update-lock-file; see below
 just specialisations # list specialisations available for next boot (`study`, `focus`)
 just update          # nix flake update
-just update-emacs    # bump the emacs-config input only
 just update-opencode # bump opencode and freebuff from the llm-agents input
 just update-omnirush # bump the OmniRush CLI and app (also done by every rebuild)
 just omnirush-check  # what that bump would do, writing nothing
 just lock            # lock a newly added input, and nothing else
-just emacs-dev PATH  # rebuild against a local emacs-config checkout
 just bootstrap-data  # fetch ~/Documents from Google Drive + GitHub (idempotent)
 just fmt             # nix fmt (nixfmt)
-just lint            # statix + deadnix, and nothing else (CI's `lint` job, ~2m)
+just lint            # statix, deadnix, and the docs check (CI's `lint` job, ~2m)
 just eval            # all three of CI's eval steps, build nothing (the fast gate)
-just check           # everything CI checks: statix, deadnix, Emacs, the closure
+just check           # everything CI checks: statix, deadnix, the closure
 just closure         # build the closure and assert what it claims about itself
 just gc              # nix-collect-garbage --delete-older-than 14d
 just bundle          # dump all *.nix into combined.txt (e.g. to paste)
@@ -476,7 +487,7 @@ commands you can run by hand:
 | Gate | ~ | What it proves | By hand |
 |---|---|---|---|
 | `lock` | 1m | `flake.lock` accounts for every input in `flake.nix` | `nix flake metadata --no-update-lock-file` |
-| `lint` | 2m | statix and deadnix are clean | `just lint` |
+| `lint` | 2m | statix and deadnix are clean, and every path a live document names exists | `just lint` |
 | `eval` | 5m | the whole module system evaluates, and `study` and `focus` are the only specialisations | `just eval` |
 | `build` | 40m | the closure builds, and is the machine this README describes | `just closure` |
 
@@ -504,9 +515,9 @@ cause buried in each.
 
 **Why this exists.** These checks — most of them — were already in `flake.nix`,
 and nothing ran them. That is the same shape as the finding that split the Emacs
-config out of this repo: `tools/verify.sh` byte-compiled every module and was
-wired to nothing, so 1,569 lines silently stopped loading and no build ever went
-red. The Emacs half got a CI job out of that. This half did not, and it is the
+config out of this repo: a `verify.sh` in the Emacs repo byte-compiled every
+module and was wired to nothing, so 1,569 lines silently stopped loading and no
+build ever went red. The Emacs half got a CI job out of that. This half did not, and it is the
 half authored on a Windows box with no Nix on it. The bill was sitting in the
 tree: `flake.nix` declared six inputs, `flake.lock` pinned four, and the repo as
 committed did not evaluate at all.
@@ -540,28 +551,20 @@ whether the claims in this README are true of it:
   document toolchain, the compilers and a local media player — one binary per
   clause of the sentence three sections up;
 - **`study`'s daemons are actually off** — NetworkManager, wpa_supplicant,
-  ModemManager, sshd, Bluetooth and both data-bootstrap units absent, anchored
+  ModemManager, Bluetooth and both data-bootstrap units absent, anchored
   against a present-test for the desktop it still inherits. `study`'s whole
   claim is a *process* claim and for a long time this script checked only its
   packages;
 - **no `dhcpcd.service`, in `study` or `focus`.** Both closures can generate one
   the same way — `networking.useDHCP` defaults to *true* and is implemented by
   the base networking module, not by NetworkManager — and for a long time only
-  `focus` was asserted. The airgap took a lease on every wired link;
-- **the seforim stack and `EMACS_MODULE_GROUPS` agree** — with `essentials`
-  alone, nothing whose only caller lives in `extras/` may be in any profile.
+  `focus` was asserted. The airgap took a lease on every wired link.
 
 Every "is X absent" test is paired with an "is Y present" test in the same
 directory, and a missing directory is a hard failure rather than a pass. An
 absence test that cannot tell *absent* from *I was looking in the wrong place*
 goes green forever and tells you nothing, which is the failure mode this entire
 pass exists to kill.
-
-The last two bullets are the presence-test mirror of that, and they were added
-because the script had been going green on both. It asserted `recoll` was in
-`focus`'s profile — it was — while the Emacs in that closure could not run a
-single `seforim-` command. A binary being installed says nothing about anything
-being able to reach it.
 
 **A disabled unit is not an absent one, and it is two hops from `/dev/null`.**
 `systemd.services.<n>.enable = false` does not omit the unit. nixpkgs'
@@ -595,51 +598,55 @@ asking the artifact. If you take one thing from this section: a test written by
 whoever wrote the code agrees with the code, and the `build` gate is what
 disagrees. CHANGES.md entry (s) has the full account.
 
+### `tools/check-docs.sh`
+
+The same question at the other end: `check-closure.sh` asks the artifact whether
+the docs are true; this asks the source whether the docs name files that exist.
+It reads only live documents — this file, `docs/*` minus the dated audit, and
+`secrets/README.md` — and only paths that start at a top-level directory, plus
+relative links, because a bare `core.nix` in a sentence is a basename rather
+than a claim about a location.
+
+It exists because this pass found README pointing at the old name of
+`modules/system/base-tools.nix` months after the rename, and three documents
+describing a sops setup that had gone live. Both were sentences, not
+code. It cannot tell whether a sentence is *true* — only that the file it names
+is there — and that is the honest size of the claim.
+
 ## Secrets (sops-nix)
 
 Encrypted secrets live in `secrets/secrets.yaml` and are safe to commit **once
 encrypted** — sops keeps values encrypted with keys in plaintext. The module
 `modules/system/secrets.nix` stays inert until `secrets.yaml` exists.
 
-### It is inert right now, on purpose, and that needs defending
+### What is live, and what is still a comment
 
-Stated plainly, because the current state is easy to mistake for an oversight:
+The module stopped being inert on 2026-11-18, and this section said otherwise for
+long enough that the difference is worth stating as state rather than argument:
 
-* `.sops.yaml` still contains the literal placeholder
-  `age1REPLACE_WITH_YOUR_HOST_AGE_PUBLIC_KEY`;
-* `secrets/secrets.yaml` does not exist;
-* every `sops.secrets."…"` block in `modules/system/secrets.nix` is commented
-  out.
+* `.sops.yaml` carries the host's real age public key (`age1jcak…`), derived from
+  `/etc/ssh/ssh_host_ed25519_key`;
+* `secrets/secrets.yaml` exists, and holds one encrypted value,
+  `nix-access-tokens`;
+* `modules/system/secrets.nix` renders that value to `/etc/nix/tokens.conf`,
+  which `modules/system/core.nix` `!include`s — so the GitHub token that used to
+  be a manual step is supplied at activation;
+* the `rclone.conf` secret is still commented out, which is why the data
+  bootstrap still asks you to run `rclone config` once.
 
-So the input, the module, this section and the `secrets/README.md` walkthrough
-are all live, and **nothing uses them**. The branch is even named `sops`.
+Check the live half after a switch, because a missing age key at
+`/var/lib/sops-nix/key.txt` turns into a missing file rather than a build error:
 
-That is a real tension with this repo's own rules, and it deserves naming rather
-than hoping nobody checks. `flake.nix:8-17` deletes `nixpkgs-unstable` with the
-argument that it is *"a second fetch, a second lock entry and a second full
-evaluation on every rebuild, bought for zero call sites"*, and
-`modules/system/data.nix` deletes `services.onedrive` for being *"a knob with no
-call sites and no history of changing… not a requirement, a hedge."* sops-nix is
-a fetch, a lock entry and a NixOS module import whose only call sites are
-comments. By the letter of both rules it should go.
+```sh
+ls -l /run/secrets/nix-access-tokens
+```
 
-**It stays, and the chiluk is the cost of getting it back.** `nixpkgs-unstable`
-and `onedrive` were each one line to re-add on the day they were wanted. sops-nix
-is not: the walkthrough below is host-key derivation, a re-key, and a
-`.sops.yaml` edit that you do *on the machine*, and the moment you want it is
-the moment you are holding a credential and least want to be reading setup
-docs. The thing being paid for is not the module — it is the walkthrough being
-correct and in the tree when it is needed.
-
-What it costs today, measured rather than waved at: one flake input, one lock
-entry, one module import that evaluates to nothing. No unit, no package, no
-activation step.
-
-**What would change the verdict.** If the `rclone.conf` route below is still
-unexercised the next time this repo is audited, that is no longer a hedge with a
-justification — it is a walkthrough nobody has ever run, which is a different
-and worse thing, because an untested walkthrough fails exactly when you are
-depending on it. Either run it or drop the input.
+**`rclone.conf` is the remaining hook.** The walkthrough below is written for
+it, and it is what makes the data bootstrap reproducible on a fresh machine
+instead of a manual `rclone config` in a terminal. If it is still unexercised at
+the next audit, that is no longer a hedge with a justification — it is a
+walkthrough nobody has ever run, which fails exactly when you are depending on
+it. Either run it or drop it.
 
 One-time setup on the machine (full walkthrough in `secrets/README.md`):
 
@@ -650,8 +657,9 @@ One-time setup on the machine (full walkthrough in `secrets/README.md`):
    sudo sh -c 'ssh-to-age -private-key -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/key.txt'
    ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
    ```
-2. Paste that `age1…` public key into `.sops.yaml` (replace the placeholder).
-3. Create/edit the encrypted file with `sops secrets/secrets.yaml`, uncomment the
+2. Put that `age1…` public key in `.sops.yaml` — already done on this machine;
+   it is one line per host if there is ever a second one.
+3. Edit the encrypted file with `sops secrets/secrets.yaml`, add or uncomment the
    matching `sops.secrets."…"` block in `modules/system/secrets.nix`, then
    `just switch`. Re-key after changing recipients with
    `sops updatekeys secrets/secrets.yaml`.
@@ -675,13 +683,11 @@ fetches them once:
 A timer runs it two minutes after boot — deliberately *not* on the boot path,
 so nothing waits on the network for a job that is usually already done. It
 skips anything already present, and it decides that by looking for **files**,
-not for the directory: `modules/home/emacs/default.nix` used to create
+not for the directory: the old Emacs scaffolding created
 `~/Documents/seforim/Bavli` during home-manager activation, so a directory test
-was always true and the seforim library never downloaded. Both halves of that
-are closed now — the predicate asks about files, *and* the `mkdir` that made the
-lie possible is commented out with the rest of the seforim scaffolding (see
-[Emacs: only `essentials` loads](#emacs-only-essentials-loads)). Belt and
-braces, rather than one fix and one landmine.
+was always true and the seforim library never downloaded. The predicate asks
+about files now, and the `mkdir` that made the lie possible is gone with the
+old Emacs module.
 
 The seforim library itself still downloads, and that is a deliberate line: it is
 *data*, not machinery for code that no longer loads, and the texts are readable
@@ -714,83 +720,23 @@ clear.
 
 ### Emacs
 
-Nothing to provision. The configuration lives in its own repo,
-[SYKhayyat/emacs-config-deprecated](https://github.com/SYKhayyat/emacs-config-deprecated),
-and arrives as the `emacs-config` flake input already tangled — so `~/.config/emacs/modules`
-is a read-only store symlink pinned in `flake.lock`, not a directory that
-drifts. Bump it with `just update-emacs`.
+`~/emacs-configs` is the configuration: three profiles (`hebrew`, `notes`, `ide`)
+and packages owned by `package.el` in `elpa/`. Its own `bin/install` sets it up;
+Nix does not manage it, does not pin it, and does not copy it into the store.
 
-> On the first switch after the split, home-manager will move your existing
-> writable `~/.config/emacs/modules` to `modules.pre-flake-input` rather than
-> clobber it. Diff that against the repo before deleting it — under the old
-> scheme a hand-edit in there could silently have become your live config.
+What Nix provides is around it — one `pkgs.emacs-pgtk`, `~/emacs-configs/bin` on
+`PATH` (so `emacs-hebrew`, `emacs-notes` and `emacs-ide` exist), `$EDITOR` and
+`$VISUAL` set to `emacs-notes`, and three desktop entries. `launch.sh <profile>`
+starts that profile's daemon if it is not running; the daemons are deliberately
+not systemd units, so they cost nothing until you open the profile you want.
 
-### Emacs: only `essentials` loads
+Update it with `git -C ~/emacs-configs pull`; there is no `just` recipe for that
+any more, and no flake input to bump.
 
-The `emacs-config` repo ships two module groups. `essentials/` is a general
-Emacs configuration that knows nothing about Hebrew or seforim; `extras/` is the
-personal half that layers on top of it. Its `init.el` defaults to **both** and
-reads `EMACS_MODULE_GROUPS` to be told otherwise.
+For the `study` airgap, install and warm each profile before switching in —
+`elpa/` and the profile's downloaded pieces are not fetched offline.
 
-This machine says `essentials`, in `modules/home/emacs/default.nix`, in both
-places that matter — `home.sessionVariables` for anything launched from a shell,
-and `systemd.user.sessionVariables` for `emacs.service`, which is what `$EDITOR`
-resolves to. Setting only the first would leave every `emacsclient` frame
-loading a different config from a standalone `emacs`.
-
-**What that costs, because it is not small:**
-
-| group | modules | lines | loaded |
-|---|---|---|---|
-| `essentials` | 25 | 2,379 | yes |
-| `extras` | 15 | **3,165** | **no** |
-
-`extras/` is 57% of the configuration: all 89 `seforim-*` functions, 31 of them
-interactive commands, and the entire Hebrew and RTL layer. It is still copied
-into the Nix store and symlinked into `~/.config/emacs/modules`. It is simply
-not loaded.
-
-**And everything that existed to serve it is switched off with it.** That is the
-rule, and it is deliberately stronger than "leave a comment":
-
-> Machinery that exists to serve code which does not load gets switched off in
-> the same commit — commented out with the reason beside it, not annotated and
-> left running.
-
-| Where | What is commented out |
-|---|---|
-| `modules/system/services.nix` | the four-hourly `recollindex` service + timer |
-| `modules/home/emacs/default.nix` | `~/.recoll/recoll.conf`, `hdate`, the `~/.cache/emacs/seforim` and `~/Documents/seforim/Bavli` scaffolding |
-| `modules/home/toolkit.nix` | `recoll`, `xapian` |
-| `home/focus.nix` | `recoll`, `xapian` |
-
-`poppler-utils` stays — `essentials/11-pdf.org` probes `pdfinfo` and Org export
-shells out to `pdftotext`, so it is not a seforim package; it was merely listed
-beside one. **The seforim library still downloads**, because that is data rather
-than machinery and the texts are readable without Emacs.
-
-`tools/check-closure.sh` asserts the agreement, so this cannot drift again: with
-`essentials` alone, nothing whose only caller is `extras/` may be in any
-profile, anchored by a present-test on `pdftotext`.
-
-**To turn it back on:** set `EMACS_MODULE_GROUPS = "essentials extras"` (or drop
-the line and take `init.el`'s default), then uncomment the blocks in the table
-above — the closure check will name every one of them for you. For a single
-session instead, leave the config alone:
-
-```sh
-EMACS_MODULE_GROUPS="essentials extras" emacs
-systemctl --user set-environment EMACS_MODULE_GROUPS="essentials extras"
-systemctl --user restart emacs.service
-```
-
-> **One thing worth knowing before you re-enable the indexer.** The four-hourly
-> `recollindex` was never the index the seforim search read, in any
-> configuration. `extras/15-seforim-dream.org` keeps a *private* recoll config
-> directory at `~/.cache/emacs/seforim/recoll` and queries that, explicitly so
-> it "never touches a system-wide recoll setup". The timer ran `recollindex`
-> with no `-c`, building a second index over the same corpus that nothing has
-> ever opened. `M-x seforim-recoll-index` is what maintains the real one — so
-> turning `extras` back on is not a reason to uncomment that timer.
-
-See `CHANGES.md` for the last overhaul and its post-install checklist.
+The old Nix-side Emacs config (the `emacs-config`/Doom inputs, the module groups,
+texlive, the single daemon, `migrateEmacsModules`) was deleted on 2026-11-18.
+The only trace left is in `CHANGES.md`; the machine no longer builds a second
+Emacs toolchain.

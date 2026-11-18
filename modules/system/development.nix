@@ -12,7 +12,7 @@
 # list. See toolkit.nix for the rule.
 #
 # Two of them were also duplicates: `nil` and `rust-analyzer` are language
-# servers and modules/home/emacs/default.nix already had them. And `nixpkgs-fmt`
+# servers and modules/home/emacs.nix already had them. And `nixpkgs-fmt`
 # is gone rather than moved — `nix fmt` and `just fmt` run nixfmt-rfc-style, so
 # a second Nix formatter on $PATH is a coin-flip about which one reformats the
 # file you are looking at.
@@ -25,35 +25,12 @@
   # Required for some downloaded executables and IDEs
   # ══════════════════════════════════════════════════════════════════
 
+  # One list, not two. This was steam-run's `multiPkgs` *plus* a hand-written
+  # twenty-package list that mostly overlapped it — nobody could tell which
+  # half the binaries actually needed. The hand list is gone; multiPkgs is the
+  # set with a reason to exist.
   programs.nix-ld.enable = true;
-  programs.nix-ld.libraries =
-    (pkgs.steam-run.args.multiPkgs pkgs)
-    ++ (with pkgs; [
-      # Core libraries for Java AWT/Swing (Updated to non-deprecated names)
-      freetype
-      fontconfig
-      libX11
-      libXext
-      libXrender
-      libXtst
-      libXi
-
-      # Additional UI libraries
-      libGL
-      zlib
-      stdenv.cc.cc
-      gtk3
-      atk
-      cairo
-      gdk-pixbuf
-      glib
-      harfbuzz
-      libepoxy
-      pango
-    ]);
-
-  # Accept Android SDK license
-  nixpkgs.config.android_sdk.accept_license = true;
+  programs.nix-ld.libraries = pkgs.steam-run.args.multiPkgs pkgs;
 
   # ══════════════════════════════════════════════════════════════════
   # DIRENV

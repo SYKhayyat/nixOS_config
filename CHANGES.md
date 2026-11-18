@@ -1,4 +1,11 @@
-# Overhaul — what changed and what you must do next
+# CHANGES
+
+What changed in this repository and why, newest first. An entry is a pass over
+the tree, not a commit log: the commit has the diff, this has the reason.
+
+The entries from August below describe that overhaul in the present tense —
+"this pass fixed …" — because that is how they were written at the time. They
+are kept as written. A record edited after the fact is not a record.
 
 This pass fixed build-blocking bugs, de-duplicated the config, added repo tooling,
 made Emacs reproducible, and added laptop hardware + a real study airgap.
@@ -48,6 +55,117 @@ stays.
   is the first file that has to stop being a singleton, and it says so at the top.
 - Secure boot (lanzaboote) and the `nix-ld`/`steam-run.args.multiPkgs` hack, both
   flagged under *Deliberately NOT changed* below. Neither is a Lamdan finding.
+
+---
+
+## 2026-11-18 (t) — the audit was about a tree that had moved, and two documents were the only thing still describing it
+
+Audited `8346188` against `docs/AUDIT.md` (rewritten the same day), then
+re-audited the result as an artifact rather than a working system. The first
+half was already done — the Emacs removal, sshd, the store caps, the P1 list,
+the P2 package cuts. What follows is what the second half found, because none of
+it was in the audit's scope and all of it was a document or a repository
+convention rather than a `nix` file.
+
+**The sops section described the opposite of the repo.** README, ONBOARDING,
+TROUBLESHOOTING and `secrets/README.md` all said the module was inert, the age
+key was a placeholder, and `secrets/secrets.yaml` did not exist. In fact the
+host key is real, `secrets.yaml` holds `nix-access-tokens`, and
+`sops.secrets."nix-access-tokens"` renders `/etc/nix/tokens.conf` at activation.
+Three documents were arguing at length for a decision that had been made the
+other way. All four now state what is live (`nix-access-tokens`) and what is
+still a comment (`rclone.conf`), and what to check after a switch:
+`ls -l /run/secrets/nix-access-tokens`.
+
+**`nixpkgs-unstable` had come back, and two documents still said it was gone.**
+README's Requirements section and ONBOARDING both claimed one nixpkgs with a
+second input "bought for zero call sites". The input is back — `darktable` 5.6.1
+and `rapidraw` 1.6.4 are overlays over it — and the accurate statement is the
+narrower one: one nixpkgs is *imported*, `pkgs` everywhere is 26.05, and the
+unstable input is named by exactly two overlays. Both documents now say that,
+and so does the note in `hosts/desktop/configuration.nix` that had the same
+problem.
+
+**README named a file that had been renamed.** `modules/system/cli-tools.nix`
+became `base-tools.nix` and the sentence pointing at it survived the rename.
+This is the finding that produced `tools/check-docs.sh` and the `docs` flake
+check: every top-level repo path a live document names must exist, plus relative
+links. It cannot tell whether a sentence is true, only that the file is there —
+which is why `docs/AUDIT.md` (a dated snapshot, naming files it asks you to
+delete) and `CHANGES.md` are out of scope.
+
+**A `.pyc` was committed.** `tools/__pycache__/bump-omnirush.cpython-313.pyc`,
+from running the script that every rebuild runs. Removed, and `.gitignore` now
+has `__pycache__/` and `*.pyc`, which it had never had.
+
+**Three root-level artifacts were stale, and are gone.** `PLAN.md` (a September
+checklist whose every item was either fixed or recorded in `docs/DECISIONS.md`,
+linked from nowhere), `triage.csv` (a GitHub-issue export), and
+`AI_ISSUE_ROUTING.md` (agent instructions whose first step was reading
+`PLAN.md`).
+
+**The Emacs module was a directory with one file in it**, the only one under
+`modules/home`; it is `modules/home/emacs.nix` now. The wallpaper was 9 MB at the
+repository root and is `assets/wallpaper.jpg`, referenced by the two modules that
+use it.
+
+**New: `Super+F1` shows every keybinding, generated.** `modules/home/keys.nix`
+already rendered `~/.config/shaulos/keys.org` from the shared bind list plus each
+compositor's registered binds; the same data now also renders three plain-text
+lists, and `keys-guide` picks one by asking the session which compositor it is
+(`HYPRLAND_INSTANCE_SIGNATURE`, `SWAYSOCK`, else Plasma) and pipes it into
+`fuzzel -d`. Type to filter, Esc to close. Under Plasma the same command is a
+KDE global shortcut (`programs.plasma.hotkeys.commands`), because Plasma reads
+neither compositor config — which makes this the one chord written in two
+grammars, and the comment says so.
+
+The list carries three sections beyond the generated binds, and their headers
+are the honest part: **machine** (`Ctrl+Alt+F1..F12`, `Ctrl+Alt+Delete` — the
+kernel's and systemd's, true of the machine rather than derived from this repo),
+**applications** (Emacs, foot, fuzzel, yazi — the app owns those bindings and
+nothing here can generate them, so they are written down once behind a header
+that says so), and **mouse**, which explains that there is no mouse chord because
+neither config declares `bindm` or `floating_modifier`. That last one is the
+reason the section exists at all: "why doesn't dragging resize" is a question a
+cheat-sheet should answer without inventing a binding.
+
+**Checked on the live Plasma 6.6 session**, because "fuzzel draws under KWin" was
+the part nobody had seen: with `WAYLAND_DEBUG=1`, KWin advertises
+`zwlr_layer_shell_v1` v5, fuzzel creates its surface on layer 3 with
+`set_keyboard_interactivity(1)`, and KWin answers with `wl_keyboard.enter` — then
+`leave` when it closes. The overlay takes the keyboard under Plasma, not only
+under the two tiling sessions. What no command can close is the last link: KWin
+hosts kglobalaccel in-process (`kglobalaccel` has no process of its own) and reads
+`kglobalshortcutsrc` only at startup. Writing the file and dropping the
+`.desktop` into `~/.local/share/applications` on a running session registers
+nothing — the component list is unchanged — so `Meta+F1` is dead until the first
+Plasma login after the generation that writes it. Activation also rewrites that
+file from `data.json` (`[plasma-manager-commands.desktop]`,
+`keys-guide=Meta+F1,,keys-guide`), which is the same bytes the check used.
+
+**Two comments still pointed at things that had moved**, in the same way the docs
+had: `modules/home/wayland-common.nix` said its dependencies came from
+`home/common.nix` (they moved to `toolkit.nix`), and `modules/home/scripts.nix`
+said `keys.nix` names `fsearch` (it names `fd` now, because `fsearch` was cut
+with the duplicate search tools). Both corrected.
+
+**Verified:** `nix fmt` (no changes), `nix build .#checks.{statix,deadnix,docs}`,
+`just eval` (main toplevel, `["focus","study"]`, `focus` evaluates), and the
+`study` toplevel. Not verified: a full closure build — the 40-minute `build`
+gate — so the size drop from the P2 cuts is still unmeasured until the next
+`just switch`.
+
+**And the spell-checking stack is gone.** `enchant`, `hunspell`, `aspell` and the
+`DICPATH` session variable in `base-tools.nix` were the last exception in the
+file whose whole argument is that nothing gets in without a caller — kept for an
+Emacs config that has been deleted. Removed with the rest of that pass, and the
+comment now says where they would go back if `~/emacs-configs` ever needs them:
+the module that needs them, with `DICPATH` as a session variable because a GUI
+program started from a compositor never sources a login shell.
+
+**Open, and yours:** the backup target (`docs/DECISIONS.md` records why no
+placeholder restic module was written), LUKS after the first tested restore, and
+the `rclone.conf` secret.
 
 ---
 

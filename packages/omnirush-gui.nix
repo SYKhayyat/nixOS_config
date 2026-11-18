@@ -23,10 +23,10 @@
 #
 # ── Electron on NixOS ──────────────────────────────────────────────────────
 #
-# Unlike the ArtCraft apps (packages/artcraft.nix) which link nothing but libc
-# and dlopen their stack, this one has ~30 real DT_NEEDED entries against
-# GTK/NSS/cups/atk. autoPatchelfHook is therefore load-bearing here, and the
-# wrapper has to do what Electron expects of one:
+# Unlike the bundled apps, which link little and dlopen their stack, this one
+# has ~30 real DT_NEEDED entries against GTK/NSS/cups/atk. autoPatchelfHook is
+# therefore load-bearing here, and the wrapper has to do what Electron expects
+# of one:
 #
 #   --prefix LD_LIBRARY_PATH  the patched libs
 #   --set ELECTRON_DISABLE_SANDBOX / --no-sandbox
@@ -73,13 +73,13 @@
 
 stdenv.mkDerivation {
   pname = "omnirush-gui";
-  version = "3.8.5";
+  version = "3.8.7";
 
   src = fetchurl {
-    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.8.5/omnirush-linux-amd64-3.8.5.deb";
+    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.8.7/omnirush-linux-amd64-3.8.7.deb";
     # From the release's own SHA256SUMS.txt:
-    #   6b93ce4a45c0c7143fdaf0077edfcbc0c1140329cf7612752106a27ff80cf68e
-    hash = "sha256-a5POSkXAxxQ/2vAHft/LwMEUAynPdhJ1IQaif/gM9o4=";
+    #   e4891b45e68da001dbcd5613f4a38188f2f35494a93605a2680a58de3168a913
+    hash = "sha256-5IkbReaNoAHbzVYT9KOBiPLzVJSpNgWiaApY3jFoqRM=";
   };
 
   nativeBuildInputs = [
@@ -132,8 +132,9 @@ stdenv.mkDerivation {
   # Failing the build over them would be wrong, and ignoring them is not hiding
   # a problem: the loader picks the module by platform at run time, so the
   # linux_x64 one is the only one that can ever be opened on this machine.
-  env.autoPatchelfIgnoreMissingDeps = lib.concatStringsSep " "
-    (lib.toList "libc.musl-x86_64.so.1 libm.so.10.1 libpthread.so.26.1 libc++.so.9.0 libc++abi.so.6.0");
+  env.autoPatchelfIgnoreMissingDeps = lib.concatStringsSep " " (
+    lib.toList "libc.musl-x86_64.so.1 libm.so.10.1 libpthread.so.26.1 libc++.so.9.0 libc++abi.so.6.0"
+  );
   # Electron's own binary and its bundled .so files are already stripped, and
   # stripping them again is at best wasted work and at worst corrupts them.
   dontStrip = true;
@@ -169,12 +170,34 @@ stdenv.mkDerivation {
 
     makeWrapper "$out/lib/omnirush-gui/omnirush" "$out/bin/omnirush-gui" \
       --add-flags "--no-sandbox" \
-      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [
-        alsa-lib at-spi2-atk at-spi2-core cairo cups dbus glib gtk3 libdrm
-        libGL libsecret libxkbcommon nspr nss pango
-        libXcomposite libXdamage libXext libxfixes libXrandr libxcb
-        libxcb-util xorgproto udev
-      ]}" \
+      --prefix LD_LIBRARY_PATH : "${
+        lib.makeLibraryPath [
+          alsa-lib
+          at-spi2-atk
+          at-spi2-core
+          cairo
+          cups
+          dbus
+          glib
+          gtk3
+          libdrm
+          libGL
+          libsecret
+          libxkbcommon
+          nspr
+          nss
+          pango
+          libXcomposite
+          libXdamage
+          libXext
+          libxfixes
+          libXrandr
+          libxcb
+          libxcb-util
+          xorgproto
+          udev
+        ]
+      }" \
       --set ELECTRON_DISABLE_SANDBOX 1 \
       --set ELECTRON_NO_ATTACH_CONSOLE 1 \
       --prefix XDG_DATA_DIRS : "$out/share"

@@ -14,9 +14,10 @@
 # machine has programs.nix-ld enabled (modules/system/development.nix), which is
 # what makes that work without patching the store path.
 #
-# Bump: change `version` here and in ./ob1/package.json together, then
-# `npm install --package-lock-only` in ./ob1 and
+# Bump: change the dependency range in ./ob1/package.json, run
+# `npm install --package-lock-only` in ./ob1, then
 # `nix run nixpkgs#prefetch-npm-deps -- package-lock.json` for npmDepsHash.
+# `version` comes from the lock.
 {
   lib,
   buildNpmPackage,
@@ -25,7 +26,8 @@
 
 buildNpmPackage rec {
   pname = "ob1";
-  version = "0.3.13";
+  version =
+    (lib.importJSON ./ob1/package-lock.json).packages."node_modules/@overbrilliant/ob1".version;
 
   src = ./ob1;
 

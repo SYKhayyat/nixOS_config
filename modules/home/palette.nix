@@ -20,9 +20,9 @@
 # ── The half nobody was watching: format ──────────────────────────────────
 #
 # Copying a colour by hand is two jobs, and only the first one is obvious. The
-# same `#7aa2f7` has to be spelled three ways here — CSS for waybar, a quoted
-# CSS-ish string for niri's KDL, and hyprlang's own function syntax for
-# hyprland.conf and hyprlock.conf — and the hand-copy got the third one wrong:
+# same `#7aa2f7` has to be spelled two ways here — CSS for waybar, and
+# hyprlang's own function syntax for hyprland.conf and hyprlock.conf — and the
+# hand-copy got the second one wrong:
 #
 #     outer_color = rgb(#7aa2f7)
 #
@@ -65,16 +65,16 @@ in
       The stylix base16 scheme, pre-rendered into the syntaxes this config's
       riced surfaces need, plus the stylix font set.
 
-      `css`  — `#rrggbb`. CSS (waybar) and niri's KDL, which take the same form.
+      `css`  — `#rrggbb`. CSS, for waybar.
       `hypr` — `rgb(rrggbb)`. hyprland.conf and hyprlock.conf. Already wrapped:
                interpolate it bare, do not put it inside another `rgb(…)`.
       `font` — `mono` / `sans` names and the `sizes` set, so a module writing a
                config file that names a font does not name it a second time.
-      `cursor` — `name` / `size` / `package`, from `stylix.cursor`. Plasma, niri
-               and Hyprland each need this in their own spelling and each used
-               to guess: the size was 24, 24 and 12 respectively, and the only
-               one that named a *theme* named `Breeze_Snow`, which Plasma 6
-               renamed to `Breeze_Light` and therefore silently ignored.
+      `cursor` — `name` / `size` / `package`, from `stylix.cursor`. Plasma
+               and Hyprland each need this in their own spelling, and both
+               used to guess: the only one that named a *theme* named
+               `Breeze_Snow`, which Plasma 6 renamed to `Breeze_Light` and
+               therefore silently ignored.
 
       Read this; never hand-write a colour, a font name or a cursor in a
       consuming module. All three halves of that rule have been broken before,

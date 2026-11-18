@@ -2,20 +2,10 @@
 #
 # One locker and one idle daemon, for every Wayland session on this machine.
 #
-# This replaces lock-idle.nix (hyprlock + a full hypridle config, Hyprland only)
-# and lock-niri.nix, which was three lines that installed swaylock and nothing
-# else. So: **the niri session never locked itself.** No idle daemon, no
-# timeout, no DPMS — a difference you would only discover by walking away from
-# the machine. Reachable through wlogout, so not dead code, just silently
-# absent.
-#
-# And the Hyprland half did not work either. lock-idle.nix signed off with
-# "hypridle is started via exec-once in Hyprland" and hyprland.conf has no such
-# line. Both sessions shipped an idle configuration that nothing ran.
-#
-# hyprlock speaks ext-session-lock-v1 and hypridle speaks ext-idle-notify-v1;
-# niri implements both, so one pair covers both compositors and swaylock is
-# gone. Startup is now explicit in each compositor's config.
+# This replaces the old per-compositor lock/idle files. hyprlock speaks
+# ext-session-lock-v1 and hypridle speaks ext-idle-notify-v1; both remaining
+# tiling compositors implement those, so one pair covers Hyprland and sway and
+# swaylock is gone. Startup is explicit in each compositor's config.
 #
 # And the colours below were never applied. This file used to write
 # `outer_color = rgb(#7aa2f7)`; hyprlang's rgb() takes six *bare* hex
@@ -38,23 +28,12 @@ let
   # to blank the panel is a nuisance, an idle daemon that dies is a machine
   # that never locks again.
   # The compositor is asked for its own name, not looked up in the process
-  # table. See the long note in ./scripts.nix: `pgrep -x Hyprland` cannot match
-  # on NixOS, because nixpkgs wraps the binary and the kernel takes `comm` from
-  # the executable (`.Hyprland-wrapp`, truncated at 15 chars) rather than from
-  # the argv[0] that `exec -a` rewrites. niri is unwrapped, so that half worked
-  # and this half never did.
-  #
-  # The cost here was the quietest of the set: the 10-minute listener below
-  # called `session-dpms off`, this matched neither branch, and the panel simply
-  # stayed lit all night under Hyprland. Nothing failed, nothing was logged, and
-  # the only symptom is a battery that is flatter in the morning than it should
-  # be — which is not a symptom anyone traces back to a `pgrep`.
-  #
-  # `NIRI_SOCKET` and `HYPRLAND_INSTANCE_SIGNATURE` are exported by the
-  # compositors themselves and are what `niri msg` and `hyprctl` already read to
-  # find their sockets, so if the variable is absent the IPC call could not have
-  # worked anyway. hypridle is started by each compositor's own autostart list
-  # (../home/keys.nix), so it and its children have the session environment.
+  # table: `pgrep -x Hyprland` cannot match on NixOS because nixpkgs wraps the
+  # binary and the kernel's `comm` is `.Hyprland-wrapp`. `HYPRLAND_INSTANCE_SIGNATURE`
+  # and `SWAYSOCK` are exported by the compositors themselves — if one is
+  # absent the IPC call could not have worked anyway. hypridle is started by
+  # each compositor's own autostart list (./keys.nix), so it and its children
+  # have the session environment.
   sessionDpms = pkgs.writeShellScriptBin "session-dpms" ''
     case "''${1:-}" in
       on | off) ;;
@@ -64,9 +43,7 @@ let
         ;;
     esac
 
-    if [ -n "''${NIRI_SOCKET:-}" ] || ${pkgs.procps}/bin/pgrep -x niri > /dev/null; then
-      niri msg action "power-$1-monitors" || true
-    elif [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || ${pkgs.procps}/bin/pgrep -f '/bin/Hyprland' > /dev/null; then
+    if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || ${pkgs.procps}/bin/pgrep -f '/bin/Hyprland' > /dev/null; then
       hyprctl dispatch dpms "$1" || true
     elif [ -n "''${SWAYSOCK:-}" ] || ${pkgs.procps}/bin/pgrep -x sway > /dev/null; then
       # sway has no wildcard `output * dpms` — the command takes an output
@@ -88,10 +65,8 @@ in
     sessionDpms
   ];
 
-  # wlogout's stock layout hardcodes `swaylock`, which was installed in exactly
-  # one of the two sessions — so the power menu's lock button did nothing under
-  # Hyprland. Name the locker we actually ship. (No `style`, so wlogout keeps
-  # its packaged CSS and icon paths.)
+  # wlogout's stock layout hardcodes `swaylock`. Name the locker we actually
+  # ship. (No `style`, so wlogout keeps its packaged CSS and icon paths.)
   programs.wlogout = {
     enable = true;
     layout = [

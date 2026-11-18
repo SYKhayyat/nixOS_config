@@ -2,15 +2,11 @@
 #
 # The Hyprland session: its config file, and nothing else. The bar, launcher,
 # notifier, wallpaper daemon, locker, terminal and file manager it spawns all
-# come from ../wayland-common.nix, which the niri session imports too.
+# come from ../wayland-common.nix, which the sway session imports too.
 #
 # The keys and the autostart list come from ../keys.nix. What is left here is
 # Hyprland's own vocabulary — master/dwindle layouts, groups, the special
-# workspace — and nothing in it names a program both sessions provide. Four of
-# the binds this file used to carry were drift rather than choice: Mod+P for a
-# search that is Mod+Space under niri, and a second pair of scratchpad keys on
-# Shift+Return / Ctrl+Return duplicating the grave pair that both sessions
-# already had.
+# workspace — and nothing in it names a program both sessions provide.
 #
 # Border colours come from ../palette.nix in hyprlang's own `rgb(…)` spelling.
 # They used to be a hand-written third format, `0xAARRGGBB`, kept beside the
@@ -365,8 +361,8 @@ let
   ]
   ++ ws;
 
-  # Hyprland's own session bootstrap. Not shareable: niri under uwsm does this
-  # itself, and there is no niri spelling for either line.
+  # Hyprland's own session bootstrap. Not shareable: the sway config has no
+  # equivalent for either line.
   ownStartup = [
     {
       name = "uwsm";
@@ -416,22 +412,13 @@ in
     monitor = , preferred, auto, 1
 
     # The cursor, from ../palette.nix — i.e. from `stylix.cursor`, the same
-    # source Plasma and niri now read. This file used to say nothing about the
+    # source Plasma and sway now read. This file used to say nothing about the
     # cursor at all, which meant the Hyprland session got whatever the default
-    # was while niri drew a 12 px one and Plasma a 24 px one.
+    # was while Plasma drew a 24 px one.
     env = XCURSOR_THEME,${cursor.name}
     env = XCURSOR_SIZE,${toString cursor.size}
 
-    # The module groups Emacs loads.  modules/home/emacs/default.nix pins this
-    # to "essentials extras" via environment.d/sessionVariables so the daemon
-    # and shells see it on a fresh login.  But `env` in Hyprland is what every
-    # GUI app it spawns actually inherits -- including the Super+D -> fuzzel ->
-    # emacs path, which runs a fresh standalone "emacs" rather than
-    # emacsclient.  Pinning it here guarantees that launch gets the RTL/extras
-    # layer even before a running session has re-imported environment.d.
-    env = EMACS_MODULE_GROUPS,essentials extras
-
-    # Autostart. The shared list is in ../keys.nix and the niri session runs the
+    # Autostart. The shared list is in ../keys.nix and the sway session runs the
     # same one; only the two lines above it are Hyprland's own.
     ${render.startup (ownStartup ++ startup)}
 

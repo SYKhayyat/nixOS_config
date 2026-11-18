@@ -24,7 +24,7 @@ A **single-host NixOS flake** for the machine `desktop`
 
 One system closure offers:
 
-- **three graphical sessions** — KDE Plasma, Niri, Hyprland — picked at the SDDM
+- **three graphical sessions** — KDE Plasma, Hyprland, Sway — picked at the SDDM
   greeter;
 - **two boot-time specialisations** — `study` for hard-offline work, and `focus`
   for Emacs on a machine running almost nothing else.
@@ -32,14 +32,17 @@ One system closure offers:
 Theming is [stylix](https://github.com/nix-community/stylix), Plasma is
 [plasma-manager](https://github.com/nix-community/plasma-manager), the user
 environment is [home-manager](https://github.com/nix-community/home-manager),
-secrets are [sops-nix](https://github.com/Mic92/sops-nix) — currently inert, and
-the README defends that at length.
+secrets are [sops-nix](https://github.com/Mic92/sops-nix) — the GitHub token
+comes out of `secrets/secrets.yaml` at activation.
 
 ### What you need
 
 - Nix with **flakes** and `nix-command` enabled.
 - Pinned to **NixOS 26.05 "Yarara"** — `nixos-26.05`, home-manager
-  `release-26.05`, stylix `release-26.05`. **One nixpkgs.**
+  `release-26.05`, stylix `release-26.05`. **One nixpkgs is imported.** A
+  `nixpkgs-unstable` input is also pinned, and is named only by the darktable and
+  rapidraw overlays — it is not threaded through as an `unstable` argument, and
+  nothing else sees it.
 - The Nix implementation is **Lix**
   (`nix.package = pkgs.lixPackageSets.stable.lix`).
 - A NixOS host.
@@ -204,8 +207,9 @@ It showed up only in a **diff of `etc/systemd/system` against the parent.**
 Most of these checks were **already in `flake.nix`, and nothing ran them.**
 
 That is the same shape as the finding that split the Emacs config out of this
-repository: `tools/verify.sh` byte-compiled every module and was wired to
-nothing, so 1,569 lines silently stopped loading and no build ever went red. The
+repository: a `verify.sh` in the Emacs repo byte-compiled every module and was
+wired to nothing, so 1,569 lines silently stopped loading and no build ever went
+red. The
 Emacs half got a CI job out of that. This half did not — and it is the half
 authored on a Windows box with no Nix on it.
 
@@ -217,11 +221,14 @@ Nothing this config has ever suffered was a formatting problem, and a check that
 goes red for cosmetics is a check people learn to scroll past. `just fmt` stays a
 thing you run.
 
-### Secrets are deliberately inert
+### Secrets: one live, one still a comment
 
-sops-nix is wired in and not doing anything, on purpose, and the README defends
-that at length. Read the argument before turning it on — it is about what a
-secret in this repository would actually buy.
+`sops.secrets."nix-access-tokens"` is live: it renders
+`/run/secrets/nix-access-tokens` to `/etc/nix/tokens.conf`, which
+`modules/system/core.nix` `!include`s. The `rclone.conf` secret is still
+commented out, which is why the document bootstrap asks for one manual
+`rclone config`. The README's secrets section states both halves and what to
+check after a switch.
 
 ## 5. Making a change
 
@@ -266,7 +273,10 @@ just lock        # the only command allowed to touch flake.lock
 
 Then add a **call site in the same commit**. A `nixpkgs-unstable` input lived
 here for a while, threaded through as an `unstable` arg, with zero call sites in
-the whole repository.
+the whole repository. (It is back now, and the rule is why it is shaped
+differently: it has exactly two call sites, the darktable and rapidraw overlays
+in `flake.nix`, and no `unstable` argument exists to reach it from anywhere
+else.)
 
 ### Adding a gate
 
@@ -275,17 +285,19 @@ Make the documented local command *be* the CI job. Not similar to it. See
 
 ## 6. Emacs
 
-The Emacs configuration is **its own repository**, and a flake input here.
+The Emacs configuration is **`~/emacs-configs`**: a writable checkout with
+three profiles (`hebrew`, `notes`, `ide`) and `package.el`-owned `elpa/`. It is
+not a flake input, and Nix does not copy it into the store.
 
 ```sh
-just update-emacs        # bump the emacs-config input only
-just emacs-dev PATH      # rebuild against a local emacs-config checkout
+git -C ~/emacs-configs pull   # update it
+~/emacs-configs/bin/install   # install/refresh packages
 ```
 
-Only the `essentials` module group loads on this machine — deliberately, and
-configured here. The env var is `EMACS_MODULE_GROUPS`, and on NixOS it wants
-setting in **two** places: `home.sessionVariables` for shells and
-`systemd.user.sessionVariables` for the daemon `emacsclient` talks to.
+`modules/home/emacs.nix` provides the package (`pkgs.emacs-pgtk`), the
+`bin/` directory on `PATH`, `$EDITOR`, and three desktop entries. The profile
+daemons are started by the launcher, not by systemd, on purpose — see the
+README's Emacs section.
 
 ## 7. First boot on a new machine
 

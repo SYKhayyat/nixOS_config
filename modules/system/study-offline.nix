@@ -15,9 +15,8 @@
 # active switch-off rather than an omission. Local tools (Emacs, ollama) keep
 # working — neither needs the network.
 #
-# `seforim search` used to be named in that sentence. It is not any more:
-# modules/home/emacs/default.nix sets EMACS_MODULE_GROUPS = "essentials", so
-# the seforim commands are not loaded in any closure. See the header there.
+# `seforim search` is Emacs's business now: ~/emacs-configs owns the profiles,
+# and every one of them is available in every closure.
 { lib, ... }:
 
 {

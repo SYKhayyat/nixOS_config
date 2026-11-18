@@ -1,10 +1,8 @@
 # modules/home/waybar.nix
 #
-# One bar config listing both compositors' modules. waybar loads the ones its
-# compositor supports and ignores the rest — which used to be a shared config
-# hedging about a fact its closure already knew, and is now simply correct: one
-# closure serves all three sessions and the bar cannot know in advance which one
-# started it.
+# One bar config listing both tiling compositors' modules. waybar loads the
+# ones its compositor supports and ignores the rest — one closure serves every
+# session and the bar cannot know in advance which one started it.
 #
 # Not started here. Each compositor spawns waybar itself, so there is one place
 # that says when the bar appears.
@@ -39,12 +37,10 @@ in
         margin = "8 12 0 12";
 
         modules-left = [
-          "niri/window"
           "hyprland/window"
           "sway/window"
         ];
         modules-center = [
-          "niri/workspaces"
           "hyprland/workspaces"
           "sway/workspaces"
         ];
@@ -56,29 +52,18 @@ in
           "clock"
         ];
 
-        "niri/workspaces" = {
-          format = "{icon}";
-          format-icons = {
-            default = "○";
-            focused = "●";
-          };
-        };
         "hyprland/workspaces" = {
           format = "{icon}";
           on-click = "activate";
-        };
-        "niri/window" = {
-          format = "󰖲 {title}";
-          max-length = 30;
         };
         "hyprland/window" = {
           format = "󰖲 {title}";
           max-length = 30;
         };
-        # Sway's pair, same look as the two above under a third protocol's
-        # name. waybar talks to sway's IPC the way it talks to niri's socket
-        # and hyprland's instance signature, so the config states the same
-        # three facts three ways and lets waybar pick the live one.
+        # Sway's pair, same look as the two above under a different protocol's
+        # name. waybar talks to sway's IPC the way it talks to Hyprland's
+        # instance signature, so the config states the same facts twice and
+        # lets waybar pick the live one.
         "sway/window" = {
           format = "󰖲 {title}";
           max-length = 30;

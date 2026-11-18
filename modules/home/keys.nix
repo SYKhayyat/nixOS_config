@@ -77,15 +77,14 @@ let
 
   inherit (config.shaulos.palette) css;
 
-  wallpaper = ../../wallpaper.jpg;
+  wallpaper = ../../assets/wallpaper.jpg;
 
   # ── Chords ───────────────────────────────────────────────────────────────
-  # niri:  Mod+Shift+C          hyprland:  $mainMod SHIFT, C
-  # guide: Super+Shift+C
+  # hyprland: $mainMod SHIFT, C   sway: Mod4+Shift+C   guide: Super+Shift+C
   hyprMod = m: if m == "Mod" then "$mainMod" else lib.toUpper m;
   guideMod = m: if m == "Mod" then "Super" else m;
 
-  # Keysym names are shared — niri and Hyprland both take xkb names, and
+  # Keysym names are shared — Hyprland and sway both take xkb names, and
   # Hyprland matches them case-insensitively. Only the *display* spelling needs
   # a table, and only where the keysym is not what you would call the key.
   keyLabels = {
@@ -104,7 +103,6 @@ let
     XF86MonBrightnessDown = "Brightness Down";
   };
 
-  niriChord = b: concatStringsSep "+" (b.mods ++ [ b.key ]);
   # Empty mods renders as ", Print", which is Hyprland's spelling for a bare key.
   hyprChord = b: "${concatMapStringsSep " " hyprMod b.mods}, ${b.key}";
 
@@ -122,37 +120,26 @@ let
   # first draft of this renderer used it on the chord and got exactly the
   # error that announces: "expected a list but found a string".
   swayChord =
-    b:
-    if b.mods == [ ] then b.key else "${concatMapStringsSep "+" swayMod b.mods}+${b.key}";
-  swayAction =
-    b: if b ? spawn then "exec ${lib.escapeShellArgs b.spawn}" else b.cmd;
+    b: if b.mods == [ ] then b.key else "${concatMapStringsSep "+" swayMod b.mods}+${b.key}";
+  swayAction = b: if b ? spawn then "exec ${lib.escapeShellArgs b.spawn}" else b.cmd;
   renderSway = binds: concatMapStringsSep "\n" (b: "  bindsym ${swayChord b} ${swayAction b}") binds;
   renderSwayStartup =
-    items:
-    concatMapStringsSep "\n" (s: "  exec --no-startup-id ${lib.escapeShellArgs s.argv}") items;
+    items: concatMapStringsSep "\n" (s: "  exec --no-startup-id ${lib.escapeShellArgs s.argv}") items;
   guideChord = b: concatStringsSep "+" ((map guideMod b.mods) ++ [ (keyLabels.${b.key} or b.key) ]);
 
   # ── Actions ──────────────────────────────────────────────────────────────
-  # niri's spawn is execvp-style: one KDL string per argv token, and KDL string
-  # escaping is JSON's. Hyprland's exec hands the rest of the line to /bin/sh,
-  # so the argv has to be quoted for a shell — which is what escapeShellArgs is.
-  # Two different jobs; one argv list; neither spelled by hand.
-  niriAction =
-    b: if b ? spawn then "spawn ${concatMapStringsSep " " builtins.toJSON b.spawn};" else "${b.cmd};";
+  # Hyprland's exec hands the rest of the line to /bin/sh, so the argv has to
+  # be quoted for a shell — which is what escapeShellArgs is. Sway has the
+  # same job with `exec` on a bindsym line. One argv list; neither spelled by
+  # hand.
   hyprAction = b: if b ? spawn then "exec, ${lib.escapeShellArgs b.spawn}" else b.cmd;
 
-  # Both renderers indent every line themselves, including the first, so the
-  # call site can sit at the enclosing indented-string's base indent and the
-  # output lands flush at four columns either way.
-  renderNiri = binds: concatMapStringsSep "\n" (b: "    ${niriChord b} { ${niriAction b} }") binds;
+  # Every renderer indents every line itself, including the first, so the call
+  # site can sit at the enclosing indented-string's base indent and the output
+  # lands flush at four columns either way.
   renderHypr =
     binds: concatMapStringsSep "\n" (b: "    bind = ${hyprChord b}, ${hyprAction b}") binds;
 
-  renderNiriStartup =
-    items:
-    concatMapStringsSep "\n" (
-      s: "    spawn-at-startup ${concatMapStringsSep " " builtins.toJSON s.argv}"
-    ) items;
   renderHyprStartup =
     items: concatMapStringsSep "\n" (s: "    exec-once = ${lib.escapeShellArgs s.argv}") items;
 
@@ -210,19 +197,9 @@ let
       group = "Launch";
     }
     {
-      # `myConfig.emacsFrameArgv', the same command as $EDITOR and as the menu
-      # entry. This used to be `emacsclient -c -a ""', which was wrong in all
-      # three ways `emacsFrame' in flake.nix describes:
-      #
-      #   no --no-wait            so it printed "Waiting for Emacs..." and
-      #                            blocked in recvfrom() forever. Measured.
-      #   no `env -u WAYLAND_…'   so the daemon made a native Wayland frame,
-      #                            which does not resize on Plasma 6 — the
-      #                            "skinny window". Measured: KWin window
-      #                            1364x732, Emacs reporting 580x560.
-      #   `-a ""'                 so a cold start forked `emacs --fg-daemon'
-      #                            into this session's terminal, banner and
-      #                            all. Measured.
+      # The notes profile's launcher, from myConfig.emacsFrameArgv — the same
+      # command as $EDITOR and as the menu entry. It starts that profile's
+      # daemon if needed, so a cold session gets a working frame.
       mods = [
         "Mod"
         "Shift"
@@ -240,18 +217,17 @@ let
       group = "Launch";
     }
     {
-      # Was Mod+Space under niri and Mod+P under Hyprland. Mod+Space wins: it is
-      # free in both configs, and Mod+P was the accident — niri had the key
-      # first and the Hyprland config was written separately.
-      #
-      # It also names fsearch directly. modules/home/scripts.nix used to wrap it
-      # in `writeShellScriptBin "power-search" "exec fsearch"` — a script whose
-      # entire body renamed a binary, which is only ever worth it if the keymap
-      # cannot name the real thing. The keymap is right here.
+      # fsearch was cut with the duplicate search tools (P2, 2026-11-18), so
+      # this is `fd` under fuzzel: a live search over names, in the launcher
+      # the session already has. Mod+Space is kept because that is the key.
       mods = [ "Mod" ];
       key = "Space";
-      spawn = [ "fsearch" ];
-      desc = "File search (FSearch)";
+      spawn = [
+        "bash"
+        "-c"
+        "fd --hidden --exclude .git . \"$HOME\" | fuzzel -d -p 'Search: '"
+      ];
+      desc = "File search (fd)";
       group = "Launch";
     }
 
@@ -301,10 +277,23 @@ let
         "Shift"
       ];
       key = "Slash";
-      # Same correction as Mod+Shift+E above, with the guide as its argument.
+      # Same launcher as Mod+Shift+E above, with the guide as its argument.
       spawn = myConfig.emacsFrameArgv ++ [ guidePath ];
       desc = "Open this guide";
-      group = "Session";
+      group = "Help";
+    }
+    {
+      # The other half of the same file: `keys.org` is a document you read,
+      # this is a filter you type into. Both are rendered from the lists in
+      # this module — see the note on `keys-guide` at the bottom.
+      #
+      # F1 rather than a second spelling of the same chord: Super+Slash is
+      # already the org guide, and F1 is the help key everywhere else.
+      mods = [ "Mod" ];
+      key = "F1";
+      spawn = [ "keys-guide" ];
+      desc = "All keybindings (searchable list)";
+      group = "Help";
     }
 
     {
@@ -463,7 +452,7 @@ let
   #
   #   modules/system/desktop.nix  → services.xserver.xkb  (the X server)
   #   ../../home/shaul.nix        → programs.plasma.input.keyboard  (KWin)
-  #   this file                   → niri's KDL, hyprland.conf, the guide
+  #   this file                   → hyprland.conf, the sway config, the guide
   #
   # A home-manager module and a NixOS module cannot read each other, so the
   # statement lives in myConfig. Before that it was written out separately in
@@ -552,6 +541,82 @@ let
     (xkbOptionLabels.${o} or "see xkeyboard-config(7)")
   ]) keyboard.options;
 
+  # ── Keys that are not in either list ─────────────────────────────────────
+  #
+  # The two lists above are the repo's own binds, and they are generated. These
+  # are the rest of what you can press, and where each row comes from decides
+  # how honest it can be:
+  #
+  #   system  the machine. Ctrl+Alt+F1 is the kernel's VT switch and
+  #           ctrl-alt-del.target is systemd's, both true of any NixOS box with
+  #           a getty. Listed because they are true of this one, not derived
+  #           from anything — nothing in the tree could tell this file what
+  #           they are.
+  #   apps    the applications' own defaults. These are NOT generated: Emacs,
+  #           yazi and fuzzel own their keymaps, and any of them can change
+  #           upstream. They are written down once, behind a header that says
+  #           so, which is the most a cheat-sheet can honestly do about a key
+  #           it does not own. The alternative — leaving them out — is what
+  #           made the first version of this list incomplete.
+  #
+  # What is deliberately NOT here: the mouse. Neither config declares a mouse
+  # chord (`bindm` in Hyprland, `floating_modifier` in sway), so there is no
+  # "Mod+drag resizes" row to write — and inventing one is how a cheat-sheet
+  # starts lying. The absence is stated below, from the same fact.
+  systemKeys = [
+    [
+      "Ctrl+Alt+F1..F12"
+      "Switch virtual terminal (F1 is the graphical session)"
+    ]
+    [
+      "Ctrl+Alt+Delete"
+      "Reboot (systemd's ctrl-alt-del.target)"
+    ]
+  ];
+
+  appKeys = [
+    [
+      "Emacs C-x C-f"
+      "Find file"
+    ]
+    [
+      "Emacs C-x C-s"
+      "Save buffer"
+    ]
+    [
+      "Emacs C-x C-c"
+      "Close this frame (the daemon keeps running)"
+    ]
+    [
+      "Emacs M-x"
+      "Run a command by name"
+    ]
+    [
+      "Emacs C-g"
+      "Cancel the minibuffer"
+    ]
+    [
+      "foot Ctrl+Shift+C / V"
+      "Copy / paste"
+    ]
+    [
+      "foot Ctrl+plus / minus"
+      "Zoom in / out"
+    ]
+    [
+      "fuzzel"
+      "Type to filter, Enter to pick, Esc to dismiss"
+    ]
+    [
+      "yazi q / o / Space"
+      "Quit / open / select"
+    ]
+    [
+      "yazi / / . / O"
+      "Search / toggle hidden / open-with"
+    ]
+  ];
+
   # `intro` is a list of lines rather than a blob so the generated org indents
   # the same way every time regardless of how the caller wrote it.
   introBlock = lines: concatMapStringsSep "\n" (l: if l == "" then "" else "   ${l}") lines;
@@ -572,12 +637,14 @@ let
     * About this file
 
       Generated by =modules/home/keys.nix= from the same lists that write
-      =niri/config.kdl= and =hypr/hyprland.conf=. Do not edit it — the next
+      =hypr/hyprland.conf= and the sway config. Do not edit it — the next
       =just switch= overwrites it, and that is the feature. There used to be a
       hand-written cheat-sheet beside each compositor config, and by the time
       anyone read them again both were wrong about which keys existed.
 
-      Open it from either session with =Super+Shift+/=.
+      Open it from either session with =Super+Shift+/=, or press =Super+F1=
+      for the same keys as a searchable list (type to filter, Esc to close).
+      =Super+F1= also works under Plasma, which has no keymap file of its own.
 
       Facts that this file does not *derive* are not stated here. Gaps, opacity,
       animation curves and window rules are still literals inside each
@@ -654,14 +721,123 @@ let
     * Keys
     ** Shared — the same in every session
 
-       These launch programs that =modules/home/wayland-common.nix= and
-       =modules/home/scripts.nix= install for every session, so the key does not
-       depend on which compositor started. Under Plasma the compositor-specific
-       scripts say so and exit rather than doing nothing quietly.
+      These launch programs that =modules/home/wayland-common.nix= and
+      =modules/home/scripts.nix= install for every session, so the key does not
+      depend on which compositor started. Under Plasma the compositor-specific
+      scripts say so and exit rather than doing nothing quietly.
 
     ${bindTables session}
 
     ${concatMapStringsSep "\n" compositorSection compositors}
+
+    * Machine keys
+
+      Not generated from anything in this repository. These are the kernel's
+      and systemd's: =Ctrl+Alt+F1= is the VT switch a getty listens on, and
+      =ctrl-alt-del.target= is what =Ctrl+Alt+Delete= starts. They are listed
+      because they are true here, not because anything in the tree says so.
+
+    ${mkTable [ "Key" "Action" ] systemKeys}
+
+    * Application keys
+
+      The applications' own defaults, written down in one place instead of
+      none. Emacs, foot, fuzzel and yazi own these bindings; unlike the two
+      sections above, no list in this repository generates them. A row here can
+      therefore be wrong after an upstream release — and it is wrong in one
+      visible place, which is the improvement over a per-config cheat-sheet.
+
+    ${mkTable [ "Key" "Action" ] appKeys}
+
+    * Mouse
+
+      There is no mouse chord to document: neither compositor config declares
+      =bindm= (Hyprland) or =floating_modifier= (sway), so dragging and
+      resizing are keyboard verbs here. They are in the tables above.
+  '';
+
+  # ── The searchable list ──────────────────────────────────────────────────
+  #
+  # The org file above is a document. This is the same data as a filter:
+  # `fuzzel -d` reads lines on stdin, so the list is flat, one bind per line,
+  # and typing "workspace" narrows it. Both come off `session`,
+  # `config.shaulos.compositors` and the two literal tables — one source, two
+  # renderings, which is the whole property this module is built for.
+  #
+  # The compositor is chosen at runtime from the environment variable the
+  # compositor itself exports, the same test modules/home/scripts.nix makes
+  # and for the same reason: one closure serves three sessions, so the answer
+  # does not exist at build time.
+  bindsOf = name: (config.shaulos.compositors.${name} or { binds = [ ]; }).binds;
+
+  pairLine = r: "${lib.elemAt r 0}  —  ${lib.elemAt r 1}";
+
+  bindRows =
+    binds:
+    map (b: [
+      (guideChord b)
+      b.desc
+    ]) binds;
+
+  listText =
+    title: binds: withShared:
+    let
+      head = [
+        "ShaulOS keys — ${title}"
+        ""
+      ];
+      # Plasma has no keymap file, so the shared list would be a list of keys
+      # that do nothing there. The one chord it does have — the KDE global
+      # shortcut in ../../home/shaul.nix — is named instead.
+      shared =
+        if withShared then
+          [ "-- shared: both tiling sessions --" ] ++ map pairLine (bindRows session)
+        else
+          [
+            "Super+F1  —  All keybindings (this list)"
+            ""
+            "-- every other Super+ chord is Hyprland/sway only --"
+          ];
+      comp =
+        if binds == null then
+          [ ]
+        else
+          [
+            ""
+            "-- ${title} only --"
+          ]
+          ++ map pairLine (bindRows binds);
+    in
+    concatStringsSep "\n" (
+      head
+      ++ shared
+      ++ comp
+      ++ [
+        ""
+        "-- machine --"
+      ]
+      ++ map pairLine systemKeys
+      ++ [
+        ""
+        "-- applications: their defaults, not generated here --"
+      ]
+      ++ map pairLine appKeys
+    )
+    + "\n";
+
+  hyprList = pkgs.writeText "keys-hyprland.txt" (listText "Hyprland" (bindsOf "hyprland") true);
+  swayList = pkgs.writeText "keys-sway.txt" (listText "Sway" (bindsOf "sway") true);
+  plasmaList = pkgs.writeText "keys-plasma.txt" (listText "Plasma" null false);
+
+  keysGuide = pkgs.writeShellScriptBin "keys-guide" ''
+    if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+      list=${hyprList}
+    elif [ -n "''${SWAYSOCK:-}" ]; then
+      list=${swayList}
+    else
+      list=${plasmaList}
+    fi
+    exec ${pkgs.fuzzel}/bin/fuzzel -d --prompt "Keys: " < "$list"
   '';
 in
 {
@@ -678,8 +854,12 @@ in
                    neither may add to it or restate a chord from it.
       `startup`  — the shared autostart list, same rule.
       `keyboard` — xkb layout, options and repeat, for both configs.
-      `niri` / `hypr` — `{ binds, startup }` renderers taking a bind list and
+      `hypr` / `sway` — `{ binds, startup }` renderers taking a bind list and
                    returning config text already indented for the call site.
+      `guidePackage` — the `keys-guide` command: this keymap rendered as a
+                   searchable fuzzel list. Bound to Super+F1 in both
+                   compositors, and registered as a KDE shortcut in
+                   ../../home/shaul.nix.
 
       Read these; never hand-write a chord in a consuming module, and never
       write a cheat-sheet by hand. Both halves of that rule have been broken
@@ -702,10 +882,7 @@ in
   config = {
     shaulos.keys = {
       inherit session startup keyboard;
-      niri = {
-        binds = renderNiri;
-        startup = renderNiriStartup;
-      };
+      guidePackage = keysGuide;
       hypr = {
         binds = renderHypr;
         startup = renderHyprStartup;
@@ -717,5 +894,10 @@ in
     };
 
     xdg.configFile."shaulos/keys.org".text = guide;
+
+    # On $PATH because `spawn = [ "keys-guide" ]` above names it, and because
+    # the Plasma shortcut in ../../home/shaul.nix interpolates the same store
+    # path rather than reaching into this module's internals.
+    home.packages = [ keysGuide ];
   };
 }

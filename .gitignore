@@ -18,3 +18,13 @@ combined.txt
 secrets/*.plain
 tokens.conf
 rclone.conf
+
+# Crash-telemetry droppings from sudo'd tools
+.sentry-native/
+
+# Agent state
+.freebuff/
+
+# Python bytecode (tools/bump-omnirush.py is run by every rebuild)
+__pycache__/
+*.pyc

@@ -44,17 +44,14 @@ in
     ../modules/home/p10k.nix # the prompt common.nix sources
     ../modules/home/foot.nix # the terminal every compositor binds
     ../modules/home/konsole.nix # the terminal Plasma actually opens
-    ../modules/home/emacs
-    ../modules/home/doom # Doom Emacs alongside it, separate launcher
+    ../modules/home/emacs.nix
     ../modules/home/toolkit.nix # every program you type the name of
     ../modules/home/lisp.nix # ~/.sbclrc so `ql:quickload` works at the prompt
     ../modules/home/palette.nix # the stylix scheme, per-syntax
     ../modules/home/wayland-common.nix # bar, launcher, lock, notifier, yazi
     ../modules/home/darktable.nix # darktable LUTs/styles/lua (needs no extra pkgs)
-    ../modules/home/raw-editor-sources.nix # shared DCP/ICC build; feeds the three editors
-    ../modules/home/rawtherapee.nix # RawTherapee profiles/LUTs from the shared sources
+    ../modules/home/raw-editor-sources.nix # shared DCP/ICC build
     ../modules/home/art.nix # ART profiles/LUTs from the shared sources
-    ../modules/home/niri
     ../modules/home/hyprland
     ../modules/home/sway
   ];
@@ -231,6 +228,23 @@ in
     ];
   };
 
+  # ── Super+F1 in the session with no keymap file ─────────────────────────
+  #
+  # The chord lives in ../modules/home/keys.nix, which renders it into
+  # hyprland.conf and the sway config — files Plasma never reads. So the same
+  # command is registered with KDE's global shortcuts instead, pointing at the
+  # same package: one list, three sessions, and Plasma is not left as the one
+  # place where a documented key does nothing.
+  #
+  # `Meta` is KDE's spelling for the Super key. This is the only chord in the
+  # tree that has to be written twice, and it is written in the two grammars
+  # because there is no shared grammar to write it in.
+  programs.plasma.hotkeys.commands.keys-guide = {
+    name = "Keybindings";
+    key = "Meta+F1";
+    command = "${config.shaulos.keys.guidePackage}/bin/keys-guide";
+  };
+
   # Applications moved to ../modules/home/toolkit.nix. What was here was an
   # `if study then [ … ] else [ … ]` describing itself as "a different list, not
   # a subset" — and four of the five entries on the study side were already in
@@ -247,5 +261,8 @@ in
   home.sessionVariables = {
     TERMINAL = "foot";
   };
-  home.sessionPath = [ "$HOME/.local/bin" "$HOME/.npm-global/bin" ];
+  # `~/.npm-global/bin` was here too. That prefix is the second package set
+  # this repo spent three derivations removing: one `npm i -g` would shadow a
+  # packaged CLI with an unmanaged version, and `study` could not subtract it.
+  home.sessionPath = [ "$HOME/.local/bin" ];
 }

@@ -1,6 +1,6 @@
 # hosts/desktop/configuration.nix
 #
-# One machine, one system closure, five graphical sessions, two specialisations.
+# One machine, one system closure, three graphical sessions, two specialisations.
 #
 # It used to be four specialisations (minimal / niri / hyprland / study) built by
 # lib/mk-specialization.nix. Three of them were answering questions that already
@@ -40,10 +40,8 @@
     ../../modules/system/services.nix
     ../../modules/system/appearance.nix # the ONE statement of how this looks
     ../../modules/system/desktop.nix # X + the keyboard, SDDM, Plasma 6, audio, printing, KDE Connect
-    ../../modules/system/niri.nix # + wayland.nix
-    ../../modules/system/hyprland.nix # + wayland.nix (same path, imported once)
-    ../../modules/system/sway.nix # the i3-lineage third compositor, + wayland.nix
-    ../../modules/system/gnome.nix # the second full DE, no wayland.nix — it is not a compositor
+    ../../modules/system/hyprland.nix # compositor + wayland.nix
+    ../../modules/system/sway.nix # the i3-lineage second compositor, + wayland.nix
     ../../modules/system/secrets.nix
   ];
 
@@ -51,17 +49,16 @@
   # session you picked and offers it again.
   services.displayManager.defaultSession = "plasma";
 
-  # Portals. All five sessions register their own backend and their own
+  # Portals. All three sessions register their own backend and their own
   # per-desktop portals.conf through `xdg.portal.configPackages` — Plasma
-  # (kde), niri, Hyprland, sway and GNOME each ship one — so nothing is left
-  # to state as a *fallback*; `config.common.default = ["gtk"]` remains only
-  # because every session's own config also names gtk as its default, which
-  # keeps the two from disagreeing rather than because any session lacks one.
+  # (kde), Hyprland and sway each ship one — so nothing is left to state as a
+  # *fallback*; `config.common.default = ["gtk"]` remains only because every
+  # session's own config also names gtk as its default, which keeps the two
+  # from disagreeing rather than because any session lacks one.
   #
   # extraPortals: what the machine installs. Plasma's module adds the kde
-  # portal and gtk by itself, and GNOME's adds portal-gnome and gtk, so both
-  # of those would be duplicates here. The one genuinely missing entry is
-  # wlr: sway's own portals.conf (nixpkgs' programs.sway) routes ScreenCast
+  # portal and gtk by itself, so that pair would be a duplicate here. The one
+  # genuinely missing entry is wlr: sway's own portals.conf routes ScreenCast
   # and Screenshot at the `wlr` implementation, and — unlike plasma, which
   # ships the package its config names — sway's module assumes the *host*
   # provides it. Without this line the config file points at a backend with
@@ -70,7 +67,10 @@
     enable = true;
     xdgOpenUsePortal = true;
     config.common.default = [ "gtk" ];
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk pkgs.xdg-desktop-portal-wlr ];
+    extraPortals = [
+      pkgs.xdg-desktop-portal-gtk
+      pkgs.xdg-desktop-portal-wlr
+    ];
   };
 
   # ── The user environment ────────────────────────────────────────────────
@@ -92,7 +92,7 @@
     # pre-Nix dotfiles is the one that silently destroys them.
     #
     # That also contradicted this repo's own stated position one directory over:
-    # modules/home/emacs/default.nix goes to the trouble of *moving*
+    # modules/home/emacs.nix goes to the trouble of *moving*
     # ~/.config/emacs/modules to modules.pre-flake-input rather than deleting
     # it, and argues at length that a hand-edit in there could be the only copy.
     # The same argument applies to every other file in $HOME, and this option
@@ -106,8 +106,10 @@
     backupFileExtension = "hm-bak";
     # `unstable` used to be threaded through here as well — a second full
     # nixpkgs evaluation, reachable from every home module, with zero call sites
-    # in the entire repo (Lamdan 3.1). It is gone from flake.nix; re-adding it is
-    # the same four lines, on the day you have a package that needs it.
+    # in the entire repo (Lamdan 3.1). That *argument* is gone. `flake.nix` has
+    # a `nixpkgs-unstable` input again, but only as the source of two overlay
+    # packages (darktable, rapidraw); it is not passed to home modules, so the
+    # second evaluation this line removed is still removed.
     extraSpecialArgs = { inherit myConfig; };
     users.${myConfig.username}.imports = [ ../../home/shaul.nix ];
   };
@@ -120,11 +122,9 @@
   # they are opposite kinds of difference.
   #
   # `study` is THIS system with the radios off. It wants every package, every
-  # font, Emacs and all three compositors; it wants the network gone.
+  # font, Emacs and both tiling compositors; it wants the network gone.
   # Inheriting is exactly right, and the handful of `mkForce`s it writes are
-  # all it needs. (It wanted "the seforim index" too, until
-  # ../../modules/home/emacs/default.nix's EMACS_MODULE_GROUPS section
-  # switched that whole stack off in every closure.)
+  # all it needs.
   #
   # `focus` is a SMALLER system. Written the same way it would be fifteen
   # forces deep and would silently stop being true the next time

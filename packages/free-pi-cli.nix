@@ -14,9 +14,10 @@
 # other two are that package's own entry points, not something this machine
 # asked for, and putting them on $PATH would be a second, undocumented agent.
 #
-# Bump: change `version` here and in ./free-pi-cli/package.json together, then
-# `npm install --package-lock-only` in ./free-pi-cli and
+# Bump: change the dependency range in ./free-pi-cli/package.json, run
+# `npm install --package-lock-only` there, then
 # `nix run nixpkgs#prefetch-npm-deps -- package-lock.json` for npmDepsHash.
+# `version` comes from the lock.
 {
   lib,
   buildNpmPackage,
@@ -25,7 +26,8 @@
 
 buildNpmPackage rec {
   pname = "free-pi-cli";
-  version = "0.6.20";
+  version =
+    (lib.importJSON ./free-pi-cli/package-lock.json).packages."node_modules/free-pi-cli".version;
 
   src = ./free-pi-cli;
 
