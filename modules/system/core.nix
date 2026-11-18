@@ -107,9 +107,22 @@
     # max-free = unlimited, so nothing ever collects because the disk is
     # filling. `auto-optimise-store` is the other half: hardlink dedup on every
     # build, which is what keeps a 100 GB store from growing without it.
+    #
+    # ── Bytes, not `"5G"` ─────────────────────────────────────────────────
+    # The size is written as arithmetic because Lix takes these two settings as
+    # raw byte counts and refuses a unit suffix. `"20G"` did not fail here — it
+    # failed in the `nix.conf` that the system generates, where the validation
+    # step runs the Nix from the closure against the file it just wrote:
+    #
+    #     error: setting 'max-free' has invalid value '20G'
+    #
+    # and that took `/etc` and the entire toplevel down with it. The value the
+    # audit quoted came from CppNix documentation; this machine is Lix (see
+    # `nix.package` above), so the suffix is not available here. `5 * 1024^3`
+    # spells 5368709120 once and says what it means.
     auto-optimise-store = true;
-    min-free = "5G";
-    max-free = "20G";
+    min-free = 5 * 1024 * 1024 * 1024;
+    max-free = 20 * 1024 * 1024 * 1024;
   };
 
   # Both are unbounded by default until systemd's 10%-of-disk limit: 868 MB of

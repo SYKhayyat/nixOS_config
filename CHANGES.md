@@ -155,6 +155,26 @@ with the duplicate search tools). Both corrected.
 gate — so the size drop from the P2 cuts is still unmeasured until the next
 `just switch`.
 
+**That gap was not empty, and the first `just switch` after the commit failed on
+it.** The store caps above were written as the audit quotes them —
+`min-free = "5G"`, `max-free = "20G"` — which is CppNix's spelling. This machine
+runs Lix (`nix.package = pkgs.lixPackageSets.stable.lix`), and Lix parses both as
+raw byte counts: a suffix is not a size, it is an error. The failure does not
+appear at eval, which is why every gate listed above stayed green — the generated
+`nix.conf` is validated by the Nix *in the closure*, so the build died in
+`nix.conf.drv`:
+
+    error: setting 'max-free' has invalid value '20G'
+
+and took `etc` and every `nixos-system` derivation down with it. Now written as
+`5 * 1024 * 1024 * 1024` and `20 * 1024 * 1024 * 1024`, so the number is derived
+once instead of typed as `5368709120`. Verified by building the thing that broke:
+`nix build .#nixosConfigurations.desktop.config.system.build.etc` exits 0, its
+`nix.conf` reads `min-free = 5368709120` / `max-free = 21474836480`, and the new
+`nix.conf.drv` log ends at `Validating generated nix.conf` with nothing after it.
+The lesson is the entry's own: `nix build` of `/etc` is the check that covers
+`nix.settings`, and it costs three minutes, not forty.
+
 **And the spell-checking stack is gone.** `enchant`, `hunspell`, `aspell` and the
 `DICPATH` session variable in `base-tools.nix` were the last exception in the
 file whose whole argument is that nothing gets in without a caller — kept for an
