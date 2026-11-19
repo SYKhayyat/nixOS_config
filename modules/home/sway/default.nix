@@ -214,7 +214,7 @@ let
     # *next* window joins this one and how this container is oriented),
     # `toggle split` (flip the orientation of a container you already have),
     # and tabbed/stacking for the "one visible window with titlebars" modes.
-    # `workspace_layout splith` in the config is only the default these keys
+    # `workspace_layout default` in the config is only the default these keys
     # are free to override — which is the difference between a default and a
     # decision.
     {
@@ -484,13 +484,23 @@ in
     output "*" scale 1
 
     # The layout defaults, which every key above is free to override:
-    # `splith` (new windows split into a tree, the behaviour i3 and Hyprland
-    # both have) rather than sway's stock `tabbed` (everything piled into
-    # one tabbed container), which surprises people on their first login.
-    # `auto_back_and_forth` keeps `workspace prev` a toggle, so a mis-tap
-    # is not a one-way trip.
-    workspace_layout splith
+    # `default` is the only value sway's `workspace_layout` accepts: the
+    # option takes `default|stacking|tabbed`, and a new window joins the
+    # focused container's split direction (the tree behaviour i3 and Hyprland
+    # have) unless a key says otherwise. `splith` was here and is a *window*
+    # verb, not a workspace_layout value — sway rejected the whole config at
+    # line 54, so nothing below it was bound. `auto_back_and_forth` keeps
+    # `workspace prev` a toggle, so a mis-tap is not a one-way trip.
+    workspace_layout default
     workspace_auto_back_and_forth yes
+
+    # Keep pointer and focus predictable for GTK/Firefox popups. The defaults
+    # (focus_follows_mouse=yes is NOT the sway default, but mouse_warping=output
+    # is) let sway warp the pointer when a popup appears near a screen edge,
+    # which Firefox reads as a leave event and closes the dropdown. Disabling
+    # warping and keeping focus click-only stops that.
+    focus_follows_mouse no
+    mouse_warping none
 
     # Gaps and borders copied from Hyprland's: in 4 / out 8 / 2. Not retuned
     # — three sessions quietly disagreeing about how much air to leave is

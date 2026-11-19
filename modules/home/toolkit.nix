@@ -19,8 +19,14 @@
   osConfig,
   ...
 }:
-
 let
+  # Vocalinux's overlay is the set of blue lines that float over every window
+  # with a "vocalinux dictation" hover label. It is a setting in the app's own
+  # JSON config, so the file is sourced from the repository with show_overlay
+  # turned off, rather than edited in place (where the next switch would put it
+  # back). One checked-in file is the one statement of the app's settings.
+  vocalinuxConfig = ../../assets/vocalinux-config.json;
+
   inherit (osConfig.shaulos) study;
 
   always = with pkgs; [
@@ -143,6 +149,8 @@ in
 {
   home.packages = always ++ lib.optionals (!study) offInStudy;
 
+  xdg.configFile."vocalinux/config.json".source = vocalinuxConfig;
+
   # The fourth browser. It lives here so every "which browsers exist"
   # decision is in one file.
   programs.firefox = {
@@ -155,6 +163,16 @@ in
         # the same relative size as the rest of the desktop.
         "layout.css.devPixelsPerPx" = builtins.toJSON (osConfig.stylix.fonts.sizes.applications / 10.0);
         "browser.uidensity" = 1;
+
+        # Firefox 110+ dropdown popups (Google account menu, search-bar
+        # suggestions) close as soon as the pointer leaves the button. Mozilla
+        # bug 1819206: Firefox stopped grabbing the pointer on wlroots
+        # compositors like sway because it cannot detect the WM. These two
+        # prefs restore the pointer grab and ignore the bogus leave events.
+        # Harmless on Plasma/Hyprland, where the compositor is detected and the
+        # defaults already do the right thing.
+        "widget.gtk.grab-pointer" = 1;
+        "widget.gtk.ignore-bogus-leave-notify" = 1;
       };
     };
   };

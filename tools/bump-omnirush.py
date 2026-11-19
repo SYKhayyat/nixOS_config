@@ -73,14 +73,21 @@ def github_token() -> str | None:
     moved. Authenticated requests get 5000/hour.
 
     GH_TOKEN / GITHUB_TOKEN first, because that is what CI and most tools
-    set; then `gh auth token`, because this machine already has gh signed in
-    as the account that owns the releases. A token is never required: with
+    set; then `~/token`, the one file this machine keeps the live token in;
+    then `gh auth token` as a last resort. A token is never required: with
     none at all this still works, it fails once an hour instead of never.
     """
     for name in ("GH_TOKEN", "GITHUB_TOKEN"):
         value = os.environ.get(name)
         if value:
             return value
+    token_file = Path.home() / "token"
+    try:
+        value = token_file.read_text().strip()
+    except OSError:
+        value = ""
+    if value:
+        return value
     try:
         completed = subprocess.run(
             ["gh", "auth", "token"],

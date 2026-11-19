@@ -33,7 +33,38 @@
   # `!include` is the non-failing form: the config evaluates and runs cleanly
   # with /etc/nix/tokens.conf absent, and picks the GitHub token up the moment
   # sops writes it. See ./secrets.nix.
-  nix.extraOptions = "!include /etc/nix/tokens.conf";
+  nix.extraOptions = "!include /etc/nix/shaulos-tokens.conf";
+
+  # ── The live token comes from ~/token, and nowhere else ─────────────────
+  #
+  # `~/token` is the one file that is kept current (the sops copy in
+  # secrets/secrets.yaml can go stale, and gh's keyring token has been wrong
+  # twice). Two generations ago this machine had four places holding a GitHub
+  # token and the one Nix actually read was the forgotten one, which produced
+  # a 401 on every rebuild. Now there is one source: derive both files Nix
+  # reads, on every activation, from that single file.
+  #
+  #   shaulos-tokens.conf -> `access-tokens` for github.com ( flakes)
+  #   ~/.netrc            -> api.github.com tarball downloads (netrc-file below)
+  #
+  # Both are generated, never hand-edited. The old sops-rendered
+  # /etc/nix/tokens.conf is left alone (harmless) so a rollback still works.
+  system.activationScripts.nix-github-token = lib.stringAfter [ "etc" ] ''
+    token_file=/home/${myConfig.username}/token
+    if [ -s "$token_file" ]; then
+      token=$(tr -d '[:space:]' < "$token_file")
+      printf 'access-tokens = github.com=%s\n' "$token" > /etc/nix/shaulos-tokens.conf
+      chmod 0640 /etc/nix/shaulos-tokens.conf
+
+      netrc=/home/${myConfig.username}/.netrc
+      printf 'machine github.com\n  login ${myConfig.username}\n  password %s\n' "$token" > "$netrc"
+      printf 'machine api.github.com\n  login ${myConfig.username}\n  password %s\n' "$token" >> "$netrc"
+      chown ${myConfig.username}:users "$netrc"
+      chmod 0600 "$netrc"
+    else
+      echo "nix: ~/token missing or empty; GitHub auth left untouched" >&2
+    fi
+  '';
 
   # Which netrc nix authenticates GitHub *tarball* downloads with. Left alone
   # this is nixpkgs' default, /etc/nix/netrc — a file this config neither writes
@@ -188,6 +219,17 @@
   # An empty PAM stanza is the whole requirement: hyprlock needs a PAM service
   # of its own name to authenticate against, and the default rules are correct.
   security.pam.services.hyprlock = { };
+
+  # ── Never suspend from inactivity or a lid close ────────────────────────
+  # When you walk away the machine stays up on AC and on battery. hypridle
+  # handles the screen (and only on battery, see modules/home/lock.nix); logind
+  # must not suspend the box underneath it. Lid switch is ignored on both mains
+  # and battery, and `IdleAction=ignore` turns off logind's own idle handling.
+  services.logind.settings.Login = {
+    HandleLidSwitch = "ignore";
+    HandleLidSwitchExternalPower = "ignore";
+    IdleAction = "ignore";
+  };
 
   # `services.openssh.enable` was here and is in ./network.nix now, beside the
   # firewall port that exists for it. One feature, one file.

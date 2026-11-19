@@ -55,6 +55,24 @@ let
       done
     fi
   '';
+  idleOnBattery = pkgs.writeShellScriptBin "session-idle-action" ''
+    # hypridle has no AC predicate, so every idle action comes through here.
+    # Any mains supply reporting online=1 means "plugged in" -> do nothing at
+    # all: no dim, no lock, no blank. On battery the real action runs.
+    on_ac=1
+    for supply in /sys/class/power_supply/*; do
+      [ -r "$supply/type" ] || continue
+      [ "$(cat "$supply/type" 2>/dev/null)" = Mains ] || continue
+      on_ac=$(cat "$supply/online" 2>/dev/null)
+      break
+    done
+    if [ "$on_ac" = 1 ]; then
+      exit 0
+    fi
+    shift
+    exec "$@"
+  '';
+
 in
 {
   imports = [ ./palette.nix ];
@@ -172,7 +190,11 @@ in
     }
   '';
 
-  # Dim at 5 min, lock at 7, panel off at 10. Started by both compositors.
+  # Dim at 5 min, lock at 7, panel off at 10 — but ONLY on battery. On AC the
+  # machine stays exactly as it is: no dim, no lock, no blank. This is the one
+  # verb hypridle cannot express on its own (it has no AC check), so every
+  # on-timeout goes through `session-idle-action`, which is a no-op while the
+  # charger is in and only runs the real action on battery.
   xdg.configFile."hypr/hypridle.conf".text = ''
     general {
         lock_cmd = ${pkgs.procps}/bin/pidof hyprlock || ${pkgs.hyprlock}/bin/hyprlock
@@ -182,19 +204,19 @@ in
 
     listener {
         timeout = 300
-        on-timeout = ${pkgs.brightnessctl}/bin/brightnessctl set 10%
-        on-resume = ${pkgs.brightnessctl}/bin/brightnessctl set 100%
+        on-timeout = ${idleOnBattery}/bin/session-idle-action dim ${pkgs.brightnessctl}/bin/brightnessctl set 10%
+        on-resume = ${idleOnBattery}/bin/session-idle-action dim ${pkgs.brightnessctl}/bin/brightnessctl set 100%
     }
 
     listener {
         timeout = 420
-        on-timeout = loginctl lock-session
+        on-timeout = ${idleOnBattery}/bin/session-idle-action lock loginctl lock-session
     }
 
     listener {
         timeout = 600
-        on-timeout = ${sessionDpms}/bin/session-dpms off
-        on-resume = ${sessionDpms}/bin/session-dpms on
+        on-timeout = ${idleOnBattery}/bin/session-idle-action dpms ${sessionDpms}/bin/session-dpms off
+        on-resume = ${idleOnBattery}/bin/session-idle-action dpms ${sessionDpms}/bin/session-dpms on
     }
   '';
 }

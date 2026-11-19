@@ -1,0 +1,116 @@
+{
+    "speech_recognition": {
+        "engine": "whisper_cpp",
+        "language": "en-us",
+        "model_size": "small",
+        "vosk_model_size": "small",
+        "whisper_model_size": "tiny",
+        "whisper_cpp_model_size": "small",
+        "whisper_cpp_model_variant": "",
+        "simple_second_language": "",
+        "show_advanced": true,
+        "parakeet_model_size": "v3-european",
+        "faster_whisper_model_size": "tiny",
+        "vad_sensitivity": 3,
+        "silence_timeout": 1.2,
+        "stop_sound_guard_ms": 200,
+        "voice_commands_enabled": true,
+        "remote_api_url": "",
+        "remote_api_key": "",
+        "remote_api_endpoint": "/inference",
+        "remote_api_model": "whisper-1"
+    },
+    "audio": {
+        "device_index": null,
+        "device_name": null
+    },
+    "sound_effects": {
+        "enabled": true,
+        "tone": "voca"
+    },
+    "playback_duck": {
+        "enabled": false,
+        "percent": 20
+    },
+    "shortcuts": {
+        "toggle_recognition": "alt+r",
+        "mode": "toggle",
+        "disable_internal_hotkey": false,
+        "pass_shortcut_to_apps": false,
+        "language_shortcuts": []
+    },
+    "ui": {
+        "start_minimized": false,
+        "show_notifications": true,
+        "show_missing_tray_warning": true,
+        "show_overlay": true
+    },
+    "general": {
+        "autostart": true,
+        "first_run": false
+    },
+    "auto_pause": {
+        "enabled": false,
+        "apps": [],
+        "poll_interval_seconds": 5
+    },
+    "model_keepalive": {
+        "enabled": false,
+        "idle_timeout_seconds": 300,
+        "buffer_during_reload": false
+    },
+    "text_injection": {
+        "copy_to_clipboard": false,
+        "auto_capitalize": true,
+        "append_trailing_space": true,
+        "paste_shortcut": "auto",
+        "paste_long_text": false,
+        "backend": "auto",
+        "dictate_to_pad": false
+    },
+    "history": {
+        "enabled": true,
+        "max_items": 10,
+        "persist": false
+    },
+    "post_processing": {
+        "script_path": ""
+    },
+    "dictionary": {
+        "enabled": false,
+        "file_path": "/home/shaul/.config/vocalinux/dictionary.txt",
+        "max_words": 200
+    },
+    "advanced": {
+        "power_user_mode": true,
+        "debug_logging": false,
+        "wayland_mode": false,
+        "whispercpp_no_timestamps": true,
+        "whispercpp_no_context": true,
+        "whispercpp_initial_prompt": "",
+        "whispercpp_language_candidates": "",
+        "whispercpp_temperature": 0.0,
+        "whispercpp_temperature_inc": -1.0,
+        "whispercpp_entropy_thold": 2.4,
+        "whispercpp_logprob_thold": -1.0,
+        "whispercpp_no_speech_thold": 0.6,
+        "whispercpp_n_threads": 0,
+        "whispercpp_gpu_device": null
+    },
+    "updates": {
+        "check_automatically": true,
+        "last_notified_version": ""
+    },
+    "proxy": {
+        "mode": "system",
+        "protocol": "socks5",
+        "host": "",
+        "port": 1080,
+        "username": "",
+        "password": ""
+    },
+    "gateway_embed": {
+        "lan_publish": false
+    },
+    "show_overlay": false
+}
