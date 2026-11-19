@@ -1,4 +1,4 @@
-# modules/home/emacs/default.nix
+# modules/home/emacs.nix
 #
 # Emacs on this machine: one package, the profile launchers that already live
 # in ~/emacs-configs/bin, and the three menu entries. The configuration itself
@@ -81,28 +81,19 @@ in
     mkdir -p "${config.home.homeDirectory}/Documents/roam/daily"
   '';
 
-  # The deleted module's bridge, deleted. `emacsDotDBridge` in the old
-  # modules/home/emacs/default.nix symlinked ~/.emacs.d/init.el and
-  # early-init.el to store files that set `user-emacs-directory` to
-  # ~/.config/emacs and then load an init.el from there — a file the *same*
-  # deleted module used to provide. Removing the module does not remove what
-  # its activation wrote, so both links survived the switch pointing at a path
-  # that is now empty: plain `emacs` (anything not started through the three
-  # launchers, e.g. from a shell or a third-party program) loads the bridge,
-  # fails to find ~/.config/emacs/init.el, and reports that on every start.
-  # The store files also go away at the next GC, at which point the links read
-  # as a missing init rather than a wrong one.
+  # ── What is deliberately not here ────────────────────────────────────────
+  # `emacsDotDBridge` in the deleted modules/home/emacs/default.nix symlinked
+  # ~/.emacs.d/init.el and early-init.el to store files that set
+  # `user-emacs-directory` to ~/.config/emacs and load an init.el from there.
+  # Deleting that module does not delete what its activation wrote, so both
+  # links outlived it, pointing at a directory the same module had emptied:
+  # plain `emacs` opened by reporting a missing init, then activating packages
+  # whose store dependencies had gone with the config.
   #
-  # Only the two symlinks, and only when they point into the store: a regular
-  # file in ~/.emacs.d is somebody's, not this module's.
-  home.activation.removeEmacsDotDBridge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    emacsDotD="${config.home.homeDirectory}/.emacs.d"
-    for f in "$emacsDotD/init.el" "$emacsDotD/early-init.el"; do
-      if [ -L "$f" ]; then
-        case "$(readlink "$f")" in
-          /nix/store/*) $DRY_RUN_CMD rm -f "$f" ;;
-        esac
-      fi
-    done
-  '';
+  # They were removed once, by hand, along with ~/.emacs.d and ~/.config/emacs
+  # — the old config's runtime state, and the second of those is what Emacs
+  # adopts as its config directory on any machine where the first is absent.
+  # No activation replaced them. A module that no longer writes a file has no
+  # business carrying permanent code to delete it, and the condition cannot
+  # recur: nothing but the deleted module could create those links.
 }

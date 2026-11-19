@@ -220,16 +220,29 @@ module used to provide. Plain `emacs` therefore opened by reporting a missing
 the old Nix config had installed, five of which lost their dependencies with it
 (`pdf-tools`, `org-roam`, `magit-section` were store paths). That is the wall of
 warnings, and it was one GC away from being a hard failure instead.
-`removeEmacsDotDBridge` in `modules/home/emacs.nix` now deletes the two symlinks
-— only symlinks, only when they point into the store, never a file somebody
-wrote — and `~/.emacs.d/elpa` was renamed to `elpa.pre-emacs-configs` by hand:
-50 MB of somebody's packages is not activation's to delete.
+Both links were removed once, by hand, and no activation replaced them. A module
+that no longer writes a file has no business carrying permanent code to delete
+it, and the condition cannot recur — nothing but the deleted module could have
+created those links. The module file says so where the activation would have
+gone, because the next person to remove a module will have the same thought.
+
+The same pass cleared the rest of the old config's runtime state, which nothing
+owned: `~/.emacs.d` (47 MB of packages the old Nix config installed, 2.2 MB of
+eln-cache) and `~/.config/emacs` (257 MB — 189 MB of `undo-tree-history` for
+files the current config does not use, 54 MB of `eclipse.jdt.ls`, 14 MB of
+packages). The second was the dangerous one: Emacs prefers `~/.config/emacs`
+whenever `~/.emacs.d` is absent, so removing one directory would have promoted
+the other to being the editor's config, complete with the old `org-roam.db`.
+What was not regenerable — both `org-roam.db` files, `custom.el`, `recentf`,
+`places`, `tramp`, `history`, the `projectile-*` files — is in
+`~/.local/state/emacs-old-config-2026-11-18.tar.gz` (5.6 K).
 
 **Verified after both:** `emacs --init-directory=…/configs/{hebrew,notes,ide}
 --batch` prints `ok` and nothing else for each of the three profiles;
 `bin/emacs-notes` starts a daemon that answers and holds a frame; bare `emacs`
-starts with empty stderr. The activation text was evaluated and run as shell
-(`sh -n` clean, then a no-op pass on the already-removed links).
+starts with empty stderr. Re-checked after the state cleanup: the same three
+`ok`s, empty stderr, and the config's own suite — `~/emacs-configs/bin/check`,
+the invariants and export tests for all three profiles — exits 0.
 
 **And the spell-checking stack is gone.** `enchant`, `hunspell`, `aspell` and the
 `DICPATH` session variable in `base-tools.nix` were the last exception in the
