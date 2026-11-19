@@ -43,7 +43,7 @@
         "start_minimized": false,
         "show_notifications": true,
         "show_missing_tray_warning": true,
-        "show_overlay": true
+        "show_overlay": false
     },
     "general": {
         "autostart": true,
@@ -111,6 +111,5 @@
     },
     "gateway_embed": {
         "lan_publish": false
-    },
-    "show_overlay": false
+    }
 }
