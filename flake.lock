@@ -102,6 +102,22 @@
         "type": "github"
       }
     },
+    "emacsConfigs": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1795060324,
+        "narHash": "sha256-3hTR0SiUKHJvXG1ZzGU4ggXkvUg3xMvvKwVW8QsVFCI=",
+        "owner": "SYKhayyat",
+        "repo": "emacs-configs",
+        "rev": "e679a50f3c61304fdd1a1e6d87539a661a06fde1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SYKhayyat",
+        "repo": "emacs-configs",
+        "type": "github"
+      }
+    },
     "firefox-gnome-theme": {
       "flake": false,
       "locked": {
@@ -320,6 +336,7 @@
     },
     "root": {
       "inputs": {
+        "emacsConfigs": "emacsConfigs",
         "home-manager": "home-manager",
         "llm-agents": "llm-agents",
         "nixpkgs": "nixpkgs",

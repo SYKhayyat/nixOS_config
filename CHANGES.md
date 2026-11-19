@@ -58,6 +58,66 @@ stays.
 
 ---
 
+## 2026-11-18 (u) — the minibuffer was dead, and the config was still a checkout
+
+Entry (t) fixed the launchers; this one starts from the failure that was still
+there when they worked.
+
+**`C-x C-f`, `C-x b`, `M-x` — every minibuffer command — said `Symbol's function
+definition is void: set-local`.** One cause, not three: corfu, vertico and
+consult now declare `(compat "31")` and call `set-local`, `incf`, `decf` and
+`completion-list-candidate-at-point`; Emacs 30.2 *ships* a compat.el, so the
+dependency looked satisfied, but that file is a stub with only
+`compat-function`/`compat-call`. Two things had to be true at once for it to
+pass: the real Compat was installed, and it was `load`ed before
+`vertico--setup`. Installing it was not enough — `package-installed-p` answers
+`t` for a builtin, so the installer skipped it silently — and `require` alone
+was not enough either, because a stub that has already provided the feature
+makes every later `require` a no-op. `lisp/core.el` now loads the elpa copy by
+name, `bin/install.el` asks for the archive's `package-desc` for the packages
+Emacs ships a stub of, and `bin/check` has a `bidi` test so the next package that
+does this fails a gate instead of a keystroke.
+
+**The Hebrew came out left-to-right in a buffer that was pinned left-to-right.**
+Not a wrong default: `bidi-paragraph-direction` stays `nil` (forcing it costs
+10–50x on wrapped Hebrew, DECISIONS.md), pure Hebrew is measured
+right-to-left, and no `custom.el` overrode it. What *was* wrong is that the pin
+is sticky, invisible, and was only reachable in the `hebrew` profile: one `C-c l`
+in a scratch buffer is enough to lay Hebrew out LTR forever, and the notes
+profile had no command to undo it. So `lisp/bidi.el` is new and every profile
+loads it: `C-c r` / `C-c l` pin a direction, the same key again returns the
+buffer to automatic, and a minor-mode lighter says `RTL`/`LTR` only while
+pinned — a lighter, not an `:eval`, so a buffer left automatic pays nothing per
+command. No cycle key: `C-c R` is `my/revert-buffer`, and one accidental shift
+is enough.
+
+**The configuration is now pinned, and nothing in `$HOME` has to exist.** Flake
+input `emacsConfigs` (`github:SYKhayyat/emacs-configs`) replaces the local
+checkout as the source of truth; `modules/home/emacs.nix` builds
+`~/.local/share/emacs-configs` from links to the store copy plus real `elpa/`
+and `state/`, and the launchers set `EMACS_CONFIG_ROOT` to it. `~/emacs-configs`
+is now only where the config is edited. Three lines upstream made that possible:
+`launch.sh`, `install` and `check` take the root from `EMACS_CONFIG_ROOT`, and
+so does each profile's `early-init.el` — the last because `load` resolves
+symlinks, so a tree of links and no override derived `my/repo-root` as the store
+path and died creating `state/` there. Activation runs the installer when
+`elpa/` is empty; `emacs-install` is the command after that.
+
+Two package.el defects were found on the way, both recorded in the installer
+rather than worked around quietly: installing by `package-desc` breaks dependency
+resolution in this Emacs (`Wrong type argument: stringp, #<symbol xterm-color at
+685>`) — the same failure `package-install-upgrade-built-in` caused for three
+packages — and `package--save-selected-packages` sorts a list that can contain
+that positioned symbol, which is why every install now passes `DONT-SELECT`.
+
+**Verified:** `bin/check` in the config repo passes 19 checks (three profiles,
+plus the new `bidi` one in hebrew and notes); a clean `EMACS_CONFIG_ROOT` outside
+`$HOME` installs all 66 packages from the pinned list with exit 0, loads the
+notes profile with `set-local` bound and `my/repo-root` at the writable tree,
+and passes the config's own suite; `just eval` and `just lint` pass here; and the
+running daemons were repaired in place (compat loaded, `bidi` loaded, the stuck
+scratch buffer unpinned) rather than waiting for a rebuild.
+
 ## 2026-11-18 (t) — the audit was about a tree that had moved, and two documents were the only thing still describing it
 
 Audited `8346188` against `docs/AUDIT.md` (rewritten the same day), then

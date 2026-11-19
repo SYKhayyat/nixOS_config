@@ -148,6 +148,15 @@ update-opencode:
     nix flake update llm-agents
     @git diff --stat flake.lock
 
+# Emacs is the fourth input that is not nixpkgs, and the same shape of narrow
+# bump: `github:SYKhayyat/emacs-configs` is pinned, and the store copy is
+# read-only, so a change to the configuration reaches this machine by moving the
+# pin and rebuilding. (Editing `~/emacs-configs` changes nothing until it is
+# pushed — see docs/ONBOARDING.md §6.)
+update-emacs:
+    nix flake update emacsConfigs
+    @git diff --stat flake.lock
+
 # OmniRush is the third non-nixpkgs package, and the only one whose update is
 # not a `nix flake update` away: both of its halves are local derivations
 # carrying a hand-pinned version, URL and SRI hash, so a bump is six edits.

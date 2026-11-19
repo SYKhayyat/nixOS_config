@@ -88,12 +88,13 @@ secrets/                      # sops-nix encrypted secrets (see below)
 assets/wallpaper.jpg          # the one image stylix and the compositors share
 ```
 
-The Emacs *configuration* is not in this repo. It is `~/emacs-configs`: a
-writable git checkout with three profiles (`hebrew`, `notes`, `ide`) and
-packages owned by `package.el` in `elpa/`. It is deliberately not a flake input
-(CI has no such directory to evaluate, and the checkout pins itself) and
-deliberately not managed with `home.file` (`bin/install` writes `elpa/`
-continuously, and the store is read-only).
+The Emacs *configuration* is not in this repo, but it is pinned by it: flake
+input `emacsConfigs` (`github:SYKhayyat/emacs-configs`), three profiles
+(`hebrew`, `notes`, `ide`) and the lisp they load. The store copy cannot be what
+Emacs runs from — `package.el` writes `elpa/`, Emacs writes `state/` and each
+profile's `eln-cache/` — so `modules/home/emacs.nix` builds a writable
+`~/.local/share/emacs-configs` out of links to it plus two real directories, and
+the launchers point `EMACS_CONFIG_ROOT` there.
 
 `modules/home/emacs.nix` keeps only what this *machine* provides: one
 Emacs (`pkgs.emacs-pgtk`, the Wayland build), the three profile launchers as
@@ -102,11 +103,11 @@ The launcher starts each profile's daemon; nothing here declares those as
 systemd units, on purpose — three daemons at login is 150–400 MB for profiles
 you might not open.
 
-**Reproducibility trade, stated:** `elpa/` is not pinned by Nix, so
-`nixos-rebuild --rollback` no longer rolls Emacs packages back and a MELPA
-change can arrive with no Nix change. That is the cost of a config that also
-runs on macOS and Windows. Update it with `git -C ~/emacs-configs pull`, not a
-rebuild.
+**Reproducibility trade, stated:** the config's *lisp* is pinned with the rest
+of the flake, but `elpa/` is not — packages are fetched from ELPA and MELPA by
+`emacs-install`, so `nixos-rebuild --rollback` does not roll Emacs packages back
+and a MELPA change can arrive with no Nix change. That is the cost of a config
+that also runs on macOS and Windows.
 
 ## Sessions
 
@@ -720,18 +721,29 @@ clear.
 
 ### Emacs
 
-`~/emacs-configs` is the configuration: three profiles (`hebrew`, `notes`, `ide`)
-and packages owned by `package.el` in `elpa/`. Its own `bin/install` sets it up;
-Nix does not manage it, does not pin it, and does not copy it into the store.
+Flake input `emacsConfigs` is the configuration: three profiles (`hebrew`,
+`notes`, `ide`), the lisp they load, and `vendor/`. It is pinned in
+`flake.lock`, so a machine with nothing in `$HOME` builds a working Emacs.
 
-What Nix provides is around it — one `pkgs.emacs-pgtk`; `emacs-hebrew`,
-`emacs-notes` and `emacs-ide` built into the store as three lines that `sh` that
-checkout's `launch.sh` (`emacsLauncher` in `flake.nix`); `$EDITOR` and `$VISUAL`
-set to `emacs-notes`; and three desktop entries. `launch.sh <profile>` starts
-that profile's daemon if it is not running; the daemons are deliberately not
-systemd units, so they cost nothing until you open the profile you want.
+A store path cannot be what Emacs runs from. `package.el` writes `elpa/`, Emacs
+writes `state/` (recentf, savehist, custom.el) and each profile's `eln-cache/`,
+and the store is read-only. So `modules/home/emacs.nix` builds
+`~/.local/share/emacs-configs` — links to the read-only half, real directories
+for `elpa/` and `state/` — and `emacsLauncher` in `flake.nix` makes
+`emacs-hebrew`/`emacs-notes`/`emacs-ide` store wrappers that `sh` the pinned
+`launch.sh` with `EMACS_CONFIG_ROOT` set to it. `$EDITOR` and `$VISUAL` are the
+notes wrapper, and three desktop entries name the same paths. `launch.sh
+<profile>` starts that profile's daemon if it is not running; the daemons are
+deliberately not systemd units, so they cost nothing until you open the profile
+you want.
 
-The wrappers are built rather than named as paths into the checkout because an
+Update the configuration by pushing to that repository, then `just lock` and
+`just switch`. `emacs-install` refills `elpa/` from `lisp/packages.el`;
+activation runs it once when `elpa/` is empty (a new machine, or the first
+switch after the input changed), because `package-refresh-contents` is a network
+round trip and not something to do on every switch.
+
+The wrappers are built rather than named as paths into a checkout because an
 executable bit in another repository is not something this one can check. It has
 already cost every entry point at once: `launch.sh` was committed `100644`, so a
 fresh checkout made every caller fail with `Permission denied` and no gate here
@@ -745,11 +757,8 @@ no `PATH` at all: the `focus` session's `cage` service runs under systemd with
 coreutils, grep, sed and systemd, and nothing else. That is where the
 specialisation's Emacs comes from, and which Emacs it is.
 
-Update it with `git -C ~/emacs-configs pull`; there is no `just` recipe for that
-any more, and no flake input to bump.
-
-For the `study` airgap, install and warm each profile before switching in —
-`elpa/` and the profile's downloaded pieces are not fetched offline.
+For the `study` airgap, run `emacs-install` and warm each profile before
+switching in — `elpa/` is not fetched offline.
 
 The old Nix-side Emacs config (the `emacs-config`/Doom inputs, the module groups,
 texlive, the single daemon, `migrateEmacsModules`) was deleted on 2026-11-18.

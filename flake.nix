@@ -51,11 +51,18 @@
     };
 
     # ── Emacs ───────────────────────────────────────────────────────────────
-    # The Emacs configuration is ~/emacs-configs: a writable git checkout with
-    # three profiles (hebrew, notes, ide) whose packages are owned by
-    # package.el in `elpa/`. It is deliberately NOT a flake input — CI has no
-    # such directory to evaluate, and the checkout's own git pins it. See
-    # modules/home/emacs.nix for what Nix provides around it.
+    # The Emacs configuration, pinned: profiles hebrew/notes/ide, the lisp they
+    # load, and vendor/. It used to be a local checkout and deliberately not an
+    # input; it is one now, so a machine with nothing in $HOME builds a working
+    # Emacs. `flake = false` because it is a source tree, not a flake.
+    #
+    # A store path cannot be what Emacs runs from directly: `elpa/` (package.el)
+    # and `state/` (recentf, savehist, custom.el) are written at run time, and
+    # so is `eln-cache/` inside each profile's init directory. home-manager
+    # therefore links the read-only half into a writable root under
+    # ~/.local/share/emacs-configs and the launchers point EMACS_CONFIG_ROOT at
+    # it — see modules/home/emacs.nix. The pin is what this machine runs, so a
+    # change reaches it by moving the pin: `just update-emacs`.
 
     # ── Vocalinux: offline voice dictation ────────────────────────────────
     # Speak and the text lands in whatever window has focus. Local engines only
@@ -76,6 +83,11 @@
     vocalinux = {
       url = "github:VocaHQ/vocalinux";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    emacsConfigs = {
+      url = "github:SYKhayyat/emacs-configs";
+      flake = false;
     };
   };
 
@@ -315,12 +327,15 @@
         # nothing, so stable is enough.
         emacs = pkgs.emacs-pgtk;
 
-        # The configuration is ~/emacs-configs: a writable git checkout with
-        # three profiles (hebrew, notes, ide) and package.el-owned `elpa/`.
-        # Deliberately not a flake input (CI could not evaluate it, and the
-        # checkout pins itself) and deliberately not `home.file` (bin/install
-        # writes elpa/ continuously; the store is read-only).
-        emacsConfigDir = "/home/shaul/emacs-configs";
+        # The configuration, pinned (input `emacsConfigs`). Two paths, because
+        # the store cannot be written and Emacs writes: `emacsConfigSource` is
+        # the read-only store copy, and `emacsConfigRoot` is the writable tree
+        # home-manager builds from it, holding elpa/ and state/ along with links
+        # to everything else. The root lives beside the rest of the per-user
+        # data, not in ~/emacs-configs: that checkout, if it exists, is where
+        # the config is *edited*, not what runs.
+        emacsConfigSource = "${inputs.emacsConfigs}";
+        emacsConfigRoot = "/home/shaul/.local/share/emacs-configs";
 
         # `launch.sh <profile>` starts that profile's daemon if it is not
         # running, then opens a frame. Everything that used to spell out
@@ -337,16 +352,16 @@
         # logic stays in the checkout: this is an `exec` around it, not a
         # second implementation.
         #
-        # Two details are load-bearing. It calls `launch.sh` with `sh` rather
+        # Three details are load-bearing. It calls `launch.sh` with `sh` rather
         # than going through the checkout's own `bin/emacs-<profile>` shims,
         # because those shims `exec` launch.sh and so would need the mode bit
-        # themselves. And it names its own dependencies instead of assuming a
-        # PATH: `emacs` and `emacsclient` because launch.sh calls both bare, and
-        # coreutils because it calls `dirname` and `sleep` the same way. The
+        # themselves. It names its own dependencies instead of assuming a PATH:
+        # `emacs` and `emacsclient` because launch.sh calls both bare, and
+        # coreutils because it calls `dirname` and `sleep` the same way — the
         # `focus` cage service runs under systemd with a PATH of coreutils and
-        # systemd only, so without this the editor could not start there at all
-        # — and with it, the wrapper answers the other question too: which
-        # Emacs the daemon is.
+        # systemd only, so without this the editor could not start there at all.
+        # And it says which tree to run from (`EMACS_CONFIG_ROOT`), because the
+        # script it runs lives in the store and cannot hold elpa/ or state/.
         emacsLauncher =
           profile:
           pkgs.writeShellScriptBin "emacs-${profile}" ''
@@ -357,8 +372,14 @@
               ]
             }''${PATH:+:$PATH}
             export PATH
-            exec ${pkgs.bash}/bin/sh ${emacsConfigDir}/bin/launch.sh ${profile} "$@"
+            EMACS_CONFIG_ROOT=${emacsConfigRoot}
+            export EMACS_CONFIG_ROOT
+            exec ${pkgs.bash}/bin/sh ${emacsConfigSource}/bin/launch.sh ${profile} "$@"
           '';
+
+        # The daemon's server name, spelled once: `launch.sh` derives it as
+        # `emacs-<profile>` and `emacsEval` has to name the same one.
+        emacsServer = profile: "emacs-${profile}";
 
         # The one place the name is spelled. Callers ask for a profile, never
         # for `-emacs-<profile>`.
@@ -376,7 +397,7 @@
         # `emacsEval' would end up in two different Emacsen the day `emacs`
         # above changes. `emacsclient` must be the client of the daemon the
         # launcher started, which is the one this attribute installs.
-        emacsEval = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient -s emacs-notes -e";
+        emacsEval = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient -s ${emacsServer "notes"} -e";
       };
     in
     {

@@ -285,20 +285,23 @@ Make the documented local command *be* the CI job. Not similar to it. See
 
 ## 6. Emacs
 
-The Emacs configuration is **`~/emacs-configs`**: a writable checkout with
-three profiles (`hebrew`, `notes`, `ide`) and `package.el`-owned `elpa/`. It is
-not a flake input, and Nix does not copy it into the store.
+The Emacs configuration is flake input **`emacsConfigs`**
+(`github:SYKhayyat/emacs-configs`), pinned in `flake.lock`: three profiles
+(`hebrew`, `notes`, `ide`) and the lisp they load. Nothing has to exist in
+`$HOME` first — `modules/home/emacs.nix` builds the writable tree the launchers
+run from (`~/.local/share/emacs-configs`, links into the store plus real
+`elpa/` and `state/`).
 
 ```sh
-git -C ~/emacs-configs pull   # update it
-~/emacs-configs/bin/install   # install/refresh packages
+just lock            # after pushing to the config repository
+emacs-install        # install/refresh packages (~38 MB, network)
 ```
 
 `modules/home/emacs.nix` provides the package (`pkgs.emacs-pgtk`), the three
-profile launchers as store wrappers around that checkout's `launch.sh`,
-`$EDITOR`, and three desktop entries. `bin/install` and `bin/check` are still
-called by path, as above. The profile daemons are started by the launcher, not
-by systemd, on purpose — see the README's Emacs section.
+profile launchers as store wrappers around the pinned `launch.sh`, `$EDITOR`,
+and three desktop entries. Activation runs `emacs-install` once when `elpa/` is
+empty; after that it is a deliberate command. The profile daemons are started by
+the launcher, not by systemd, on purpose — see the README's Emacs section.
 
 ## 7. First boot on a new machine
 

@@ -344,20 +344,32 @@ nix why-depends /run/current-system /nix/store/…-thepackage
 
 ## Emacs
 
-The Emacs configuration is **`~/emacs-configs`**, not this repo. Start with the
-profile launcher (`emacs-notes`), check which daemon is running with
-`emacsclient -s emacs-notes --eval '(server-name)'`, and update the config with
-`git -C ~/emacs-configs pull`.
+The Emacs configuration is flake input **`emacsConfigs`**, pinned; what runs is
+`~/.local/share/emacs-configs`, a tree of links into the store with real `elpa/`
+and `state/` beside them. Start with the profile launcher (`emacs-notes`) and
+check which daemon is running with
+`emacsclient -s emacs-notes --eval '(server-name)'`.
 
 Nix does not run an Emacs daemon any more (`services.emacs` is gone with the old
 config), so a missing socket means the launcher was never started, not that a
-systemd unit failed. `~/emacs-configs/bin/launch.sh notes` is the thing to run.
+systemd unit failed. The script itself, if you need it by hand:
+
+```sh
+EMACS_CONFIG_ROOT=~/.local/share/emacs-configs \
+  sh /nix/store/…-source/bin/launch.sh notes
+```
+
+**`Symbol's function definition is void: set-local`** (or `incf`, `decf`, `any`)
+in the minibuffer means the Compat package is missing from `elpa/`: corfu,
+vertico and consult require compat 31, and Emacs 30's bundled compat.el is a stub
+that provides the feature and nothing else. `emacs-install` fixes it. It is the
+whole minibuffer, not one command — `vertico--setup` calls `set-local` on every
+prompt, so `C-x C-f`, `C-x b` and `M-x` all fail together.
 
 `emacs-notes` on `PATH` is a store wrapper that runs that script with `sh`, so a
-mode bit on it cannot stop the launcher — but running `launch.sh` by hand does
-need it executable. `ls -l ~/emacs-configs/bin/launch.sh` before chasing
-anything else: it was committed `100644` once, and every entry point failed with
-`Permission denied` at the same time.
+mode bit on it cannot stop the launcher; the store copy is `0755` anyway. If you
+run a `launch.sh` from a checkout by hand and get `Permission denied`, that is
+the file's mode, not the wrapper.
 
 `pkgs.emacs-pgtk` is Emacs 30.2, the Wayland build. If a frame does not resize
 under Plasma, that is the old `WAYLAND_DISPLAY` issue — the launcher handles it;
