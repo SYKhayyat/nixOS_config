@@ -1,146 +1,223 @@
 # Audit — ShaulOS NixOS configuration
 
-Date: 2026-11-18 · Repo at `8346188`
+Date: 2026-11-19 · Repo at `de9a296` plus the uncommitted working tree
 
-**Scope:** what should change *in this repository*. Each finding has a location, the problem and
-the fix. Anything about the machine or other repos (home-directory data, caches, `~/emacs-configs`)
-is in a short list at the end, because a commit here cannot fix it.
+**Scope:** the whole configuration as it is now, meaning the commits already in plus the
+uncommitted move of Emacs to the pinned `emacsConfigs` input. Each finding gives a location, the
+problem and the fix. Items about the machine or other repos come at the end, because a commit here
+cannot fix them. The previous audit (2026-11-18, `8346188`) is in git history; its items are checked
+off below.
 
-Baseline (measured): the flake evaluates, `statix` and `deadnix` pass, and
-`tools/check-closure.sh /run/current-system` passes. The running system was behind HEAD at the
-time of writing, so a `just switch` was pending; it landed the same day, and the closure then
-measured **28.6 GB** (`study` 18.6 GB, `focus` 7.1 GB). The 39.5 / 26.6 / 13.4 GB figures below
-are the pre-switch readings this audit worked from, not the current sizes.
+How much each file was reviewed:
 
----
-
-## P0 — do first
-
-### 1. The flake still builds the Emacs config you no longer use
-
-You now run `~/emacs-configs` (profiles `hebrew`/`notes`/`ide`, packages in `elpa/`). No `.nix`
-file mentions it. The flake still pins and builds the old config:
-
-| Remove | Where |
+| Depth | Files |
 |---|---|
-| `inputs.emacs-config`, `inputs.doom-config`, `inputs.nix-doom-emacs-unstraightened` | `flake.nix` inputs; `myConfig.emacsConfig` (:519), `emacs-package.nix` import + `emacs30-pgtk` rename (:530-536), `myConfig.doomDir` (:545-560), Doom `hmModule` (:655-660), `checks.emacs-config` (:731) |
-| Doom module | `modules/home/doom/`, its import at `home/shaul.nix:18` |
-| Old Emacs module body | `modules/home/emacs/default.nix`: `${emacsConfig}` references, `EMACS_MODULE_GROUPS` (:371, :374), `services.emacs` (:376-383, including the dead `client` block), migration/bridge activation scripts. Also the duplicate `home.packages = [ emacs ]` (:183) |
-| `EMACS_MODULE_GROUPS` env | `modules/home/hyprland/default.nix:432` |
-| Packages only the old config used | `texlive.combined.scheme-full` (257 MB), `tinymist`, `tree-sitter`, `nil`, `lua-language-server`, `graphviz`; the enchant/hunspell/aspell + `DICPATH` exception in `base-tools.nix:67-85` |
-| Recipes | `justfile`: `update-emacs`, `emacs-dev` |
-| Stale assertion | `tools/check-closure.sh:377`: asserts that `recoll`/`xapian`/`hdate` are absent, because of the module groups being deleted |
-| Docs | `README.md:715-` Emacs sections; the flake essay at `flake.nix:55-105` |
-| Single-daemon callers | `keys.nix:231,305` (`emacsFrameArgv`), `yazi.nix` opener, `modules/system/focus.nix:186-190` (`cage` runs `emacsclient -a ""`) |
+| Read in full | `flake.nix`, `justfile`, `hosts/desktop/*`, every file in `modules/system/`, `home/shaul.nix`, `home/common.nix`, `home/focus.nix`, `modules/home/emacs.nix`, `toolkit.nix`, `wayland-common.nix`, `lock.nix`, `waybar.nix`, `scripts.nix`, `.github/workflows/check.yml`, `tools/check-docs.sh` |
+| Read in part | `modules/home/keys.nix` (startup list, keyboard), `hyprland/default.nix` and `sway/default.nix` (startup, references), all of `packages/*.nix` (sources, hashes, wrappers, sandbox flags), `tools/check-closure.sh`, `tools/bump-omnirush.py` |
+| Grep only | `konsole.nix`, `foot.nix`, `p10k.nix`, `yazi.nix`, `palette.nix`, `darktable.nix`, `lisp.nix`, `art.nix`, `raw-editor-sources.nix`, `statix.toml` |
+| Also checked | the last 8 CI runs, the upstream `emacs-configs` source at `e679a50`, and the live machine (disk, swap, the runtime Emacs tree, user namespaces) |
 
-Target: `modules/home/emacs/default.nix` becomes about 50 lines. It installs one Emacs, puts
-`~/emacs-configs/bin` on `PATH`, sets `EDITOR`, and adds three desktop entries. Don't make
-`~/emacs-configs` a flake input (CI couldn't evaluate it), and don't copy it with `home.file`
-(`elpa/` is written at runtime).
+**Baseline:**
 
-This also removes most of the 241 git fetches that make every eval take about 8 minutes. Those
-fetches come from the old config's per-package pins.
+| Gate | Result |
+|---|---|
+| `just lint` (statix, deadnix, docs check) | pass |
+| `just eval` (toplevel, specialisation names, `focus`) | pass: `sx2f6x8n…`, `["focus","study"]`, `ppsxszj1…` |
+| `just closure` locally | not run (~40 min) |
+| **CI "the closure builds"** | **failed on every push since at least 2026-11-04**; see P0 |
 
-### 2. sshd accepts passwords — `modules/system/network.nix`
-
-Port 22 is open, with `PasswordAuthentication yes`, on a laptop that joins untrusted networks.
-If you never ssh into this machine, set `services.openssh.enable = false`. Otherwise:
-
-```nix
-services.openssh.settings = {
-  PasswordAuthentication = false;
-  KbdInteractiveAuthentication = false;
-  PermitRootLogin = "no";
-};
-```
-
-### 3. Nothing backs up your data
-
-`modules/system/data.nix` only downloads. No module uploads anything. Add
-`services.restic.backups` for `~/ksav`, `~/shall` and `~/Documents` (366 GB, irreplaceable),
-to a target you choose, with a periodic `restic check`. Test one restore. Disk encryption (no
-LUKS in `hosts/desktop/hardware-configuration.nix`) needs a reinstall, which is only safe after
-backups work. Decide it then, and write the decision down.
-
-### 4. Nothing caps disk growth — `modules/system/core.nix`
-
-The generated `nix.conf` has no `min-free`/`max-free` and `auto-optimise-store = false`. Nothing
-caps the coredump store or the journal (868 MB and 2.6 GB today).
-
-```nix
-nix.settings = { auto-optimise-store = true; min-free = "5G"; max-free = "20G"; };
-systemd.coredump.extraConfig = "MaxUse=200M";
-services.journald.extraConfig = "SystemMaxUse=500M";
-```
+Machine: `/` is 925 G with 688 G used (79%). `main` is one commit ahead of `origin`.
 
 ---
 
-## P1 — small correctness fixes (about one commit)
+## P0 — the system cannot be built from scratch
+
+### Quicklisp's fixed-output hash no longer matches, and CI has been red for two weeks
+
+The last 7 runs of `check` all fail in the same place. The lint and eval jobs pass; the closure job
+does not:
+
+```
+error: hash mismatch in fixed-output derivation '…-quicklisp-2026-01-01.drv'
+error: 1 dependencies of derivation '…-home-manager-path.drv' failed to build
+```
+
+`packages/quicklisp.nix` is a fixed-output derivation that runs the Quicklisp bootstrap with
+`:dist-version nil` (line 100), which means "whatever dist is current". The `outputHash` (line 64)
+records one moment of that. Either Quicklisp published a new dist or the output holds build-time
+`.fasl` files that differ between builds; both make the hash unstable. This machine still switches
+only because the old output is kept alive by the current home generation. On a fresh install, or
+after that generation is collected, `just switch` fails. `home-manager-path` depends on it, so the
+whole system fails, not only Lisp.
+
+Because CI has been red the whole time, no closure claim in `tools/check-closure.sh` has actually
+been checked on any of these commits.
+
+**Fix:** pin the dist and keep the output free of build artefacts:
+
+1. Pass a dated dist to the bootstrap
+   (`:dist-url "http://beta.quicklisp.org/dist/quicklisp/<date>/distinfo.txt"`), and make
+   `version` that date.
+2. Delete `*.fasl` and the cache directory from `$out` before the derivation finishes.
+3. Rebuild once with `outputHash = lib.fakeHash` to get the new hash.
+
+If that is more than Quicklisp is worth here, the alternative is to ship only `quicklisp.lisp` (a
+plain `fetchurl`) and let `~/.sbclrc` run the install on first use, the way `elpa/` works for
+Emacs.
+
+---
+
+## P1 — fix before committing the Emacs refactor
+
+The design is sound. The config is pinned as a `flake = false` input, so CI can evaluate it. The
+writable tree lives at `~/.local/share/emacs-configs`: store links go into it, `elpa/` and `state/`
+are real directories, and every upstream entry point honours `EMACS_CONFIG_ROOT`. Profiles are
+discovered from `configs/`. The runtime tree works: `elpa/` has 49 directories (33 M), and its
+`packages.lock` matches `lisp/packages.el` (46 packages). The three problems below are about how
+the tree behaves after the first install.
+
+### 1. The docs give the wrong command for updating the Emacs config
+
+`README.md:740` says "pushing to that repository, then `just lock` and `just switch`".
+`docs/ONBOARDING.md:296` says `just lock  # after pushing to the config repository`. But `just lock`
+is `nix flake lock`, which pins only *missing* inputs. So you push, run `just lock`, switch, and
+nothing changes. The correct recipe is `just update-emacs`, which `docs/DECISIONS.md` and the
+justfile already name.
+
+**Fix:** replace `just lock` with `just update-emacs` in both places. `tools/check-docs.sh` checks
+that named paths exist, not what commands do, so CI cannot catch this.
+
+### 2. Activation installs packages only when `elpa/` is empty
+
+The `createEmacsConfigRoot` activation in `modules/home/emacs.nix` runs `emacs-install` only when
+`ls -A elpa` is empty. The comment at `modules/home/emacs.nix:65` and `README.md:742` say it also
+runs on "the first switch after the input changed". It does not. Two consequences:
+
+* A package added to `lisp/packages.el` upstream is not installed after
+  `just update-emacs && just switch`. Any profile that `require`s it fails at startup until you run
+  `emacs-install` by hand.
+* If an install fails partway, `elpa/` is no longer empty, so the install is never retried.
+
+**Fix:** write a stamp only on success, and re-run the install whenever the stamp is out of date:
+
+```nix
+home.activation.createEmacsConfigRoot = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  run mkdir -p "${emacsConfigRoot}/elpa" "${emacsConfigRoot}/state"
+  stamp="${emacsConfigRoot}/state/installed-from"
+  want="${emacsConfigSource}"
+  if [ "$(cat "$stamp" 2>/dev/null)" != "$want" ]; then
+    if run ${pkgs.coreutils}/bin/timeout 600 ${emacsInstall}/bin/emacs-install; then
+      run sh -c 'echo "$1" > "$2"' _ "$want" "$stamp"
+    else
+      echo "emacs: package install failed; run 'emacs-install' when the network is back" >&2
+    fi
+  fi
+'';
+```
+
+To re-run only when the package list changes, not on every pin bump, stamp with
+`builtins.hashFile "sha256" "${emacsConfigSource}/lisp/packages.el"` instead. Then update both
+comments so they describe what the code does.
+
+### 3. On a new machine, the first install can fail with no visible sign
+
+On a fresh install, activation runs during the first `switch` or at boot, possibly before the
+network is up. The install has no timeout, and its failure message goes only to the journal. The
+launchers then start Emacs against an empty `elpa/`, and the first minibuffer errors out.
+
+**Fix:** add the `timeout` from #2. Have the launcher (`emacsLauncher` in `flake.nix`) print one
+line to stderr when `$EMACS_CONFIG_ROOT/elpa` is empty, for example "packages not installed — run
+emacs-install".
+
+---
+
+## P2 — correctness, security and drift
 
 | Where | Problem | Fix |
 |---|---|---|
-| `home/shaul.nix:250` | `~/.npm-global/bin` on `PATH` lets a stray `npm i -g` shadow the packaged CLIs | drop that entry |
-| `modules/system/network.nix:66` | `/etc/hosts` pins a rotating Cloudflare IP for `omnirush.ai` | delete it; set `networking.nameservers = [ "1.1.1.1" "9.9.9.9" ];` |
-| `flake.nix:142` and `:632` | overlay list written twice (dev shell vs system), nothing keeps them equal | one `overlays` list, used in both places |
-| `modules/system/wayland.nix:142` | `security.polkit.enable` duplicates `core.nix:161` | delete the `wayland.nix` one |
-| `modules/system/hardware.nix:129` | `powerManagement.enable = true` is already the default | delete |
-| `modules/system/development.nix:56` | `android_sdk.accept_license` with no Android SDK | delete |
-| `modules/system/hardware.nix` | zram (50%) is full and swapping to NVMe; `swappiness = 180` makes that worse | `memoryPercent = 70`, `swappiness = 120`; add `MemoryHigh` on `ollama` |
-| `modules/system/services.nix:32` | `updatedb` runs every hour over the whole disk | `"daily"` |
-| `home/common.nix:236` | `nrs`/`nrt` call `python3`, which the `focus` closure doesn't have | use `${pkgs.python3}/bin/python3` or drop python |
-| `modules/system/wayland.nix:136` | `hardware.acpilight` while brightness uses `brightnessctl` | delete |
-| `modules/home/raw-editor-sources.nix:25` | unused `options` arg | delete |
-| `.sentry-native/` | crash-telemetry files committed | `git rm -r`, add to `.gitignore` |
-| `packages/*.nix` (npm CLIs) | `version` strings don't match the lock, and the "bump together" comment describes nothing real | delete the comment, or read the version from the lock |
+| `home/common.nix:140` (`clearStaleBackups`) | Runs `find "$HOME" -type f -name '*.hm-bak' -delete` before every activation, which happens on every switch and every boot. Measured here: **50 s** to walk the 366 G home. It also deletes the backups `home-manager.backupFileExtension` exists to keep, so a file Home Manager moved aside is gone on the next switch, before you have looked at it | Limit the search to where Home Manager writes (`~/.config`, `~/.local/share`, and `-maxdepth 1` on `~`), or drop the step and set `home-manager.backupCommand` to name each backup with a timestamp |
+| `packages/omnirush-gui.nix:172` | The wrapper always passes `--no-sandbox`. The reason given at line 33 ("NixOS has no unprivileged user namespaces by default") is not true on this machine: `unshare -Ur true` succeeds. So the Chromium sandbox is off for no reason, in an app that renders remote content | Use the same probe `packages/deepai-code.nix` already uses: pass `--no-sandbox` only when `unshare -Ur true` fails. Correct the comment |
+| `flake.nix:338` | `emacsConfigRoot = "/home/shaul/.local/share/emacs-configs"` hardcodes the home path, although `myConfig.homeDir` exists. `emacs.nix` derives `dataRel` with `lib.removePrefix`; if the two ever differ, that silently returns an absolute path and `home.file` fails confusingly | `"${homeDir}/.local/share/emacs-configs"` |
+| `modules/home/emacs.nix` (`links`) | `profiles` is discovered from `configs/`, but the top-level links (`lisp`, `vendor`, `bin`, `test`) are hand-listed. A new top-level directory upstream is silently missing from the runtime tree | Derive the list from `readDir` of the source, or assert that each linked name exists |
+| `modules/home/emacs.nix:32` vs upstream `bin/launch.sh` | The comment says "a profile added upstream needs no change in this repository". That is true for the Nix side, but `launch.sh` hardcodes `case hebrew\|notes\|ide`. A fourth profile gets a launcher and a desktop entry that exit with status 2 | Fix upstream (accept any directory under `configs/`), or soften the comment |
+| `modules/home/emacs.nix` (activation) | `mkdir` and the install don't run through Home Manager's `run`, so `--dry-run` still does the network install | Wrap them in `run` (as in the P1 #2 snippet) |
+| `modules/system/base-tools.nix:59` | `home-manager` is installed as "the repair tool" for a home profile that fails to build. But Home Manager runs as a NixOS module here, and `flake.nix` has no `homeConfigurations`, so `home-manager switch` has nothing to build. The repair is `nixos-rebuild` or `just switch`. The CLI is still useful for `home-manager generations` | Keep it, but change the comment to say what it is for, or drop it |
+| Stale comments about removed components | `modules/system/appearance.nix:117-124` (`01-ui.el`, `emacs --fg-daemon`, `../home/emacs/default.nix`, which is deleted) and `:261` ("its 30 files"); `tools/check-closure.sh:244` (`modules/home/emacs/default.nix`); `.github/workflows/check.yml:38` ("the same version emacs-config uses"); `flake.nix:473`; `modules/system/study-offline.nix:18` and `base-tools.nix:30` (`~/emacs-configs`). `modules/home/scripts.nix:197` and `hyprland/default.nix:63, 189, 409` describe niri, which has been removed, as if it were still installed | Rewrite or delete them. `tools/check-docs.sh` only reads `.md` files, so drift in `.nix` comments is never caught. Running `path_claims` over `*.nix` and `*.sh` too would have caught three of these |
+| `CHANGES.md:115` | "installs all 66 packages from the pinned list" — `lisp/packages.el` lists 46, and 46 are installed | Say 46, or drop the number |
+| `packages/quicklisp.nix:51` | `version = "2026-01-01"` is a label, not what was fetched (see P0) | Make it the pinned dist's date |
+| Upstream `packages.lock` | Stale: 63 entries against 46 in `packages.el`. It is not linked, so it does no harm here, but it misleads anyone reading it | Regenerate or delete it upstream |
 
 ---
 
-## P2 — bloat
+## P3 — hygiene
 
-Biggest wins, by size, for apps that duplicate something else you keep (`modules/home/toolkit.nix`):
+* **Two changes in one working tree.** The OmniRush bump (`packages/omnirush.nix` 3.0.4 → 3.0.6,
+  written by `_omnirush-bump`) is mixed into the Emacs refactor diff. Commit it separately.
+* **Every rebuild builds an uncommitted tree.** `switch`, `test` and `build` run `_omnirush-bump`
+  first, so every generation comes from a tree git has not seen. The justfile accepts this by
+  design. The cheap mitigation is to commit the bump right after a switch succeeds.
+* **Two rebuild paths.** The `nrs` and `nrt` aliases (`home/common.nix:239-240`) copy the
+  justfile's bump-then-rebuild logic by hand, and `nfu` updates every input, outside the
+  `just lock` / `just update-*` rule. Make the aliases call `just switch`, `just test` and
+  `just update`, so the policy lives in one place.
+* **`clean` removes every rollback** (`home/common.nix:252`): `nix-collect-garbage -d` deletes all
+  old generations, including the boot entries you would fall back to. Use
+  `nh clean all --keep 3` (nh is installed) or `--delete-older-than 14d`, which matches
+  `nix.gc`.
+* **The CI badge cannot be trusted until P0 is fixed.** Every push gets a red build, so a new
+  regression would look the same as the old one. After the fix, consider
+  `cachix/install-nix-action@v31` (you are on v27) and a binary cache, so the 120-minute job stops
+  rebuilding darktable each time.
+* **Push `de9a296`.** CI has not seen it.
 
-| Cut | Approx. size | Keep instead |
-|---|---|---|
-| `lighttable` (also ~90 lines inline in `flake.nix`) | 1.5 GB | darktable |
-| `photon-studio` + 4 ArtCraft apps | ~1.5 GB | gimp / krita |
-| `calligra`, `scribus`, `texmacs`, `sile` | 0.45 GB | LibreOffice |
-| `ansel`, `filmulator`, one of `rawtherapee`/`art` | ~0.2 GB | darktable + one second opinion |
-| `tor-browser`, `vlc`, `nushell`, `leo-editor`, `navi` | ~0.5 GB | `nix run` when needed |
-| 8 of 12 search tools, 5 of 7 file managers | small | fd, rg, rga, plocate; yazi, dolphin |
+---
 
-That's about 4.5 GB from the main closure. Do one commit per family, so a mistake is one
-`git revert`. Also in `modules/system/development.nix:30-52`, `nix-ld` loads both
-`steam-run`'s `multiPkgs` and a hand-written list that mostly overlaps it. Keep one.
+## Status of the 2026-11-18 audit
 
-Structural: GNOME (and sway) are in every closure "to compare". If the comparison is done,
-remove them. GNOME's tracker alone is indexing your home directory (4.1 GB cache).
+| Item | Status |
+|---|---|
+| P0 #1 Old Emacs/Doom inputs, modules, recipes, checks | **Done.** Replaced by the `emacsConfigs` input (see P1 above) |
+| P0 #2 sshd with passwords | **Done.** sshd is off; the firewall is on with no open ports |
+| P0 #3 Backups | **Open by decision.** `docs/DECISIONS.md` says no restic yet. `data.nix` still only downloads |
+| P0 #4 Disk caps | **Done.** `min-free`/`max-free` are in bytes (Lix), auto-optimise is on, journald and coredump are capped |
+| P1 `~/.npm-global/bin` on `PATH` | Done |
+| P1 `omnirush.ai` hosts pin; nameservers | Done (1.1.1.1, 9.9.9.9) |
+| P1 duplicate polkit | Done. One `security.polkit.enable` (core.nix) and one agent (polkit-gnome, Hyprland and sway only; Plasma brings its own) |
+| P1 `powerManagement.enable`, `android_sdk`, `acpilight` | Done |
+| P1 zram/swappiness, `MemoryHigh` on ollama | Done (70%, 120, 4 G) |
+| P1 `updatedb` hourly | Done (daily) |
+| P1 `nrs`/`nrt` bare `python3` | Done (`pkgs.python3`); see P3 for the duplicated logic |
+| P2 duplicate apps | Done |
+| P2 `nix-ld` double list | Done (`steam-run` `multiPkgs` only) |
+| LUKS | **Deferred** until backups exist (unchanged) |
+
+Checked and found fine: hibernate (12.5 G disk swap ≥ 11 G RAM, and NixOS resumes from
+`swapDevices` without `boot.resumeDevice`); sops (`secrets.yaml` and `.sops.yaml` are tracked, one
+secret); both GitHub repos the config fetches without credentials (`emacs-configs` and
+`typed_notes`) are public, so CI and the data bootstrap can reach them; `bump-omnirush.py` takes
+hashes from npm's `dist.integrity` and the release's `SHA256SUMS.txt` rather than computing them,
+with timeouts and retries.
 
 ---
 
 ## Not in scope here (outside this repo)
 
-* **An Emacs crash loop:** 5,000+ coredumps, from one Konsole tab calling the *old* Nix Emacs
-  with `--batch … package-alist` about 4,000 times a day. The stack (`__stack_chk_fail` in
-  `__libc_early_init`) points to a glibc mismatch from that shell's `LD_*` env, not to memory
-  pressure. Stop the loop, then vacuum `/var/lib/systemd/coredump`. The failed
-  `drkonqi-coredump-processor` units are a side effect of this.
-* **`~/emacs-configs/bin/launch.sh`:** the `--no-wait` / `env -u WAYLAND_DISPLAY` issues were
-  measured on 30.2. Retest on 31.1. Never add `--no-wait` to the `$EDITOR` path.
-* **Dead caches:** `~/.cache/tracker3` (4.1 G), `~/.cache/android-sdk` (2.4 G),
-  `~/.local/share/io.github.kdroidfilter.seforimapp` (8 G).
-* **sops:** the running generation has no `sops-install-secrets`, so `/etc/nix/tokens.conf`
-  points at a missing file. After the next switch, check `ls /run/secrets/nix-access-tokens`.
-
-## Left out on purpose
-
-Repo reorganisation (renaming `home/`, splitting `desktop.nix`/`README.md`, a comment-ratio CI
-gate, an in-file ordering convention) is a matter of style, not a defect. The one concrete
-organisational bug, the duplicated overlay list, is in P1. Old post-mortem comments shrink
-naturally as files are edited, and P0 #1 deletes the worst offenders.
+* **Old checkout:** `~/emacs-configs/elpa` (39 M) is no longer used; the runtime tree has its own
+  `elpa/`. Keep the checkout for editing, but its `elpa/` can go.
+* **Dead caches:** `~/.cache/tracker3` (4.0 G), `~/.cache/android-sdk` (2.4 G),
+  `~/.local/share/io.github.kdroidfilter.seforimapp` (8.0 G). About 14 G of the 79%.
+* **Coredumps:** down to 3 files. The crash loop from the last audit is gone.
+* **sops on a fresh install:** `secrets.nix` turns sops off silently when the secrets file is
+  missing, and `core.nix` `!include`s `/etc/nix/tokens.conf`, a link into `/run/secrets`. Check
+  `ls -l /run/secrets/nix-access-tokens` after a reinstall, because nothing else will warn you.
 
 ## Decisions needed from you
 
-1. Backup target: external disk, NAS, or cloud (B2 ≈ $2–4/month for this size)?
-2. Do you ever ssh into this laptop?
-3. Which of the duplicate apps in P2 do you actually use? Is GNOME/sway still needed?
-4. Emacs 31 (unstable) or stable 30.2? If `~/emacs-configs` doesn't need 31, use stable.
+1. Quicklisp (P0): pin a dist inside the derivation, or ship only the bootstrap and install at
+   runtime?
+2. Emacs activation stamp (P1 #2): re-install on every pin bump, or only when `packages.el`
+   changes?
+3. Should `launch.sh` upstream accept any profile directory, or should the Nix side stop promising
+   that new profiles work?
+4. Backups are still the largest risk outside the build (366 G under `~/ksav`, `~/shall` and
+   `~/Documents`). Is there a target yet?
