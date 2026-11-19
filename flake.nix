@@ -235,9 +235,9 @@
       rapidrawOverlay = _final: _prev: {
         inherit (unstablePkgs) rapidraw;
       };
-      # `rec' so `emacsFrame' below can be written in terms of `emacsConfigDir'
-      # rather than repeating its path. Everything else here is a leaf or,
-      # where it needs to be, its own `rec'.
+      # `rec' so the Emacs attributes below can be written in terms of
+      # `homeDir' and each other rather than repeating paths. Everything else
+      # here is a leaf or, where it needs to be, its own `rec'.
       myConfig = rec {
         username = "shaul";
         fullName = "Shaul";
@@ -335,7 +335,7 @@
         # data, not in ~/emacs-configs: that checkout, if it exists, is where
         # the config is *edited*, not what runs.
         emacsConfigSource = "${inputs.emacsConfigs}";
-        emacsConfigRoot = "/home/shaul/.local/share/emacs-configs";
+        emacsConfigRoot = "${homeDir}/.local/share/emacs-configs";
 
         # `launch.sh <profile>` starts that profile's daemon if it is not
         # running, then opens a frame. Everything that used to spell out
@@ -362,6 +362,11 @@
         # systemd only, so without this the editor could not start there at all.
         # And it says which tree to run from (`EMACS_CONFIG_ROOT`), because the
         # script it runs lives in the store and cannot hold elpa/ or state/.
+        #
+        # The one check it makes itself: an empty `elpa/` means the activation
+        # install never succeeded (a first switch with no network), and every
+        # profile would then die at its first minibuffer with nothing on screen
+        # saying why. One line on stderr, and Emacs starts anyway.
         emacsLauncher =
           profile:
           pkgs.writeShellScriptBin "emacs-${profile}" ''
@@ -374,6 +379,9 @@
             export PATH
             EMACS_CONFIG_ROOT=${emacsConfigRoot}
             export EMACS_CONFIG_ROOT
+            if [ -z "$(ls -A "$EMACS_CONFIG_ROOT/elpa" 2>/dev/null)" ]; then
+              echo "emacs-${profile}: packages not installed — run emacs-install" >&2
+            fi
             exec ${pkgs.bash}/bin/sh ${emacsConfigSource}/bin/launch.sh ${profile} "$@"
           '';
 
@@ -469,11 +477,10 @@
       # flake.lock that pinned four of the six inputs, so the repo as committed
       # did not evaluate and nothing anywhere said so.
       #
-      # The Emacs checks that briefly lived here (module consistency, tangle +
-      # byte-compile) moved with the config into the emacs-config repo, where
-      # they run in its own CI on every push. That is the right home for them:
+      # The Emacs checks that briefly lived here moved with the config into the
+      # emacs-configs repo as its `bin/check`. That is the right home for them:
       # they verify the config, not the machine, and they need to run on
-      # non-Nix machines too. `nix flake check` there covers both.
+      # non-Nix machines too.
       checks.${system} = {
         statix = pkgs.runCommand "statix-check" { nativeBuildInputs = [ pkgs.statix ]; } ''
           cd ${self}

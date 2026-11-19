@@ -737,11 +737,14 @@ notes wrapper, and three desktop entries name the same paths. `launch.sh
 deliberately not systemd units, so they cost nothing until you open the profile
 you want.
 
-Update the configuration by pushing to that repository, then `just lock` and
-`just switch`. `emacs-install` refills `elpa/` from `lisp/packages.el`;
-activation runs it once when `elpa/` is empty (a new machine, or the first
-switch after the input changed), because `package-refresh-contents` is a network
-round trip and not something to do on every switch.
+Update the configuration by pushing to that repository, then `just update-emacs`
+and `just switch` (`just lock` only pins inputs that are missing, so it does not
+move this one). `emacs-install` adds whatever `lisp/packages.el` lists and
+`elpa/` lacks. Activation runs it on the first switch after the pin moves, and
+records the source it succeeded for in `state/installed-from`, so a failed
+install (no network) is retried on the next switch. It does not run on every
+switch, because `package-refresh-contents` is a network round trip. If `elpa/`
+is empty, the launchers say so on stderr.
 
 The wrappers are built rather than named as paths into a checkout because an
 executable bit in another repository is not something this one can check. It has

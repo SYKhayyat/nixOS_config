@@ -293,14 +293,15 @@ run from (`~/.local/share/emacs-configs`, links into the store plus real
 `elpa/` and `state/`).
 
 ```sh
-just lock            # after pushing to the config repository
+just update-emacs    # after pushing to the config repository; then just switch
 emacs-install        # install/refresh packages (~38 MB, network)
 ```
 
 `modules/home/emacs.nix` provides the package (`pkgs.emacs-pgtk`), the three
 profile launchers as store wrappers around the pinned `launch.sh`, `$EDITOR`,
-and three desktop entries. Activation runs `emacs-install` once when `elpa/` is
-empty; after that it is a deliberate command. The profile daemons are started by
+and three desktop entries. Activation runs `emacs-install` on the first switch
+after the pin moves, and again on the next switch if that install failed; by
+hand, it is the repair command. The profile daemons are started by
 the launcher, not by systemd, on purpose — see the README's Emacs section.
 
 ## 7. First boot on a new machine

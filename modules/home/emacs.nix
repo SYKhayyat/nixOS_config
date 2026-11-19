@@ -39,15 +39,31 @@ let
   # `home.file` targets are relative to $HOME; this is the root's relative form.
   dataRel = lib.removePrefix "${config.home.homeDirectory}/" emacsConfigRoot;
 
-  # The read-only half, one link per path: an input update moves them all at
-  # once. The per-profile directory itself stays a real directory, because
-  # Emacs writes `eln-cache/` inside the `--init-directory` it is given.
-  links = {
-    "${dataRel}/lisp".source = "${emacsConfigSource}/lisp";
-    "${dataRel}/vendor".source = "${emacsConfigSource}/vendor";
-    "${dataRel}/bin".source = "${emacsConfigSource}/bin";
-    "${dataRel}/test".source = "${emacsConfigSource}/test";
-  };
+  # The read-only half, one link per top-level directory: an input update moves
+  # them all at once. Read from the source rather than listed, so a directory
+  # added upstream is in the runtime tree without a change here. Not linked:
+  # `configs/` (below, per file), the two writable directories, hidden
+  # directories, and plain files — the docs are not read at run time, and
+  # `packages.lock` is *written* by `bin/install` into the root, so it must not
+  # be a link into the store.
+  # The same two `createEmacsConfigRoot` creates below.
+  writable = [
+    "elpa"
+    "state"
+  ];
+  topDirs = lib.attrNames (
+    lib.filterAttrs (
+      name: kind:
+      kind == "directory"
+      && name != "configs"
+      && !(lib.elem name writable)
+      && !(lib.hasPrefix "." name)
+    ) (builtins.readDir emacsConfigSource)
+  );
+  links = lib.genAttrs' topDirs (name: {
+    name = "${dataRel}/${name}";
+    value.source = "${emacsConfigSource}/${name}";
+  });
   profileLinks = lib.listToAttrs (
     lib.concatMap (
       profile:
@@ -61,10 +77,10 @@ let
     ) profiles
   );
 
-  # Refill `elpa/` from the pinned list. Run by activation when the directory is
-  # empty (a new machine, or the first switch after the input changed), and by
-  # hand after `lisp/packages.el` changes upstream — `package-refresh-contents'
-  # is a network round trip, so it is not on every switch.
+  # Fill `elpa/` from the pinned list. Run by activation on the first switch
+  # after the pin moves (see `createEmacsConfigRoot` below), and by hand when
+  # that install failed — `package-refresh-contents' is a network round trip,
+  # so it is not on every switch.
   emacsInstall = pkgs.writeShellScriptBin "emacs-install" ''
     PATH=${
       lib.makeBinPath [
@@ -137,14 +153,28 @@ in
   home.file = links // profileLinks;
 
   # `elpa/` and `state/` are the two directories nothing in the store can own.
-  # The install is guarded on elpa/ being empty rather than merely absent: a
-  # failed install leaves the directory behind, and a switch that only checked
-  # for absence would never retry.
+  #
+  # The install re-runs whenever the pin moves: `state/installed-from` records
+  # the source it last succeeded for, so `just update-emacs && just switch`
+  # brings in a package added to `lisp/packages.el` upstream. It is written only
+  # on success, so an install that fails partway (no network at boot, a MELPA
+  # outage) is retried on the next switch rather than never. `bin/install` only
+  # adds what is missing, so a re-run with nothing new is one
+  # `package-refresh-contents` round trip — and it happens only on a switch that
+  # follows a pin bump, not on every switch.
+  #
+  # `timeout` so a dead network cannot hold up a switch or a boot; `run` so
+  # `--dry-run` creates and fetches nothing.
   home.activation.createEmacsConfigRoot = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${emacsConfigRoot}/elpa" "${emacsConfigRoot}/state"
-    if [ -z "$(ls -A "${emacsConfigRoot}/elpa")" ]; then
-      ${emacsInstall}/bin/emacs-install \
-        || echo "emacs: package install failed; run 'emacs-install' when the network is back" >&2
+    run mkdir -p "${emacsConfigRoot}/elpa" "${emacsConfigRoot}/state"
+    stamp="${emacsConfigRoot}/state/installed-from"
+    want="${emacsConfigSource}"
+    if [ "$(cat "$stamp" 2>/dev/null)" != "$want" ]; then
+      if run ${pkgs.coreutils}/bin/timeout 600 ${emacsInstall}/bin/emacs-install; then
+        run ${pkgs.bash}/bin/sh -c 'printf "%s\n" "$1" > "$2"' _ "$want" "$stamp"
+      else
+        echo "emacs: package install failed; run 'emacs-install' when the network is back" >&2
+      fi
     fi
   '';
 
@@ -162,8 +192,8 @@ in
   # The directories the config expects. elpa/ is created by its own installer;
   # these are the state directories under $HOME that nothing else owns.
   home.activation.createOrgSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${config.home.homeDirectory}/Documents/org"
-    mkdir -p "${config.home.homeDirectory}/Documents/roam/daily"
+    run mkdir -p "${config.home.homeDirectory}/Documents/org"
+    run mkdir -p "${config.home.homeDirectory}/Documents/roam/daily"
   '';
 
   # ── What is deliberately not here ────────────────────────────────────────
