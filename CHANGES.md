@@ -138,9 +138,12 @@ that positioned symbol, which is why every install now passes `DONT-SELECT`.
 plus the new `bidi` one in hebrew and notes); a clean `EMACS_CONFIG_ROOT` outside
 `$HOME` installs all 46 packages from the pinned list with exit 0, loads the
 notes profile with `set-local` bound and `my/repo-root` at the writable tree,
-and passes the config's own suite; `just eval` and `just lint` pass here; and the
-running daemons were repaired in place (compat loaded, `bidi` loaded, the stuck
-scratch buffer unpinned) rather than waiting for a rebuild.
+and passes the config's own suite; `just eval` and `just lint` pass here. The
+daemons that were already running had to be restarted after this, and patching
+them live (loading compat and `bidi` into them) was not enough: they had been
+started from the checkout's old tree, whose `elpa/` lacked `transient` and had
+only the stub compat, so the void-function errors kept coming until each was
+killed and launched again from the new root.
 
 ## 2026-11-18 (t) — the audit was about a tree that had moved, and two documents were the only thing still describing it
 
