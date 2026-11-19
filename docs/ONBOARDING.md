@@ -69,9 +69,10 @@ Clone it, then **set the path**:
 myConfig.flakePath = "/home/shaul/config";   # change if you clone elsewhere
 ```
 
-`nrs`, `nrt` and `nfu` — the shell aliases from `home/common.nix` — resolve
-through that value, so they work regardless of the current directory. `just`
-does not use it; it uses `.#desktop` and is only ever run from the checkout.
+`nrs`, `nrt` and `nfu` — the shell aliases from `home/common.nix` — run
+`just -f <flakePath>/justfile …`, so they work regardless of the current
+directory. `just` itself does not use the value; it uses `.#desktop` relative
+to the justfile.
 
 That asymmetry is worth knowing on day one, because it hid a bug twice. The value
 was once `/home/shaul/nixOS_config-specializations` — the name of the **branch**,
@@ -119,7 +120,8 @@ a green run says nothing about the inputs you are going to build, and `just
 switch` puts you on a system that is not the one you committed. With it, an
 input the lock does not pin is an **error**, in CI and on the machine alike.
 
-The exemptions are `just lock` and `nfu`, whose whole job is rewriting the lock.
+The exemptions are `just lock`, `just update` and `nfu` (which is `just
+update`), whose whole job is rewriting the lock.
 
 This repository shipped once with six inputs declared and four pinned, and did
 not evaluate at all.

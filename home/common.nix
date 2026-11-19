@@ -185,58 +185,32 @@ in
     '';
   };
 
-  # ── These carry `--no-update-lock-file` for the reason the justfile does ──
+  # ── The rebuild aliases are the justfile, not a copy of it ──────────────
   #
-  # The justfile states the rule in bold at the top — "Nothing in this file may
-  # change flake.lock except `just lock`" — and every recipe in it honours it.
-  # These two did not, and README.md presents them as the ergonomic equivalent
-  # of `just switch` / `just test`, so the rule had a hole in exactly the path
-  # you actually type.
+  # `nrs`, `nrt` and `nfu` used to spell out what `just switch`, `just test`
+  # and `just update` do — the omnirush bump, `--no-update-lock-file` — and
+  # each copy was a place for the policy to drift: `nrs` once rewrote
+  # flake.lock silently because it lacked the flag the justfile had. Now they
+  # call the recipes, so the rule lives in one file. `-f` makes them work from
+  # any directory; `just` runs a recipe from the justfile's own directory.
   #
-  # Proven by construction rather than argued: with `sops-nix` dropped from
-  # flake.lock — the state this repo genuinely shipped in once, six inputs
-  # declared and four pinned — `just switch` exits 1 with "requires lock file
-  # changes but they're not allowed" and leaves the file alone, while `nrs`
-  # exited 0, emitted a system drv, and silently rewrote flake.lock.
-  #
-  # `nfu` is deliberately without it: updating the lock is that alias's entire
-  # job, which is the same reason `just lock` is the one recipe exempted.
-  #
-  # The omnirush bump at the front of `nrs`/`nrt` is the same argument one level
-  # up. `just switch` and `just build` refresh both Omnirush pins first, so
-  # every rebuild gets the newest CLI and desktop app; these two are presented
-  # in README.md as the ergonomic equivalent, and without it the guarantee has
-  # a hole in exactly the path you actually type — which is the sentence that
-  # already applies to the flag above, and was the reason it was added.
-  #
-  # The pins move, the flake does not: a pure flake cannot name a moving target
-  # at eval time (`builtins.fetchurl` on npm's `latest` fails with "in pure
-  # evaluation mode, 'fetchurl' requires a 'sha256' argument"), so "latest" is
-  # expressed by refreshing the pin from the command you rebuild with. The
-  # subshell is there so the `cd` does not become the shell's cwd.
-  #
-  # `|| echo` rather than `&&`: the two ways this fails want opposite answers.
-  # A dead network is exactly when you most need to rebuild, and a release that
-  # no longer resolves is what `just update-omnirush --version` is for. Neither
-  # should cost you a rebuild.
+  # `${pkgs.python3}` goes on PATH because the `focus` closure imports this
+  # file and installs no interpreter, and the bump recipe runs `python3`.
   home.shellAliases = {
-    # `${pkgs.python3}` by store path, not a bare `python3`: the `focus`
-    # closure imports this file and does not install an interpreter on PATH,
-    # so the documented rebuild alias failed exactly where it was needed.
-    nrs = "(cd ${myConfig.flakePath} && ${pkgs.python3}/bin/python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild switch --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
-    nrt = "(cd ${myConfig.flakePath} && ${pkgs.python3}/bin/python3 tools/bump-omnirush.py || echo 'warning: could not bump omnirush — this build is stale by however far upstream moved'); sudo nixos-rebuild test --flake ${myConfig.flakePath}#${myConfig.hostname} --no-update-lock-file";
-    nfu = "nix flake update --flake ${myConfig.flakePath}";
+    nrs = "PATH=${pkgs.python3}/bin:$PATH just -f ${myConfig.flakePath}/justfile switch";
+    nrt = "PATH=${pkgs.python3}/bin:$PATH just -f ${myConfig.flakePath}/justfile test";
+    nfu = "just -f ${myConfig.flakePath}/justfile update";
     # Carried over from the flat tree, where `clean` was a *system-wide* alias
     # in shellUtilities.nix — so it survived every switch of that tree and
     # vanished the moment this one was installed, which is the difference
     # between a package in a list and a package in the layer that owns it.
     #
-    # `-d` is not the justfile's rule and is not a typo either: `just gc` keeps
-    # fourteen days of generations, this deletes all of them and then rewrites
-    # the boot entry. It is kept as it was found rather than quietly softened,
-    # because four letters that remove your rollback path should do exactly what
-    # they say they do.
-    clean = "sudo nix-collect-garbage -d && sudo /run/current-system/bin/switch-to-configuration boot";
+    # It used to be `nix-collect-garbage -d`, which deletes every generation —
+    # every rollback — four letters after a bad switch. `nh clean all --keep 3`
+    # collects the system and user profiles the same way but keeps the last
+    # three generations of each, so the alias you type to free space cannot
+    # also take away the way back. `just gc` (fourteen days) is the gentler one.
+    clean = "nh clean all --keep 3";
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";

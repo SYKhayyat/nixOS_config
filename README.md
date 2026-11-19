@@ -458,13 +458,14 @@ time, so the rebuild command moves the pin instead — the version still lands i
 this repo and shows up in `git diff`, and `nixos-rebuild rollback` still
 returns to a known-good build.
 
-Shell aliases (from `home/common.nix`): `nrs` (switch), `nrt` (test),
-`nfu` (flake update) — these use `myConfig.flakePath` so they work regardless of
-the current directory.
+Shell aliases (from `home/common.nix`): `nrs` (`just switch`), `nrt`
+(`just test`), `nfu` (`just update`), and `clean` (`nh clean all --keep 3`).
+The first three run the recipes from the justfile at `myConfig.flakePath`, so
+they work regardless of the current directory and cannot drift from it.
 
-`nrs` and `nrt` also carry `--no-update-lock-file`, and for a while they did
-not, which made them the one hole in the rule the `justfile` states in bold at
-the top. Measured, with `sops-nix` dropped from `flake.lock` — the state this
+They used to copy the recipes by hand, and for a while the copies lacked
+`--no-update-lock-file`, which made them the one hole in the rule the
+`justfile` states in bold at the top. Measured, with `sops-nix` dropped from `flake.lock` — the state this
 repo genuinely shipped in once, six inputs declared and four pinned:
 
 | Route | Exit | `flake.lock` |
@@ -472,8 +473,7 @@ repo genuinely shipped in once, six inputs declared and four pinned:
 | `just switch` | **1** — `requires lock file changes but they're not allowed` | untouched |
 | `nrs`, before the flag | **0** — emitted a system drv | **silently rewritten** |
 
-`nfu` is deliberately without the flag: rewriting the lock is that alias's whole
-job, the same exemption `just lock` has.
+`nfu` is `just update`, whose whole job is rewriting the lock.
 
 `nix develop` provides a dev shell with `nixfmt`, `statix`, `deadnix`,
 `nil`, `just`, `nh`, plus `sops`/`age`/`ssh-to-age` for the secrets walkthrough
