@@ -175,6 +175,12 @@ in
         # may find oddities ahead" and made tab-close buttons flicker instead
         # of closing. Left at Firefox's default (2) — do not turn it on again.
         "widget.gtk.ignore-bogus-leave-notify" = 1;
+
+        # The tab hover-preview is a separate popup (not a GTK menu). On sway it
+        # appears over the tab on hover and then takes the click meant for the
+        # tab, so clicking a tab previews it but never switches to it. Disabling
+        # the preview removes the popup and the click goes to the tab.
+        "browser.tabs.hoverPreview.enabled" = false;
       };
     };
   };
