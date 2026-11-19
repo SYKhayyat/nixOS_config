@@ -166,12 +166,14 @@ in
 
         # Firefox 110+ dropdown popups (Google account menu, search-bar
         # suggestions) close as soon as the pointer leaves the button. Mozilla
-        # bug 1819206: Firefox stopped grabbing the pointer on wlroots
-        # compositors like sway because it cannot detect the WM. These two
-        # prefs restore the pointer grab and ignore the bogus leave events.
-        # Harmless on Plasma/Hyprland, where the compositor is detected and the
-        # defaults already do the right thing.
-        "widget.gtk.grab-pointer" = 1;
+        # bug 1819206: Firefox misreads the pointer-leave event that sway sends
+        # and tears the popup down. `ignore-bogus-leave-notify=1` suppresses that
+        # event, which is enough on a compositor (sway is not a bare WM).
+        #
+        # `widget.gtk.grab-pointer=1` also fixed the dropdowns, but it grabs the
+        # pointer after the popup is already mapped, which makes gdk log "you
+        # may find oddities ahead" and made tab-close buttons flicker instead
+        # of closing. Left at Firefox's default (2) — do not turn it on again.
         "widget.gtk.ignore-bogus-leave-notify" = 1;
       };
     };
