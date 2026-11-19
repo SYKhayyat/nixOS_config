@@ -58,6 +58,30 @@ stays.
 
 ---
 
+## 2026-11-19 (v) — the closure could not be built, and the Emacs pin did not reach `elpa/`
+
+What docs/AUDIT.md found, fixed. Its status table has the per-item detail.
+
+* **Quicklisp was a fixed-output derivation of a moving target.** The bootstrap
+  installs whatever dist is current, so the output hash broke when Quicklisp
+  released and every closure build failed. The store now holds only the bootstrap
+  file, which has a stable hash. The install runs at activation, the way
+  `emacs-install` fills `elpa/`.
+* **Moving the Emacs pin did not install new packages.** Activation installed
+  only into an empty `elpa/`. It now records the source it installed from and
+  re-runs when that changes. A failed install warns and is retried, and the
+  launcher says so when `elpa/` is empty.
+* **Backups.** `clearStaleBackups` walked all of `$HOME` (50 s) before every
+  activation and deleted the backups Home Manager had moved aside, usually
+  before anyone had looked at them. It is replaced by a `backupCommand` that
+  keeps timestamped copies. `gtk.gtk2.force` covers `~/.gtkrc-2.0`, the file that was
+  being backed up on every switch.
+* **The rebuild aliases call the justfile** instead of copying it. `clean`
+  keeps three generations instead of none.
+* OmniRush GUI keeps Chromium's sandbox where user namespaces exist, which
+  includes this machine. Stale comments about the old Emacs module, `~/emacs-configs`
+  and niri are rewritten.
+
 ## 2026-11-18 (u) — the minibuffer was dead, and the config was still a checkout
 
 Entry (t) fixed the launchers; this one starts from the failure that was still
@@ -112,7 +136,7 @@ that positioned symbol, which is why every install now passes `DONT-SELECT`.
 
 **Verified:** `bin/check` in the config repo passes 19 checks (three profiles,
 plus the new `bidi` one in hebrew and notes); a clean `EMACS_CONFIG_ROOT` outside
-`$HOME` installs all 66 packages from the pinned list with exit 0, loads the
+`$HOME` installs all 46 packages from the pinned list with exit 0, loads the
 notes profile with `set-local` bound and `my/repo-root` at the writable tree,
 and passes the config's own suite; `just eval` and `just lint` pass here; and the
 running daemons were repaired in place (compat loaded, `bidi` loaded, the stuck

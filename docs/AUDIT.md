@@ -211,6 +211,30 @@ with timeouts and retries.
   missing, and `core.nix` `!include`s `/etc/nix/tokens.conf`, a link into `/run/secrets`. Check
   `ls -l /run/secrets/nix-access-tokens` after a reinstall, because nothing else will warn you.
 
+## Status of this audit (implemented 2026-11-19)
+
+| Item | Status |
+|---|---|
+| P0 Quicklisp FOD | **Done.** `packages/quicklisp.nix` is only the bootstrap file (stable hash); `lisp.nix` runs it into `~/.local/share/quicklisp` at activation, once, with a timeout and a retry |
+| P1 #1 update command in the docs | Done. `just update-emacs`, then `just switch` |
+| P1 #2 install only when `elpa/` is empty | Done. `state/installed-from` stamps the source; the install re-runs whenever the pin moves |
+| P1 #3 silent first-install failure | Done. `timeout 600`, a stderr warning, a retry on the next switch, and the launcher warns when `elpa/` is empty |
+| P2 `emacsConfigRoot` hardcodes `$HOME` | Done (`homeDir`) |
+| P2 hand-listed links | Done. Derived from the source's top-level directories |
+| P2 `launch.sh` profile list | Done upstream (`7d4ded6`): any directory under `configs/` |
+| P2 `run` around activation writes | Done |
+| P2 `clearStaleBackups` | Replaced. Timestamped `home-manager.backupCommand`, and `gtk.gtk2.force` for the one file that was clobbered on every switch |
+| P2 OmniRush GUI `--no-sandbox` | Done. Only when `unshare -Ur true` fails |
+| P2 `home-manager` "repair tool" comment | Done. Kept for `generations`/`news` |
+| P2 stale comments | Done, all listed sites. `check-docs.sh` over `*.nix` was **not** done |
+| P2 `CHANGES.md` 66 packages, upstream `packages.lock` | Done (46; regenerated upstream) |
+| P3 `nrs`/`nrt`/`nfu` | Done. They call `just switch`/`test`/`update` |
+| P3 `clean` | Done. `nh clean all --keep 3` |
+| P3 `install-nix-action` | Done (`v31`). No binary cache added |
+| Q4 Backups | **Still open** |
+
+Verified locally: `just lint`, `just eval`, the full closure build and `tools/check-closure.sh`.
+
 ## Decisions needed from you
 
 1. Quicklisp (P0): pin a dist inside the derivation, or ship only the bootstrap and install at
