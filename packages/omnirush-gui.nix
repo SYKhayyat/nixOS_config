@@ -29,11 +29,13 @@
 # of one:
 #
 #   --prefix LD_LIBRARY_PATH  the patched libs
-#   --set ELECTRON_DISABLE_SANDBOX / --no-sandbox
-#     NixOS has no unprivileged user namespaces by default in the sandbox this
-#     runs in, and chrome-sandbox needs either that or setuid. Shipping a
-#     setuid-root binary out of the Nix store would be worse than turning the
-#     sandbox off, so it is turned off.
+#   --no-sandbox / ELECTRON_DISABLE_SANDBOX, only when needed
+#     Chromium's sandbox needs either unprivileged user namespaces or a
+#     setuid-root chrome-sandbox. Shipping a setuid binary out of the store
+#     would be worse than no sandbox, so chrome-sandbox is removed and the
+#     wrapper probes for user namespaces (`unshare -Ur true`), the way
+#     packages/deepai-code.nix does: the sandbox stays on where they exist —
+#     this machine has them — and is turned off only where they do not.
 #   --prefix XDG_CACHE_DIR etc.
 #     Electron writes to ~/.config and ~/.cache, which is where a native
 #     install would put them; left alone it also tries to autostart entries.
@@ -44,6 +46,7 @@
   dpkg,
   makeWrapper,
   autoPatchelfHook,
+  util-linux,
   alsa-lib,
   at-spi2-atk,
   at-spi2-core,
@@ -161,15 +164,14 @@ stdenv.mkDerivation {
     cp -r ./usr/share/applications "$out/share/"
     cp -r ./usr/share/icons "$out/share/"
 
-    # chrome-sandbox is only consulted when the Chromium sandbox is enabled;
-    # the wrapper passes --no-sandbox, so it is dead weight in the store. Not
-    # removing it would also leave a setuid-root binary that nobody wants in a
-    # read-only store path. (Upstream ships it 0755 as of 3.3.6 — the setuid bit
+    # chrome-sandbox is the setuid fallback for hosts without user namespaces;
+    # it cannot be setuid in the store, so it is dead weight there, and the
+    # wrapper turns the sandbox off on such hosts instead. (Upstream ships it 0755 as of 3.3.6 — the setuid bit
     # these notes described was 3.2.x's doing — so this is hygiene either way.)
     rm -f "$out/lib/omnirush-gui/chrome-sandbox"
 
     makeWrapper "$out/lib/omnirush-gui/omnirush" "$out/bin/omnirush-gui" \
-      --add-flags "--no-sandbox" \
+      --run 'if ! ${util-linux}/bin/unshare -Ur true 2> /dev/null; then set -- --no-sandbox "$@"; export ELECTRON_DISABLE_SANDBOX=1; fi' \
       --prefix LD_LIBRARY_PATH : "${
         lib.makeLibraryPath [
           alsa-lib
@@ -198,7 +200,6 @@ stdenv.mkDerivation {
           udev
         ]
       }" \
-      --set ELECTRON_DISABLE_SANDBOX 1 \
       --set ELECTRON_NO_ATTACH_CONSOLE 1 \
       --prefix XDG_DATA_DIRS : "$out/share"
 
