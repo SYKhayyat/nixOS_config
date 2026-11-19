@@ -206,9 +206,42 @@ Every entry point this pass added `exec`s it: the three desktop entries,
 which reads `myConfig.emacsFrameArgv`. So Emacs stopped starting from all of them
 at once, with `Permission denied` in a line of a script nobody reads. The old
 module never routed through it, which is why four years of use had not noticed.
-`chmod +x` repairs the machine; the durable fix belongs in that repo —
-`git update-index --chmod=+x bin/launch.sh` and commit — because a fresh clone
-reproduces the mode.
+`chmod +x` repaired the machine and `git update-index --chmod=+x` fixed the
+tree, but neither is the fix for the class: a mode bit in a repository this one
+cannot read will be lost again, and nothing here would notice. So the three
+names this repo provides are now built, not named: `emacsLauncher` in
+`flake.nix` is `writeShellScriptBin "emacs-${profile}"` running
+`sh ${emacsConfigDir}/bin/launch.sh ${profile} "$@"`, `emacsLauncherBin` is the
+only place the name is spelled, and the desktop entries, `$EDITOR`,
+`Super+Enter`, the yazi opener and `focus`'s `cage` program all point at that
+store path. Two properties do the work: a store path is `0555` however the
+checkout is checked out, and `sh` opens the script for *reading*, where `EACCES`
+only guards `execve`. The logic did not move — `launch.sh` is still the only
+daemon logic, and the wrapper is one `exec` — and `home.sessionPath` for
+`~/emacs-configs/bin` is gone, because that directory first on `$PATH` would
+shadow the wrappers with exactly the files they replace. `bin/check` and
+`bin/install` are called by path, as `docs/ONBOARDING.md` already spelled them.
+
+Writing the wrapper exposed a second failure in the same session, older than
+this pass. `launch.sh` calls `emacs` and `emacsclient` by bare name, and
+`services.cage` in the `focus` closure runs under systemd with
+`PATH=/nix/store/…-coreutils/bin:…-systemd/bin` — neither binary in it. So `focus`
+would have reached `command -v emacsclient`, exited 3, and been restarted every
+two seconds by `Restart=always`, forever: a specialisation that could not start
+its editor whatever the mode bit said. The wrapper now sets its own `PATH` to
+that Emacs plus coreutils (`dirname` and `sleep` are also called bare), which
+both fixes the session and answers the larger question of which Emacs the daemon
+is, and `focus`'s `program` is that wrapper directly — the `focus-session` shell
+script in front of it only `exec`ed it.
+
+Verified the way it failed: with `launch.sh` deliberately set back to `0644`,
+the store wrapper printed `Waiting for Emacs...` and never `Permission denied`
+(the direct-exec case still does), then the mode went back to `0755`. Also
+checked that `$EDITOR`, `$VISUAL` and `focus`'s program all resolve to
+`/nix/store/…-emacs-notes/bin/emacs-notes` — in the built `cage-tty1.service` as
+`ExecStart=…/bin/cage \\ -- /nix/store/…-emacs-notes/bin/emacs-notes` — and ran
+that wrapper with an empty environment (`env -i`), where the old path failed at
+`emacsclient not found`.
 
 The second is this repository's own: `emacsDotDBridge`, deleted with the module,
 had symlinked `~/.emacs.d/init.el` and `~/.emacs.d/early-init.el` into the store.

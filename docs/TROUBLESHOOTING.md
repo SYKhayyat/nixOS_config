@@ -353,6 +353,12 @@ Nix does not run an Emacs daemon any more (`services.emacs` is gone with the old
 config), so a missing socket means the launcher was never started, not that a
 systemd unit failed. `~/emacs-configs/bin/launch.sh notes` is the thing to run.
 
+`emacs-notes` on `PATH` is a store wrapper that runs that script with `sh`, so a
+mode bit on it cannot stop the launcher — but running `launch.sh` by hand does
+need it executable. `ls -l ~/emacs-configs/bin/launch.sh` before chasing
+anything else: it was committed `100644` once, and every entry point failed with
+`Permission denied` at the same time.
+
 `pkgs.emacs-pgtk` is Emacs 30.2, the Wayland build. If a frame does not resize
 under Plasma, that is the old `WAYLAND_DISPLAY` issue — the launcher handles it;
 do not re-add flags to `$EDITOR`.

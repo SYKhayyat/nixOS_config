@@ -294,10 +294,11 @@ git -C ~/emacs-configs pull   # update it
 ~/emacs-configs/bin/install   # install/refresh packages
 ```
 
-`modules/home/emacs.nix` provides the package (`pkgs.emacs-pgtk`), the
-`bin/` directory on `PATH`, `$EDITOR`, and three desktop entries. The profile
-daemons are started by the launcher, not by systemd, on purpose — see the
-README's Emacs section.
+`modules/home/emacs.nix` provides the package (`pkgs.emacs-pgtk`), the three
+profile launchers as store wrappers around that checkout's `launch.sh`,
+`$EDITOR`, and three desktop entries. `bin/install` and `bin/check` are still
+called by path, as above. The profile daemons are started by the launcher, not
+by systemd, on purpose — see the README's Emacs section.
 
 ## 7. First boot on a new machine
 

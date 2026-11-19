@@ -88,7 +88,6 @@
 {
   inputs,
   myConfig,
-  pkgs,
   ...
 }:
 
@@ -154,14 +153,23 @@
     enable = true;
     user = myConfig.username;
 
-    # The notes profile's launcher, from `~/emacs-configs/bin`. This closure
-    # has `inheritParentConfig = false` and no emacs.service, so something has
-    # to start the daemon: launch.sh does, then opens the frame. If the client
-    # returns immediately, cage exits and the `Restart=always` below brings it
-    # back — the same shape as the old session program.
-    program = pkgs.writeShellScript "focus-session" ''
-      exec ${myConfig.emacsConfigDir}/bin/emacs-notes
-    '';
+    # The notes profile's launcher, `myConfig.emacsFrame` — the same store path
+    # every other caller names, so this session cannot be the one place that
+    # still points at the checkout (and at its executable bit). It is a program
+    # in its own right, which is why there is no shell script here any more:
+    # the wrapper already `exec`s launch.sh, and the shell layer that used to
+    # sit in front of it only `exec`ed that.
+    #
+    # It also carries the one thing this service cannot supply. `services.cage`
+    # runs under systemd with a PATH of coreutils, grep, sed and systemd, where
+    # neither `emacs` nor `emacsclient` exists; the wrapper puts that
+    # package's `bin` on PATH for exactly this session.
+    #
+    # This closure has `inheritParentConfig = false` and no emacs.service, so
+    # something has to start the daemon: launch.sh does, then opens the frame.
+    # If the client returns immediately, cage exits and the `Restart=always`
+    # below brings it back.
+    program = myConfig.emacsFrame;
   };
 
   # cage exits when its program does, and its unit has no Restart=, so `C-x

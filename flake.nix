@@ -325,7 +325,46 @@
         # `launch.sh <profile>` starts that profile's daemon if it is not
         # running, then opens a frame. Everything that used to spell out
         # `emacsclient -c` names this instead.
-        emacsFrame = "${emacsConfigDir}/bin/emacs-notes";
+        #
+        # The names are *built* rather than written as paths into the checkout,
+        # and that is not a style preference: `bin/launch.sh` was committed
+        # `100644` in ~/emacs-configs, so every caller — the desktop entries,
+        # $EDITOR, Super+Enter, `cage`'s session program, the yazi opener — died
+        # with `Permission denied` at once, and no gate here can see a mode bit
+        # in another repository. A store path is 0555 by construction, and `sh`
+        # *reads* the script where `EACCES` only guards `execve`, so the bit
+        # stops deciding whether Emacs starts even if it is lost again. The
+        # logic stays in the checkout: this is an `exec` around it, not a
+        # second implementation.
+        #
+        # Two details are load-bearing. It calls `launch.sh` with `sh` rather
+        # than going through the checkout's own `bin/emacs-<profile>` shims,
+        # because those shims `exec` launch.sh and so would need the mode bit
+        # themselves. And it names its own dependencies instead of assuming a
+        # PATH: `emacs` and `emacsclient` because launch.sh calls both bare, and
+        # coreutils because it calls `dirname` and `sleep` the same way. The
+        # `focus` cage service runs under systemd with a PATH of coreutils and
+        # systemd only, so without this the editor could not start there at all
+        # — and with it, the wrapper answers the other question too: which
+        # Emacs the daemon is.
+        emacsLauncher =
+          profile:
+          pkgs.writeShellScriptBin "emacs-${profile}" ''
+            PATH=${
+              lib.makeBinPath [
+                pkgs.coreutils
+                emacs
+              ]
+            }''${PATH:+:$PATH}
+            export PATH
+            exec ${pkgs.bash}/bin/sh ${emacsConfigDir}/bin/launch.sh ${profile} "$@"
+          '';
+
+        # The one place the name is spelled. Callers ask for a profile, never
+        # for `-emacs-<profile>`.
+        emacsLauncherBin = profile: "${emacsLauncher profile}/bin/emacs-${profile}";
+
+        emacsFrame = emacsLauncherBin "notes";
         emacsFrameArgv = [ emacsFrame ];
 
         # A form evaluated in the notes daemon, without making a frame for it.

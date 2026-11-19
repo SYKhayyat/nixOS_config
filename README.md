@@ -96,11 +96,11 @@ deliberately not managed with `home.file` (`bin/install` writes `elpa/`
 continuously, and the store is read-only).
 
 `modules/home/emacs.nix` keeps only what this *machine* provides: one
-Emacs (`pkgs.emacs-pgtk`, the Wayland build), `~/emacs-configs/bin` on `PATH`,
-`$EDITOR` pointing at the notes launcher, and three desktop entries. The
-launcher starts each profile's daemon; nothing here declares those as systemd
-units, on purpose — three daemons at login is 150–400 MB for profiles you might
-not open.
+Emacs (`pkgs.emacs-pgtk`, the Wayland build), the three profile launchers as
+store wrappers, `$EDITOR` pointing at the notes one, and three desktop entries.
+The launcher starts each profile's daemon; nothing here declares those as
+systemd units, on purpose — three daemons at login is 150–400 MB for profiles
+you might not open.
 
 **Reproducibility trade, stated:** `elpa/` is not pinned by Nix, so
 `nixos-rebuild --rollback` no longer rolls Emacs packages back and a MELPA
@@ -724,11 +724,26 @@ clear.
 and packages owned by `package.el` in `elpa/`. Its own `bin/install` sets it up;
 Nix does not manage it, does not pin it, and does not copy it into the store.
 
-What Nix provides is around it — one `pkgs.emacs-pgtk`, `~/emacs-configs/bin` on
-`PATH` (so `emacs-hebrew`, `emacs-notes` and `emacs-ide` exist), `$EDITOR` and
-`$VISUAL` set to `emacs-notes`, and three desktop entries. `launch.sh <profile>`
-starts that profile's daemon if it is not running; the daemons are deliberately
-not systemd units, so they cost nothing until you open the profile you want.
+What Nix provides is around it — one `pkgs.emacs-pgtk`; `emacs-hebrew`,
+`emacs-notes` and `emacs-ide` built into the store as three lines that `sh` that
+checkout's `launch.sh` (`emacsLauncher` in `flake.nix`); `$EDITOR` and `$VISUAL`
+set to `emacs-notes`; and three desktop entries. `launch.sh <profile>` starts
+that profile's daemon if it is not running; the daemons are deliberately not
+systemd units, so they cost nothing until you open the profile you want.
+
+The wrappers are built rather than named as paths into the checkout because an
+executable bit in another repository is not something this one can check. It has
+already cost every entry point at once: `launch.sh` was committed `100644`, so a
+fresh checkout made every caller fail with `Permission denied` and no gate here
+could see it. A store path is `0555` by construction, and `sh` reads the
+script instead of exec'ing it, so the bit stops mattering.
+
+The wrapper also puts its own dependencies on `PATH` — `emacs`, `emacsclient`
+and coreutils, all of which `launch.sh` calls by bare name — rather than
+inheriting whatever it was started with, because one of its callers has almost
+no `PATH` at all: the `focus` session's `cage` service runs under systemd with
+coreutils, grep, sed and systemd, and nothing else. That is where the
+specialisation's Emacs comes from, and which Emacs it is.
 
 Update it with `git -C ~/emacs-configs pull`; there is no `just` recipe for that
 any more, and no flake input to bump.
