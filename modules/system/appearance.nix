@@ -112,16 +112,11 @@ let
   # 9pt the desktop ran:
   #
   #   Emacs     got fontconfig's own built-in default of 12.0 — a third larger
-  #             than everything around it — but NOT for the reason first
-  #             written here, and the correction is the interesting part.
-  #             `01-ui.el` in the emacs-config repo does state a size,
-  #             `:height 90`. It is wrapped in `(when (display-graphic-p) …)`
-  #             evaluated at load time, and in `emacs --fg-daemon` there is no
-  #             frame yet, so the block never runs and every `emacsclient -c`
-  #             frame — i.e. every frame, since EDITOR is emacsclient — fell
-  #             through to fontconfig. A grep for a font size finds that file;
-  #             only running the thing shows the statement never executes.
-  #             See ../home/emacs/default.nix.
+  #             than everything around it. The configuration then in use did
+  #             state a size, but inside `(when (display-graphic-p) …)` at load
+  #             time, which in a daemon has no frame and never runs; the one
+  #             pinned now (flake input `emacsConfigs`) states none at all.
+  #             Either way every frame falls through to fontconfig.
   #   Firefox   `layout.css.devPixelsPerPx = "1.0"`, a literal, while the
   #             desktop around it ran at three quarters of stylix's default.
   #   waybar    `font-size: 12px`, under a comment arguing it was a deliberate
@@ -258,7 +253,7 @@ in
   # 12.0pt and is not configurable through any NixOS option — `fonts.fontconfig`
   # has families (stylix sets those) and hinting, and no size at all. So every
   # unconfigured GUI ran a third larger than the desktop it sat in, and Emacs —
-  # which sets no font in any of its 30 files, and is the app this machine is
+  # whose configuration sets no font size, and is the app this machine is
   # mostly for — was the one you felt.
   #
   # `mode="append"` is what makes this a *default* rather than an override. It

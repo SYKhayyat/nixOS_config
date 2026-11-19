@@ -60,8 +60,8 @@ let
       group = "Session";
     }
     {
-      # niri has had this since it was written; Hyprland had no way out at all
-      # short of the session menu.
+      # niri (since removed) had this from the start; Hyprland had no way out
+      # at all short of the session menu.
       mods = [
         "Mod"
         "Shift"
@@ -186,8 +186,8 @@ let
     }
 
     {
-      # Directional moves, mirroring what niri gets from move-column-left /
-      # move-column-right and friends. Swap exchanges places; this repositions
+      # Directional moves, mirroring what niri (since removed) had in
+      # move-column-left / move-column-right and friends. Swap exchanges places; this repositions
       # the window in the layout tree.
       mods = [
         "Mod"
@@ -406,8 +406,8 @@ in
 
   xdg.configFile."hypr/hyprland.conf".text = ''
     # `preferred, auto` rather than the panel this laptop happens to have.
-    # The niri config has always said `output ".*" { scale 1.0 }`; hardcoding
-    # 1366x768@60 here meant plugging in an external display behaved differently
+    # The niri config (since removed) said `output ".*" { scale 1.0 }`;
+    # hardcoding 1366x768@60 here meant an external display behaved differently
     # in the two sessions, for no reason anyone chose.
     monitor = , preferred, auto, 1
 

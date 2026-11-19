@@ -27,7 +27,7 @@
 # caller that no longer exists, in the file whose whole argument is that nothing
 # gets in without one.
 #
-# Where they would go back: `~/emacs-configs` or LibreOffice, whichever needs
+# Where they would go back: the Emacs configuration or LibreOffice, whichever needs
 # them, in the module that needs them. `DICPATH` has to be a *session* variable
 # rather than a home-manager one if a GUI program is the consumer, because a
 # program launched from a compositor never sources a login shell — that part of
@@ -52,13 +52,14 @@
     zip
 
     # ── Rebuilding ────────────────────────────────────────────────────────
-    # The two commands that undo the mistake. `home-manager` especially has to
-    # exist outside the home profile it manages, or a home profile that fails
-    # to build takes its own repair tool down with it.
+    # `nh` rebuilds. `home-manager` does not: Home Manager runs as a NixOS
+    # module here and the flake has no `homeConfigurations`, so the repair for
+    # a home profile that fails to build is `just switch`. The CLI is kept for
+    # `home-manager generations` and `home-manager news`.
     nh
     home-manager
 
-    # `just` is here for the same reason, and the dependency runs the other way:
+    # `just` is here, outside the home profile, because it is that repair:
     # `just switch` is `nixos-rebuild switch`, which rebuilds the home profile
     # too. A home profile that does not build cannot be repaired from inside
     # itself — the entry point to fixing it has to already exist, or the failure

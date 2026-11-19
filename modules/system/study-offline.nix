@@ -15,8 +15,9 @@
 # active switch-off rather than an omission. Local tools (Emacs, ollama) keep
 # working — neither needs the network.
 #
-# `seforim search` is Emacs's business now: ~/emacs-configs owns the profiles,
-# and every one of them is available in every closure.
+# `seforim search` is Emacs's business now: the pinned configuration (flake
+# input `emacsConfigs`) owns the profiles, and every one of them is available
+# in every closure.
 { lib, ... }:
 
 {

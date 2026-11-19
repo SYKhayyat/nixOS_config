@@ -192,7 +192,8 @@ let
   '';
 
   # `swallow CMD...` — run CMD with the calling terminal faded out, then put it
-  # back. Every line of this that touched a compositor was wrong:
+  # back. Every line of this that touched a compositor was wrong (niri, named
+  # below, has since been removed):
   #
   #   * `niri msg action set-window-opacity` is not an action. niri's action
   #     list has `set-window-width`, `set-window-height`, `set-column-width`
@@ -208,7 +209,7 @@ let
   #     opposite of swallowing it. The property that fades a window is `alpha`,
   #     which takes a float and multiplies the config's `active_opacity`.
   #
-  # So under both compositors the decoration silently failed and only `"$@"`
+  # So under both compositors of the time the decoration silently failed and only `"$@"`
   # ever ran. That is the failure this file's header is about — a command that
   # exits 0 having done a third of its job.
   #

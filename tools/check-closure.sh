@@ -241,7 +241,7 @@ echo "── study keeps what it is supposed to keep ─────────
 # the file managers, the editors, the document toolchain, the compilers and a
 # local media player." One binary per clause of that sentence, in order, plus
 # Emacs — which is the session's entire reason to exist and comes from
-# modules/home/emacs/default.nix rather than from toolkit.nix.
+# modules/home/emacs.nix rather than from toolkit.nix.
 for b in rg fd yazi pandoc gcc mpv emacs; do
   present "$studyProfile" "$b" "study's home profile" \
     "study removes browsers, downloaders and the creative suite — not tools"

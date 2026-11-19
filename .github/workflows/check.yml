@@ -35,11 +35,11 @@ name: check
 # a formatting problem, and a gate that goes red for cosmetics is a gate people
 # learn to scroll past. `just fmt` stays a thing you run.
 #
-# `install-nix-action` is pinned to the same version emacs-config uses, so the
-# two repos move together. Note that CI runs upstream Nix while the machine runs
-# Lix (`nix.package` in modules/system/core.nix); flake semantics are the same
-# and this has never been the difference between green and red, but it is the
-# gap to look at first if CI and the box ever disagree.
+# `install-nix-action` is pinned by major version. Note that CI runs upstream
+# Nix while the machine runs Lix (`nix.package` in modules/system/core.nix);
+# flake semantics are the same and this has never been the difference between
+# green and red, but it is the gap to look at first if CI and the box ever
+# disagree.
 
 on:
   push:
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
@@ -167,7 +167,7 @@ jobs:
                       /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
           df -h /
 
-      - uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
