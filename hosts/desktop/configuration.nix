@@ -98,12 +98,15 @@
     # The same argument applies to every other file in $HOME, and this option
     # was the global answer that said otherwise.
     #
-    # `backupFileExtension` keeps the file — `foo` becomes `foo.hm-bak` — and
-    # is the option the collision is actually asking about. Activation still
-    # does not abort. `overwriteBackup` is deliberately left off: a second
-    # collision should stop and make you look, rather than eat the backup the
-    # first one made.
-    backupFileExtension = "hm-bak";
+    # Now the colliding file is moved aside, not deleted: `foo` becomes
+    # `foo.hm-bak.<timestamp>` (`hmBackupCommand` in flake.nix). The timestamp
+    # is what lets a second collision on the same file keep both backups —
+    # the plain `backupFileExtension = "hm-bak"` this replaced refused to
+    # overwrite the first and aborted activation, and the `find $HOME -delete`
+    # that worked around it took 50 s per switch and deleted the backups this
+    # option exists to keep. Delete the `.hm-bak.*` files yourself once you
+    # have looked at them.
+    backupCommand = myConfig.hmBackupCommand;
     # `unstable` used to be threaded through here as well — a second full
     # nixpkgs evaluation, reachable from every home module, with zero call sites
     # in the entire repo (Lamdan 3.1). That *argument* is gone. `flake.nix` has

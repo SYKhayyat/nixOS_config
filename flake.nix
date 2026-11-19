@@ -406,6 +406,19 @@
         # above changes. `emacsclient` must be the client of the daemon the
         # launcher started, which is the one this attribute installs.
         emacsEval = "env -u WAYLAND_DISPLAY ${emacs}/bin/emacsclient -s ${emacsServer "notes"} -e";
+
+        # `home-manager.backupCommand` for both closures (the desktop and
+        # `focus`). Home Manager runs it on each real file it is about to
+        # replace with a link, and prefers it to `backupFileExtension`. A plain
+        # extension refuses to overwrite a backup an earlier switch left, which
+        # aborted activation; a timestamp cannot collide, so every backup is
+        # kept until you delete it. (~/.gtkrc-2.0, the file that collided on
+        # every rebuild, is `gtk.gtk2.force` in home/common.nix instead.)
+        hmBackupCommand = toString (
+          pkgs.writeShellScript "hm-backup" ''
+            ${pkgs.coreutils}/bin/mv -n -- "$1" "$1.hm-bak.$(${pkgs.coreutils}/bin/date +%Y%m%d-%H%M%S)"
+          ''
+        );
       };
     in
     {

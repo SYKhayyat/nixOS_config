@@ -194,7 +194,7 @@
   home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
-    backupFileExtension = "hm-bak";
+    backupCommand = myConfig.hmBackupCommand; # see hosts/desktop/configuration.nix
     extraSpecialArgs = { inherit myConfig; };
     users.${myConfig.username}.imports = [ ../../home/focus.nix ];
   };

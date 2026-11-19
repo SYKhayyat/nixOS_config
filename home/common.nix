@@ -99,6 +99,12 @@ in
   # and GTK 4 apps get the same adw-gtk3 that GTK 3 apps already had instead of
   # being the one toolkit left unthemed.
 
+  # GTK 2 apps write ~/.gtkrc-2.0 back as a real file between switches, and
+  # its content is generated (stylix), so there is nothing in it to keep.
+  # Replacing it outright stops every switch from leaving one more timestamped
+  # backup of it.
+  gtk.gtk2.force = true;
+
   # There was a `force-clean-git-files` activation block here, running
   # `entryBefore ["checkLinkTargets"]` and `rm -f`-ing ~/.gtkrc-2.0 and
   # ~/.bashrc if they were real files rather than symlinks, so that
@@ -115,31 +121,12 @@ in
   # Same shape as the `backupCommand = "true"` it sat under, and the same
   # answer: the module system already computes this, so state it once, there.
 
-  # A stale backup makes the *next* activation abort. With
-  # backupFileExtension set (hosts/desktop/configuration.nix,
-  # modules/system/focus.nix), linkGeneration moves a colliding file to
-  # `<file>.hm-bak` — but if that path already exists from an earlier switch,
-  # it refuses to clobber it and home-manager-shaul.service fails. This hits
-  # on every rebuild for ~/.gtkrc-2.0, because GTK apps keep writing it back
-  # as a real file between switches.
-  #
-  # Deleting only files ending in the configured extension is safe in a way
-  # the force-clean block above was not: it runs before checkLinkTargets, and
-  # the current content of every colliding file is still moved to a fresh
-  # backup moments later. What is discarded is an older snapshot of a file
-  # whose newer self sits right next to it.
-  #
-  # The `|| true` + stderr redirect is load-bearing, not cosmetic: this runs
-  # under `set -eu -o pipefail`, and `find $HOME` returns 1 when it cannot
-  # descend somewhere — rootless Docker layers under
-  # ~/.local/share/docker/fuse-overlayfs (owned by a subuid, mode 0700) and
-  # any root-owned strays (e.g. config/.sentry-native from a sudo'd tool).
-  # Without it the whole activation fails in clearStaleBackups with nothing
-  # but "Permission denied" lines in the journal, which is exactly the
-  # 2026-09-08 / 2026-09-17 home-manager-shaul.service failure.
-  home.activation.clearStaleBackups = config.lib.dag.entryBefore [ "checkLinkTargets" ] ''
-    $DRY_RUN_CMD find "$HOME" -type f -name '*.hm-bak' -delete 2>/dev/null || true
-  '';
+  # There was a `clearStaleBackups` entry here too: `find "$HOME" -name
+  # '*.hm-bak' -delete` before every activation, because a backup left by one
+  # switch made the next one abort. It walked all of $HOME (50 s, every switch
+  # and every boot) and deleted the backups it was meant to make room for.
+  # `home-manager.backupCommand` now names each backup with a timestamp, so
+  # there is never an old one in the way (hosts/desktop/configuration.nix).
 
   programs.zsh = {
     enable = true;
