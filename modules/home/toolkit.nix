@@ -80,10 +80,11 @@ let
     bun
 
     # ── Lisp ──────────────────────────────────────────────────────────────
-    # sbcl has no package manager; quicklisp is its library installer, and
-    # modules/home/lisp.nix wires up the init file that loads quicklisp.
+    # sbcl has no package manager. Quicklisp is its library installer, and
+    # modules/home/lisp.nix installs it from the pinned bootstrap and wires up
+    # the init file that loads it — the bootstrap is not a command, so it is
+    # not in this list.
     sbcl
-    quicklisp
 
     # Plain interpreter; per-project dependencies belong in direnv/venvs.
     python3

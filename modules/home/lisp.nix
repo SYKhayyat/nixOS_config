@@ -1,7 +1,7 @@
 # modules/home/lisp.nix
 #
-# Common Lisp. `sbcl` and `quicklisp` are installed by ./toolkit.nix (rule 3:
-# things a person types); this file is the wiring that makes the pair usable,
+# Common Lisp. `sbcl` is installed by ./toolkit.nix (rule 3:
+# things a person types); this file installs Quicklisp and wires up the pair,
 # which is the part that is easy to miss and impossible to guess.
 #
 # ── The problem this file exists to solve ────────────────────────────────
@@ -15,10 +15,9 @@
 #   (ql:quickload "alexandria")
 #
 # So a REPL needs the first to have already run, and *that* is the whole job of
-# this file. There is no wrapper that saves you from it, and
-# packages/quicklisp.nix explains why a wrapped `sbcl` is deliberately not
-# provided: CIDER, SLIME and anything that execs `sbcl` by name expect the real
-# one.
+# this file. There is no wrapper that saves you from it, and a wrapped `sbcl`
+# is deliberately not provided: CIDER, SLIME and anything that execs `sbcl` by
+# name expect the real one.
 #
 # ── Why the store path cannot be used directly ───────────────────────────
 #
@@ -38,19 +37,18 @@
 # system-index.txt unconditionally — so it fails even when you have no local
 # projects, which is the common case.
 #
-# So: the store path is the *source*, and ~/.local/share/quicklisp is the live
-# copy. The copy is made once, by the code below, and is only ever written by
-# Quicklisp.
+# So Quicklisp lives in ~/.local/share/quicklisp, installed there once by the
+# pinned bootstrap (packages/quicklisp.nix) and only ever written by Quicklisp.
 #
 # ── Why that is still not the stray it looks like ───────────────────────
 #
 # The instinct is that a directory nobody declared is exactly what the rest of
 # this repo exists to prevent, and for a plain `git clone` into $HOME it is. The
-# difference is what created it and what it holds: it is seeded from a pinned
-# store path rather than fetched ad hoc, it contains only a cache Quicklisp
+# difference is what created it and what it holds: it is installed by a pinned
+# bootstrap rather than cloned ad hoc, it contains only a cache Quicklisp
 # regenerates on demand, and it is stated here in the Nix config rather than
 # being discovered later. A `home.file` cannot own it — it is written
-# continuously — so it is declared as a directory, seeded, and left alone.
+# continuously — so it is declared as a directory, installed once, and left alone.
 #
 # The alternative was a writable Quicklisp in the *system* profile so `study`
 # could take it away. That was rejected: study removes browsers and fetchers,
@@ -64,39 +62,41 @@
 }:
 
 let
-  # The seeded, writable copy. Quicklisp's own home directory is this, and every
+  # The writable install. Quicklisp's own home directory is this, and every
   # path Quicklisp computes is relative to it.
   quicklispHome = "${config.home.homeDirectory}/.local/share/quicklisp";
 in
 
 {
-  # The seed. Copied once into the writable directory above, and only when
-  # setup.lisp is not already there — so this is idempotent and costs nothing
-  # on every rebuild after the first.
+  # The install. packages/quicklisp.nix is only the bootstrap file, so the
+  # first switch on a machine runs it into the writable directory above — a
+  # network fetch, like `emacs-install` for elpa/. It runs only while
+  # setup.lisp is missing, so every switch after the first costs nothing, and a
+  # failed install (no network yet at boot) leaves no setup.lisp and is retried
+  # on the next switch, in the same directory — nothing here deletes it.
   #
-  # `cp -rT` rather than a symlink: a symlink would put every one of the writes
-  # above back into the read-only store, which is the failure this file is
-  # about. `chmod -R u+w` because the store's read-only bits are preserved by
-  # `cp` and Quicklisp has to rewrite its .cdb files.
-  # Form and ordering are the same as `createOrgSetup` in ./emacs/default.nix:
-  # a bare shell string through `dag.entryAfter "writeBoundary"`, because that
-  # is what this home-manager's `home.activation` takes (an attrset with a
-  # `data` field is not the type — see the note at the end of this file).
+  # stdin is /dev/null because the bootstrap *prompts* between phases; with no
+  # terminal the prompt reads EOF and moves on. No init files, because
+  # ~/.sbclrc loads an existing Quicklisp and the bootstrap then reports
+  # "already set up" and installs nothing. `timeout` so a dead network
+  # cannot hold up a switch. `run` so `--dry-run` does not fetch.
   home.activation.seedQuicklisp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${quicklispHome}"
-
     if [ ! -e "${quicklispHome}/setup.lisp" ]; then
-      cp -rT --no-preserve=mode,ownership "${pkgs.quicklisp}/share/quicklisp" "${quicklispHome}"
-      chmod -R u+w "${quicklispHome}"
+      run mkdir -p "${quicklispHome}"
+      if ! run ${pkgs.coreutils}/bin/timeout 300 ${pkgs.sbcl}/bin/sbcl \
+          --no-sysinit --no-userinit --non-interactive \
+          --load "${pkgs.quicklisp}/share/quicklisp/quicklisp.lisp" \
+          --eval '(quicklisp-quickstart:install :path "${quicklispHome}/")' \
+          < /dev/null > /dev/null; then
+        echo "quicklisp: install failed; it is retried on the next switch" >&2
+      fi
     fi
-
-    true
   '';
 
   # `~/.sbclrc`. SBCL reads this before the REPL, so `(ql:quickload …)` works at
   # the first prompt with nothing typed first. The `probe-file` guard means the
   # activation above has already run; without it, loading setup.lisp out of a
-  # half-seeded directory fails on a first login after a rebuild that only
+  # half-installed directory fails on a first login after a rebuild that only
   # added the directory.
   home.file.".sbclrc".text = ''
     ;;; .sbclrc --- generated by modules/home/lisp.nix -*- lexical-binding: t; -*-
