@@ -7,8 +7,10 @@ the fix. Anything about the machine or other repos (home-directory data, caches,
 is in a short list at the end, because a commit here cannot fix it.
 
 Baseline (measured): the flake evaluates, `statix` and `deadnix` pass, and
-`tools/check-closure.sh /run/current-system` passes. The running system is behind HEAD, so a
-`just switch` is pending. Closures: main 39.5 GB, `study` 26.6 GB, `focus` 13.4 GB.
+`tools/check-closure.sh /run/current-system` passes. The running system was behind HEAD at the
+time of writing, so a `just switch` was pending; it landed the same day, and the closure then
+measured **28.6 GB** (`study` 18.6 GB, `focus` 7.1 GB). The 39.5 / 26.6 / 13.4 GB figures below
+are the pre-switch readings this audit worked from, not the current sizes.
 
 ---
 

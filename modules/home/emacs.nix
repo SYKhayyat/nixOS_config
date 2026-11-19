@@ -80,4 +80,29 @@ in
     mkdir -p "${config.home.homeDirectory}/Documents/org"
     mkdir -p "${config.home.homeDirectory}/Documents/roam/daily"
   '';
+
+  # The deleted module's bridge, deleted. `emacsDotDBridge` in the old
+  # modules/home/emacs/default.nix symlinked ~/.emacs.d/init.el and
+  # early-init.el to store files that set `user-emacs-directory` to
+  # ~/.config/emacs and then load an init.el from there — a file the *same*
+  # deleted module used to provide. Removing the module does not remove what
+  # its activation wrote, so both links survived the switch pointing at a path
+  # that is now empty: plain `emacs` (anything not started through the three
+  # launchers, e.g. from a shell or a third-party program) loads the bridge,
+  # fails to find ~/.config/emacs/init.el, and reports that on every start.
+  # The store files also go away at the next GC, at which point the links read
+  # as a missing init rather than a wrong one.
+  #
+  # Only the two symlinks, and only when they point into the store: a regular
+  # file in ~/.emacs.d is somebody's, not this module's.
+  home.activation.removeEmacsDotDBridge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    emacsDotD="${config.home.homeDirectory}/.emacs.d"
+    for f in "$emacsDotD/init.el" "$emacsDotD/early-init.el"; do
+      if [ -L "$f" ]; then
+        case "$(readlink "$f")" in
+          /nix/store/*) $DRY_RUN_CMD rm -f "$f" ;;
+        esac
+      fi
+    done
+  '';
 }

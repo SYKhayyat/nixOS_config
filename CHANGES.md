@@ -151,9 +151,9 @@ with the duplicate search tools). Both corrected.
 
 **Verified:** `nix fmt` (no changes), `nix build .#checks.{statix,deadnix,docs}`,
 `just eval` (main toplevel, `["focus","study"]`, `focus` evaluates), and the
-`study` toplevel. Not verified: a full closure build — the 40-minute `build`
-gate — so the size drop from the P2 cuts is still unmeasured until the next
-`just switch`.
+`study` toplevel. Not verified in that pass: a full closure build — the
+40-minute `build` gate — so the size drop from the P2 cuts went unmeasured until
+the switch below.
 
 **That gap was not empty, and the first `just switch` after the commit failed on
 it.** The store caps above were written as the audit quotes them —
@@ -174,6 +174,62 @@ once instead of typed as `5368709120`. Verified by building the thing that broke
 `nix.conf.drv` log ends at `Validating generated nix.conf` with nothing after it.
 The lesson is the entry's own: `nix build` of `/etc` is the check that covers
 `nix.settings`, and it costs three minutes, not forty.
+
+**The switch, measured.** `just switch` on `5d3e2db` succeeded, and the numbers
+the audit could only project on `8346188` are now readings off the generation:
+main 28.6 GB against 39.5 GB, `study` 18.6 GB against 26.6 GB, `focus` 7.1 GB
+against 13.4 GB. That is one commit's worth of effect, not a per-cut attribution
+— the old Emacs config, its doom inputs and the P2 package cuts all left
+together — but it does settle the question the audit raised. Everything else the
+audit asked to be checked after a switch checks out: `tools/check-closure.sh
+/run/current-system` passes, `nix.settings` renders the byte counts above, the
+journal is capped at 500 M (485.6 M in use) and coredumps at 200 M (720 K on
+disk), `sshd` is inactive with nothing listening on :22, swappiness is 120 on a
+70% zram device, and `/run/secrets/nix-access-tokens` exists — the sops check the
+audit listed as "after the next switch" and nothing else could answer.
+
+**`Meta+F1` is still dead on this login, exactly as recorded.** The activation
+wrote `keys-guide=Meta+F1,,keys-guide` into `~/.config/kglobalshortcutsrc`, and
+`qdbus org.kde.kglobalaccel /kglobalaccel org.kde.KGlobalAccel.getComponent
+keys-guide` answers `NoSuchComponent`: KWin has been running since 3 Nov, so it
+never read the file. That is the prediction in the paragraph above, confirmed,
+and it closes at the next Plasma login rather than at any command.
+
+**Then the editor would not start, twice over.** Both are leftovers of the
+deleted module, both live in `$HOME`, and neither is visible to any gate in this
+repository.
+
+`~/emacs-configs/bin/launch.sh` is committed `100644` in that checkout and has
+never been executable — `git ls-tree` says so at the commit that introduced it.
+Every entry point this pass added `exec`s it: the three desktop entries,
+`$EDITOR`/`VISUAL`, `focus`'s `cage` session, the yazi opener, and `Super+Enter`,
+which reads `myConfig.emacsFrameArgv`. So Emacs stopped starting from all of them
+at once, with `Permission denied` in a line of a script nobody reads. The old
+module never routed through it, which is why four years of use had not noticed.
+`chmod +x` repairs the machine; the durable fix belongs in that repo —
+`git update-index --chmod=+x bin/launch.sh` and commit — because a fresh clone
+reproduces the mode.
+
+The second is this repository's own: `emacsDotDBridge`, deleted with the module,
+had symlinked `~/.emacs.d/init.el` and `~/.emacs.d/early-init.el` into the store.
+Deleting a module does not delete what its activation wrote, so both links
+survived the switch, pointing at files that set `user-emacs-directory` to
+`~/.config/emacs` and then load an `init.el` there — a file the same deleted
+module used to provide. Plain `emacs` therefore opened by reporting a missing
+`~/.config/emacs/init.el`, then activating the 78 packages in `~/.emacs.d/elpa`
+the old Nix config had installed, five of which lost their dependencies with it
+(`pdf-tools`, `org-roam`, `magit-section` were store paths). That is the wall of
+warnings, and it was one GC away from being a hard failure instead.
+`removeEmacsDotDBridge` in `modules/home/emacs.nix` now deletes the two symlinks
+— only symlinks, only when they point into the store, never a file somebody
+wrote — and `~/.emacs.d/elpa` was renamed to `elpa.pre-emacs-configs` by hand:
+50 MB of somebody's packages is not activation's to delete.
+
+**Verified after both:** `emacs --init-directory=…/configs/{hebrew,notes,ide}
+--batch` prints `ok` and nothing else for each of the three profiles;
+`bin/emacs-notes` starts a daemon that answers and holds a frame; bare `emacs`
+starts with empty stderr. The activation text was evaluated and run as shell
+(`sh -n` clean, then a no-op pass on the already-removed links).
 
 **And the spell-checking stack is gone.** `enchant`, `hunspell`, `aspell` and the
 `DICPATH` session variable in `base-tools.nix` were the last exception in the
