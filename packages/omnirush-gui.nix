@@ -76,13 +76,13 @@
 
 stdenv.mkDerivation {
   pname = "omnirush-gui";
-  version = "3.8.9";
+  version = "3.9.0";
 
   src = fetchurl {
-    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.8.9/omnirush-linux-amd64-3.8.9.deb";
+    url = "https://github.com/omnirush-ai/omnirush-gui/releases/download/v3.9.0/omnirush-linux-amd64-3.9.0.deb";
     # From the release's own SHA256SUMS.txt:
-    #   43e21c87da78166e28a721aceeef6e938e32d55c2d452def6bb2781762fd7a47
-    hash = "sha256-Q+Ich9p4Fm4opyGs7u9uk44y1VwtRS3va7J4F2L9ekc=";
+    #   c30e70fc7c42e99ae42bb3e1276070fb8b0b899fba99b4f56556808a4952ca39
+    hash = "sha256-ww5w/HxC6ZrkK7PhJ2Bw+4sLiZ+6mbT1ZVaAiklSyjk=";
   };
 
   nativeBuildInputs = [

@@ -182,6 +182,20 @@ in
       if [ -d "$HOME/Scripts" ]; then
         export PATH="$PATH$(find "$HOME/Scripts" -maxdepth 2 -type d -not -path '*/.*' -printf ":%p")"
       fi
+
+      clean() {
+        local keep="$1"
+        if [ -n "$keep" ]; then
+          if ! [[ "$keep" =~ ^[1-9][0-9]*$ ]]; then
+            print -u2 "clean: expected a positive number of generations to keep"
+            return 1
+          fi
+          sudo nh clean all --keep "$keep" || return 1
+        else
+          sudo nix-collect-garbage -d || return 1
+        fi
+        sudo /run/current-system/bin/switch-to-configuration boot
+      }
     '';
   };
 
@@ -200,17 +214,6 @@ in
     nrs = "PATH=${pkgs.python3}/bin:$PATH just -f ${myConfig.flakePath}/justfile switch";
     nrt = "PATH=${pkgs.python3}/bin:$PATH just -f ${myConfig.flakePath}/justfile test";
     nfu = "just -f ${myConfig.flakePath}/justfile update";
-    # Carried over from the flat tree, where `clean` was a *system-wide* alias
-    # in shellUtilities.nix — so it survived every switch of that tree and
-    # vanished the moment this one was installed, which is the difference
-    # between a package in a list and a package in the layer that owns it.
-    #
-    # It used to be `nix-collect-garbage -d`, which deletes every generation —
-    # every rollback — four letters after a bad switch. `nh clean all --keep 3`
-    # collects the system and user profiles the same way but keeps the last
-    # three generations of each, so the alias you type to free space cannot
-    # also take away the way back. `just gc` (fourteen days) is the gentler one.
-    clean = "nh clean all --keep 3";
     ll = "ls -la";
     la = "ls -A";
     l = "ls -CF";
