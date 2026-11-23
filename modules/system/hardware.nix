@@ -148,6 +148,9 @@
       CPU_SCALING_GOVERNOR_ON_BAT = "powersave";
       CPU_ENERGY_PERF_POLICY_ON_BAT = "power";
 
+      WIFI_PWR_ON_AC = "off";
+      WIFI_PWR_ON_BAT = "off";
+
       # Charge to 80%, don't start again until 40%. This is the setting the
       # report flagged as possibly configuring hardware that isn't there; it is
       # there. It buys cell life on a machine that sits on mains, at the price
